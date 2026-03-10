@@ -1,0 +1,73 @@
+{
+  "name": "@faubulous/mentor-rdf-serializers",
+  "description": "RDF 1.2 serializers for IDE use cases, optimized for code formatting and partial serialization.",
+  "keywords": [
+    "rdf",
+    "rdf12",
+    "serializer",
+    "formatter",
+    "turtle",
+    "trig",
+    "n3",
+    "ntriples",
+    "nquads",
+    "jsonld",
+    "sparql",
+    "typescript"
+  ],
+  "version": "1.0.0",
+  "private": false,
+  "author": {
+    "name": "Sebastian Faubel"
+  },
+  "license": "LGPL-2.1-or-later",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/faubulous/mentor-rdf-serializers.git"
+  },
+  "bugs": {
+    "url": "https://github.com/faubulous/mentor-rdf-serializers/issues"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@rdfjs/data-model": "^2.1.0"
+  },
+  "devDependencies": {
+    "@faubulous/mentor-rdf-parsers": "^1.4.0",
+    "@rdfjs/types": "^2.0.1",
+    "@types/rdfjs__data-model": "^2.0.9",
+    "chevrotain": "^11.0.3",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "peerDependencies": {
+    "@faubulous/mentor-rdf-parsers": "^1.4.0",
+    "chevrotain": "^11.0.3"
+  },
+  "peerDependenciesMeta": {
+    "@faubulous/mentor-rdf-parsers": {
+      "optional": true
+    },
+    "chevrotain": {
+      "optional": true
+    }
+  }
+}
