@@ -1,3 +1,5 @@
+import type { IToken } from 'chevrotain';
+import { SparqlLexer, RdfToken } from '@faubulous/mentor-rdf-parsers';
 import type {
     ISparqlFormatter,
     SerializationResult,
@@ -8,14 +10,6 @@ import { mergeOptions } from '../utils.js';
 
 /**
  * SPARQL-specific formatting options.
- * 
- * Inherits Turtle-style formatting options from SerializerOptions:
- * - `maxLineWidth`: Maximum line width before wrapping (0 = no wrapping)
- * - `alignPredicates`: Align predicates in columns within triple patterns
- * - `alignObjects`: Align objects in columns (requires alignPredicates)
- * - `objectListStyle`: How to format object lists ('single-line', 'multi-line', 'auto')
- * - `predicateListStyle`: How to format predicate lists ('single-line', 'multi-line', 'first-same-line')
- * - `blankLinesBetweenSubjects`: Insert blank lines between subject blocks in WHERE clause
  */
 export interface SparqlFormatterOptions extends SerializerOptions {
     /**
@@ -57,25 +51,25 @@ export interface SparqlFormatterOptions extends SerializerOptions {
 }
 
 /**
- * SPARQL keywords that should be formatted.
+ * Token type names that are SPARQL keywords (should be formatted).
  */
-const SPARQL_KEYWORDS = new Set([
-    'BASE', 'PREFIX', 'SELECT', 'DISTINCT', 'REDUCED', 'AS', 'CONSTRUCT',
-    'DESCRIBE', 'ASK', 'FROM', 'NAMED', 'WHERE', 'ORDER', 'BY', 'ASC',
-    'DESC', 'LIMIT', 'OFFSET', 'VALUES', 'LOAD', 'SILENT', 'INTO', 'CLEAR',
-    'DROP', 'CREATE', 'ADD', 'MOVE', 'COPY', 'INSERT', 'DATA', 'DELETE',
-    'WITH', 'USING', 'DEFAULT', 'GRAPH', 'ALL', 'OPTIONAL', 'SERVICE',
-    'BIND', 'UNDEF', 'MINUS', 'UNION', 'FILTER', 'GROUP', 'HAVING',
-    'COUNT', 'SUM', 'MIN', 'MAX', 'AVG', 'SAMPLE', 'GROUP_CONCAT',
-    'SEPARATOR', 'COALESCE', 'IF', 'STRLANG', 'STRDT', 'sameTerm',
-    'isIRI', 'isURI', 'isBLANK', 'isLITERAL', 'isNUMERIC', 'REGEX', 'SUBSTR',
-    'REPLACE', 'STRLEN', 'UCASE', 'LCASE', 'ENCODE_FOR_URI', 'CONTAINS',
-    'STRSTARTS', 'STRENDS', 'STRBEFORE', 'STRAFTER', 'YEAR', 'MONTH',
-    'DAY', 'HOURS', 'MINUTES', 'SECONDS', 'TIMEZONE', 'TZ', 'NOW', 'UUID',
-    'STRUUID', 'MD5', 'SHA1', 'SHA256', 'SHA384', 'SHA512', 'ABS', 'ROUND',
-    'CEIL', 'FLOOR', 'RAND', 'BOUND', 'BNODE', 'IRI', 'URI', 'STR', 'LANG',
-    'LANGMATCHES', 'DATATYPE', 'EXISTS', 'NOT', 'IN', 'A', 'TRUE', 'FALSE',
-    'AND', 'OR'
+const KEYWORD_TOKEN_NAMES = new Set([
+    'A', 'SELECT', 'CONSTRUCT', 'DESCRIBE', 'ASK', 'WHERE', 'FROM', 'NAMED',
+    'BASE', 'PREFIX', 'ORDER', 'BY', 'ASC', 'DESC', 'LIMIT', 'OFFSET',
+    'DISTINCT', 'REDUCED', 'OPTIONAL', 'UNION', 'FILTER', 'BIND', 'VALUES',
+    'AS', 'GROUP', 'HAVING', 'SERVICE', 'SILENT', 'MINUS', 'UNDEF',
+    'IN', 'NOT', 'EXISTS', 'INSERT', 'DELETE', 'DATA', 'LOAD', 'CLEAR',
+    'DROP', 'CREATE', 'ADD', 'MOVE', 'COPY', 'INTO', 'TO', 'USING',
+    'WITH', 'DEFAULT', 'ALL', 'GRAPH', 'COUNT', 'SUM', 'MIN', 'MAX',
+    'AVG', 'SAMPLE', 'GROUP_CONCAT', 'SEPARATOR', 'STR', 'LANG', 'LANGMATCHES',
+    'LANGDIR', 'DATATYPE', 'BOUND', 'IRI', 'URI', 'BNODE', 'RAND',
+    'ABS', 'CEIL', 'FLOOR', 'ROUND', 'CONCAT', 'STRLEN', 'UCASE', 'LCASE',
+    'ENCODE_FOR_URI', 'CONTAINS', 'STRSTARTS', 'STRENDS', 'STRBEFORE', 'STRAFTER',
+    'YEAR', 'MONTH', 'DAY', 'HOURS', 'MINUTES', 'SECONDS', 'TIMEZONE', 'TZ',
+    'NOW', 'UUID', 'STRUUID', 'MD5', 'SHA1', 'SHA256', 'SHA384', 'SHA512',
+    'COALESCE', 'IF', 'STRLANG', 'STRLANGDIR', 'STRDT', 'SAMETERM', 'ISIRI',
+    'ISURI', 'ISBLANK', 'ISLITERAL', 'ISNUMERIC', 'REGEX', 'SUBSTR', 'REPLACE',
+    'ISTRIPLE', 'TRIPLE', 'SUBJECT', 'PREDICATE', 'OBJECT', 'AND', 'OR'
 ]);
 
 /**
@@ -83,12 +77,12 @@ const SPARQL_KEYWORDS = new Set([
  * These are case-sensitive in SPARQL and must remain lowercase.
  * 'A' is the rdf:type shorthand and by convention is always lowercase.
  */
-const LITERAL_CONSTANTS = new Set(['TRUE', 'FALSE', 'A']);
+const LITERAL_CONSTANT_TOKEN_NAMES = new Set(['true', 'false', 'A']);
 
 /**
  * Keywords that start a new major clause and should have a blank line before them.
  */
-const MAJOR_CLAUSE_KEYWORDS = new Set([
+const MAJOR_CLAUSE_TOKEN_NAMES = new Set([
     'SELECT', 'CONSTRUCT', 'DESCRIBE', 'ASK', 'ORDER', 'GROUP',
     'HAVING', 'LIMIT', 'OFFSET', 'VALUES', 'INSERT', 'DELETE', 'LOAD',
     'CLEAR', 'DROP', 'CREATE', 'ADD', 'MOVE', 'COPY', 'WITH', 'OPTIONAL'
@@ -97,37 +91,40 @@ const MAJOR_CLAUSE_KEYWORDS = new Set([
 /**
  * Keywords that should be on a new line but without a blank line before them.
  */
-const NEWLINE_KEYWORDS = new Set(['FROM', 'NAMED', 'WHERE']);
+const NEWLINE_TOKEN_NAMES = new Set(['FROM', 'NAMED', 'WHERE']);
 
 /**
  * Function keywords that should have no space before opening parenthesis.
+ * These are keywords followed by ( that should keep the expression on a single line.
  */
-const FUNCTION_KEYWORDS = new Set([
+const FUNCTION_TOKEN_NAMES = new Set([
     'COUNT', 'SUM', 'MIN', 'MAX', 'AVG', 'SAMPLE', 'GROUP_CONCAT',
-    'COALESCE', 'IF', 'STRLANG', 'STRDT', 'sameTerm',
-    'isIRI', 'isURI', 'isBLANK', 'isLITERAL', 'isNUMERIC', 'REGEX', 'SUBSTR',
+    'COALESCE', 'IF', 'STRLANG', 'STRLANGDIR', 'STRDT', 'SAMETERM',
+    'ISIRI', 'ISURI', 'ISBLANK', 'ISLITERAL', 'ISNUMERIC', 'REGEX', 'SUBSTR',
     'REPLACE', 'STRLEN', 'UCASE', 'LCASE', 'ENCODE_FOR_URI', 'CONTAINS',
     'STRSTARTS', 'STRENDS', 'STRBEFORE', 'STRAFTER', 'YEAR', 'MONTH',
     'DAY', 'HOURS', 'MINUTES', 'SECONDS', 'TIMEZONE', 'TZ', 'NOW', 'UUID',
     'STRUUID', 'MD5', 'SHA1', 'SHA256', 'SHA384', 'SHA512', 'ABS', 'ROUND',
     'CEIL', 'FLOOR', 'RAND', 'BOUND', 'BNODE', 'IRI', 'URI', 'STR', 'LANG',
-    'LANGMATCHES', 'DATATYPE', 'EXISTS', 'FILTER', 'BIND'
+    'LANGMATCHES', 'DATATYPE', 'EXISTS', 'FILTER', 'BIND', 'CONCAT',
+    'ISTRIPLE', 'TRIPLE', 'SUBJECT', 'PREDICATE', 'OBJECT'
 ]);
 
 /**
- * Token types for SPARQL formatting.
+ * Token names that represent term tokens (subjects, predicates, objects).
  */
-interface SparqlToken {
-    type: string;
-    value: string;
-    /** Number of newlines in this whitespace token (for WS tokens only) */
-    newlines?: number;
-    line?: number;
-    column?: number;
-}
+const TERM_TOKEN_NAMES = new Set([
+    'VAR1', 'VAR2', 'PNAME_LN', 'PNAME_NS', 'IRIREF', 'IRIREF_ABS',
+    'BLANK_NODE_LABEL', 'STRING_LITERAL_QUOTE', 'STRING_LITERAL_SINGLE_QUOTE',
+    'STRING_LITERAL_LONG_QUOTE', 'STRING_LITERAL_LONG_SINGLE_QUOTE',
+    'INTEGER', 'DECIMAL', 'DOUBLE', 'INTEGER_POSITIVE', 'DECIMAL_POSITIVE',
+    'DOUBLE_POSITIVE', 'INTEGER_NEGATIVE', 'DECIMAL_NEGATIVE', 'DOUBLE_NEGATIVE'
+]);
 
 /**
  * Formatter for SPARQL queries and updates.
+ * 
+ * Uses the W3C-compliant SparqlLexer from mentor-rdf-parsers for tokenization.
  * 
  * This formatter can:
  * - Format SPARQL 1.1/1.2 queries and updates
@@ -139,6 +136,8 @@ interface SparqlToken {
  * @see https://www.w3.org/TR/sparql12-query/
  */
 export class SparqlFormatter implements ISparqlFormatter {
+    private lexer = new SparqlLexer();
+
     /**
      * Formats a SPARQL query string.
      */
@@ -156,9 +155,9 @@ export class SparqlFormatter implements ISparqlFormatter {
     /**
      * Formats SPARQL from parsed tokens.
      */
-    formatFromTokens(tokens: unknown[], options?: TokenSerializerOptions): SerializationResult {
+    formatFromTokens(tokens: IToken[], options?: TokenSerializerOptions): SerializationResult {
         const opts = this.getOptions(options as SparqlFormatterOptions);
-        return this.formatTokens(tokens as SparqlToken[], opts);
+        return this.formatTokens(tokens, opts);
     }
 
     /**
@@ -166,261 +165,124 @@ export class SparqlFormatter implements ISparqlFormatter {
      */
     private formatSparql(input: string, options?: SparqlFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
-        const tokens = this.tokenize(input);
-        return this.formatTokens(tokens, opts);
+        const result = this.lexer.tokenize(input);
+        
+        if (result.errors.length > 0) {
+            // Return original input if there are lexing errors
+            return { output: input };
+        }
+        
+        // Get comments from lexer groups (they're not in the main token stream)
+        const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
+        
+        return this.formatTokens(result.tokens, opts, comments);
     }
 
     /**
-     * Simple SPARQL tokenizer for formatting purposes.
+     * Gets the token type name.
      */
-    private tokenize(input: string): SparqlToken[] {
-        const tokens: SparqlToken[] = [];
-        let pos = 0;
-        let line = 1;
-        let column = 1;
+    private getTokenTypeName(token: IToken): string {
+        return token.tokenType?.name ?? '';
+    }
 
-        while (pos < input.length) {
-            const startLine = line;
-            const startColumn = column;
+    /**
+     * Checks if a token is a keyword.
+     */
+    private isKeyword(token: IToken): boolean {
+        return KEYWORD_TOKEN_NAMES.has(this.getTokenTypeName(token));
+    }
 
-            // Skip whitespace (but track newlines)
-            if (/\s/.test(input[pos])) {
-                let newlineCount = 0;
-                while (pos < input.length && /\s/.test(input[pos])) {
-                    if (input[pos] === '\n') {
-                        newlineCount++;
-                        line++;
-                        column = 1;
-                    } else {
-                        column++;
-                    }
-                    pos++;
-                }
-                tokens.push({ type: 'WS', value: ' ', line: startLine, column: startColumn, newlines: newlineCount });
-                continue;
-            }
+    /**
+     * Checks if a token is a function keyword (like FILTER, BIND, COUNT, etc.).
+     */
+    private isFunctionKeyword(token: IToken): boolean {
+        return FUNCTION_TOKEN_NAMES.has(this.getTokenTypeName(token));
+    }
 
-            // Comments
-            if (input[pos] === '#') {
-                let comment = '';
-                while (pos < input.length && input[pos] !== '\n') {
-                    comment += input[pos++];
-                    column++;
-                }
-                tokens.push({ type: 'COMMENT', value: comment, line: startLine, column: startColumn });
-                continue;
-            }
+    /**
+     * Checks if a token is a literal constant (true, false, a).
+     */
+    private isLiteralConstant(token: IToken): boolean {
+        return LITERAL_CONSTANT_TOKEN_NAMES.has(this.getTokenTypeName(token));
+    }
 
-            // IRIs
-            if (input[pos] === '<') {
-                let iri = '<';
-                pos++;
-                column++;
-                while (pos < input.length && input[pos] !== '>') {
-                    iri += input[pos++];
-                    column++;
-                }
-                if (pos < input.length) {
-                    iri += input[pos++];
-                    column++;
-                }
-                tokens.push({ type: 'IRI', value: iri, line: startLine, column: startColumn });
-                continue;
-            }
+    /**
+     * Checks if a token starts a major clause.
+     */
+    private isMajorClauseKeyword(token: IToken): boolean {
+        return MAJOR_CLAUSE_TOKEN_NAMES.has(this.getTokenTypeName(token));
+    }
 
-            // String literals
-            if (input[pos] === '"' || input[pos] === "'") {
-                const quote = input[pos];
-                let str = quote;
-                pos++;
-                column++;
+    /**
+     * Checks if a token should be on a new line.
+     */
+    private isNewlineKeyword(token: IToken): boolean {
+        return NEWLINE_TOKEN_NAMES.has(this.getTokenTypeName(token));
+    }
 
-                // Check for long string
-                const isLong = input.slice(pos, pos + 2) === quote + quote;
-                if (isLong) {
-                    str += input[pos++] + input[pos++];
-                    column += 2;
-                }
+    /**
+     * Checks if a token is a term token (subject/predicate/object).
+     */
+    private isTermToken(token: IToken): boolean {
+        return TERM_TOKEN_NAMES.has(this.getTokenTypeName(token));
+    }
 
-                const endQuote = isLong ? quote + quote + quote : quote;
-                while (pos < input.length) {
-                    if (input.slice(pos, pos + endQuote.length) === endQuote) {
-                        str += endQuote;
-                        pos += endQuote.length;
-                        column += endQuote.length;
-                        break;
-                    }
-                    if (input[pos] === '\\' && pos + 1 < input.length) {
-                        str += input[pos++] + input[pos++];
-                        column += 2;
-                    } else {
-                        if (input[pos] === '\n') {
-                            line++;
-                            column = 1;
-                        } else {
-                            column++;
-                        }
-                        str += input[pos++];
-                    }
-                }
-                tokens.push({ type: 'STRING', value: str, line: startLine, column: startColumn });
-                continue;
-            }
+    /**
+     * Formats the token's value with appropriate casing.
+     */
+    private formatTokenValue(token: IToken, opts: Required<SparqlFormatterOptions>): string {
+        const tokenName = this.getTokenTypeName(token);
+        const image = token.image;
 
-            // Variables
-            if (input[pos] === '?' || input[pos] === '$') {
-                let variable = input[pos++];
-                column++;
-                while (pos < input.length && /[A-Za-z0-9_]/.test(input[pos])) {
-                    variable += input[pos++];
-                    column++;
-                }
-                tokens.push({ type: 'VAR', value: variable, line: startLine, column: startColumn });
-                continue;
-            }
-
-            // Punctuation
-            if ('{}()[].,;^'.includes(input[pos])) {
-                const char = input[pos++];
-                column++;
-                // Check for ^^ (datatype marker)
-                if (char === '^' && input[pos] === '^') {
-                    tokens.push({ type: 'PUNCT', value: '^^', line: startLine, column: startColumn });
-                    pos++;
-                    column++;
-                } else {
-                    tokens.push({ type: 'PUNCT', value: char, line: startLine, column: startColumn });
-                }
-                continue;
-            }
-
-            // Operators
-            if ('!=<>|&+-*/'.includes(input[pos])) {
-                let op = input[pos++];
-                column++;
-                // Multi-character operators
-                while (pos < input.length && '!=<>|&'.includes(input[pos])) {
-                    op += input[pos++];
-                    column++;
-                }
-                tokens.push({ type: 'OP', value: op, line: startLine, column: startColumn });
-                continue;
-            }
-
-            // Prefixed names and keywords
-            if (/[A-Za-z_:]/.test(input[pos]) || input[pos] === '_') {
-                let word = '';
-                while (pos < input.length && /[A-Za-z0-9_:\-.]/.test(input[pos])) {
-                    word += input[pos++];
-                    column++;
-                }
-
-                // Check if it's a keyword
-                const upper = word.toUpperCase();
-                if (SPARQL_KEYWORDS.has(upper) && !word.includes(':')) {
-                    tokens.push({ type: 'KEYWORD', value: word, line: startLine, column: startColumn });
-                } else {
-                    tokens.push({ type: 'PNAME', value: word, line: startLine, column: startColumn });
-                }
-                continue;
-            }
-
-            // Numbers
-            if (/[0-9]/.test(input[pos]) || (input[pos] === '.' && pos + 1 < input.length && /[0-9]/.test(input[pos + 1]))) {
-                let num = '';
-                if (input[pos] === '+' || input[pos] === '-') {
-                    num += input[pos++];
-                    column++;
-                }
-                while (pos < input.length && /[0-9]/.test(input[pos])) {
-                    num += input[pos++];
-                    column++;
-                }
-                if (input[pos] === '.') {
-                    num += input[pos++];
-                    column++;
-                    while (pos < input.length && /[0-9]/.test(input[pos])) {
-                        num += input[pos++];
-                        column++;
-                    }
-                }
-                if (input[pos] === 'e' || input[pos] === 'E') {
-                    num += input[pos++];
-                    column++;
-                    if (input[pos] === '+' || input[pos] === '-') {
-                        num += input[pos++];
-                        column++;
-                    }
-                    while (pos < input.length && /[0-9]/.test(input[pos])) {
-                        num += input[pos++];
-                        column++;
-                    }
-                }
-                tokens.push({ type: 'NUMBER', value: num, line: startLine, column: startColumn });
-                continue;
-            }
-
-            // Blank node labels
-            if (input[pos] === '_' && input[pos + 1] === ':') {
-                let bn = '_:';
-                pos += 2;
-                column += 2;
-                while (pos < input.length && /[A-Za-z0-9_.\-]/.test(input[pos])) {
-                    bn += input[pos++];
-                    column++;
-                }
-                tokens.push({ type: 'BNODE', value: bn, line: startLine, column: startColumn });
-                continue;
-            }
-
-            // Language tag
-            if (input[pos] === '@') {
-                let lang = '@';
-                pos++;
-                column++;
-                while (pos < input.length && /[A-Za-z0-9\-]/.test(input[pos])) {
-                    lang += input[pos++];
-                    column++;
-                }
-                tokens.push({ type: 'LANGTAG', value: lang, line: startLine, column: startColumn });
-                continue;
-            }
-
-            // Unknown character - consume and continue
-            tokens.push({ type: 'UNKNOWN', value: input[pos++], line: startLine, column: startColumn });
-            column++;
+        // Literal constants (true, false, a) must stay lowercase
+        if (this.isLiteralConstant(token)) {
+            return image.toLowerCase();
         }
 
-        return tokens;
+        // Keywords can be uppercased or lowercased based on options
+        if (this.isKeyword(token)) {
+            if (opts.lowercaseKeywords) {
+                return image.toLowerCase();
+            } else if (opts.uppercaseKeywords) {
+                return image.toUpperCase();
+            }
+        }
+
+        return image;
     }
 
     /**
      * Formats tokens into a string.
      */
-    private formatTokens(tokens: SparqlToken[], opts: Required<SparqlFormatterOptions>): SerializationResult {
+    private formatTokens(tokens: IToken[], opts: Required<SparqlFormatterOptions>, comments: IToken[] = []): SerializationResult {
         const parts: string[] = [];
+        
+        // Sort comments by position for interleaving
+        const sortedComments = [...comments].sort((a, b) => (a.startOffset ?? 0) - (b.startOffset ?? 0));
+        let commentIndex = 0;
         let indentLevel = 0;
         let needsNewline = false;
-        let needsBlankLine = false; // Track if we need to preserve a blank line from source
+        let needsBlankLine = false;
         let needsSpace = false;
-        let lastToken: SparqlToken | null = null;
+        let lastToken: IToken | null = null;
+        let lastNonWsToken: IToken | null = null;
         let inPrefix = false;
-        let justEndedPrefix = false; // Track if we just finished a PREFIX block
+        let justEndedPrefix = false;
         let inWhereBlock = false;
         let currentLineLength = 0;
         let lastSubject: string | null = null;
         let triplePosition = 0; // 0=subject, 1=predicate, 2=object
-        let parenDepth = 0; // Track parentheses depth to keep expressions on single line
-        let inFunctionCall = false; // Track if we're inside FILTER/BIND/etc.
+        let functionCallDepth = 0; // Track nested function calls for single-line formatting
         let hasFromClause = false; // Track if query has FROM clause (for ASK WHERE formatting)
         let isAskQuery = false; // Track if this is an ASK query
+        let lastWasNewline = false; // Track if we just added a newline
 
         const indent = opts.indent;
         const lineEnd = opts.lineEnd;
 
         // Helper to add content and track line length
         const addPart = (text: string, forceNewline = false) => {
-            if (forceNewline || (text === lineEnd) || text.includes(lineEnd)) {
+            if (forceNewline || text === lineEnd || text.includes(lineEnd)) {
                 parts.push(text);
                 const lines = text.split(lineEnd);
                 currentLineLength = lines[lines.length - 1].length;
@@ -439,121 +301,140 @@ export class SparqlFormatter implements ISparqlFormatter {
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
             const nextToken = tokens[i + 1];
+            const tokenName = this.getTokenTypeName(token);
 
-            // Handle whitespace tokens - preserve existing newlines from source
-            if (token.type === 'WS') {
-                if (token.newlines && token.newlines > 0) {
-                    // Preserve newlines from the original source
-                    needsNewline = true;
-                    // If there were 2+ newlines, that means there was a blank line
-                    if (token.newlines >= 2) {
-                        needsBlankLine = true;
+            // Insert any comments that should appear before this token
+            while (commentIndex < sortedComments.length) {
+                const comment = sortedComments[commentIndex];
+                const commentOffset = comment.startOffset ?? 0;
+                const tokenOffset = token.startOffset ?? 0;
+                
+                if (commentOffset < tokenOffset) {
+                    // This comment comes before the current token
+                    if (parts.length > 0) {
+                        // Check if comment is on a new line
+                        if (lastNonWsToken && comment.startLine !== undefined && 
+                            lastNonWsToken.endLine !== undefined &&
+                            comment.startLine > lastNonWsToken.endLine) {
+                            addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                            lastWasNewline = true;
+                        } else {
+                            addPart(' ');
+                        }
                     }
+                    addPart(comment.image);
+                    needsNewline = true;
+                    needsSpace = false;
+                    commentIndex++;
                 } else {
-                    needsSpace = true;
+                    break;
                 }
-                continue;
             }
 
-            // Handle comments
-            if (token.type === 'COMMENT') {
-                if (needsNewline) {
-                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                    needsNewline = false;
-                } else if (needsSpace && parts.length > 0) {
-                    addPart(' ');
-                }
-                addPart(token.value);
-                needsNewline = true;
-                needsSpace = false;
+            // Skip whitespace tokens (though the lexer typically doesn't emit them)
+            if (tokenName === 'WS') {
                 lastToken = token;
                 continue;
             }
 
-            // Format keywords
-            let value = token.value;
-            if (token.type === 'KEYWORD') {
-                // Literal constants (true, false) must stay lowercase - they are case-sensitive in SPARQL
-                const isLiteralConstant = LITERAL_CONSTANTS.has(value.toUpperCase());
-                if (isLiteralConstant) {
-                    value = value.toLowerCase();
-                } else if (opts.lowercaseKeywords) {
-                    value = value.toLowerCase();
-                } else if (opts.uppercaseKeywords) {
-                    value = value.toUpperCase();
-                }
-
-                // Track PREFIX declarations
-                if (value.toUpperCase() === 'PREFIX' || value.toUpperCase() === 'BASE') {
-                    inPrefix = true;
-                }
-
-                // Track WHERE blocks for pattern formatting
-                if (value.toUpperCase() === 'WHERE') {
-                    inWhereBlock = true;
-                }
-
-                // Track ASK queries
-                if (value.toUpperCase() === 'ASK') {
-                    isAskQuery = true;
-                }
-
-                // Track FROM clause
-                if (value.toUpperCase() === 'FROM') {
-                    hasFromClause = true;
-                }
-
-                // Track function calls (FILTER, BIND, etc.) for single-line formatting
-                if (FUNCTION_KEYWORDS.has(value.toUpperCase())) {
-                    inFunctionCall = true;
-                }
-
-                // Add blank line before major clauses (but not for first clause or after PREFIX)
-                if (opts.separateClauses && 
-                    MAJOR_CLAUSE_KEYWORDS.has(value.toUpperCase()) && 
-                    parts.length > 0 &&
-                    !inPrefix &&
-                    !justEndedPrefix) {
-                    addPart(lineEnd, true);
+            // Detect blank lines from token position information
+            // If there's a gap of more than one line between tokens, there was a blank line
+            if (lastNonWsToken && token.startLine !== undefined && lastNonWsToken.endLine !== undefined) {
+                const lineGap = token.startLine - lastNonWsToken.endLine;
+                if (lineGap > 1) {
+                    needsBlankLine = true;
                     needsNewline = true;
-                }
-
-                // Keywords that just need a newline (not blank line): FROM, NAMED, WHERE
-                // Exception: ASK WHERE should stay on same line when no FROM clause
-                if (opts.separateClauses &&
-                    NEWLINE_KEYWORDS.has(value.toUpperCase()) &&
-                    parts.length > 0 &&
-                    !inPrefix) {
-                    // For WHERE after ASK with no FROM, keep on same line
-                    if (value.toUpperCase() === 'WHERE' && isAskQuery && !hasFromClause) {
-                        needsNewline = false;
-                        needsSpace = true;
-                    } else {
-                        needsNewline = true;
-                    }
-                }
-
-                // Reset justEndedPrefix after processing a non-PREFIX keyword
-                if (value.toUpperCase() !== 'PREFIX' && value.toUpperCase() !== 'BASE') {
-                    justEndedPrefix = false;
                 }
             }
 
-            // Handle opening braces
-            if (token.value === '{') {
+            // Handle comments
+            if (tokenName === 'COMMENT') {
                 if (needsNewline) {
                     addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                    lastWasNewline = true;
+                    needsNewline = false;
+                } else if (needsSpace && parts.length > 0) {
+                    addPart(' ');
+                }
+                addPart(token.image);
+                needsNewline = true;
+                needsSpace = false;
+                lastToken = token;
+                lastNonWsToken = token;
+                continue;
+            }
+
+            // Format the token value
+            let value = this.formatTokenValue(token, opts);
+
+            // Track PREFIX declarations
+            if (tokenName === 'PREFIX' || tokenName === 'BASE') {
+                inPrefix = true;
+            }
+
+            // Track WHERE blocks for pattern formatting
+            if (tokenName === 'WHERE') {
+                inWhereBlock = true;
+            }
+
+            // Track ASK queries
+            if (tokenName === 'ASK') {
+                isAskQuery = true;
+            }
+
+            // Track FROM clause
+            if (tokenName === 'FROM') {
+                hasFromClause = true;
+            }
+
+            // Add blank line before major clauses (but not for first clause or after PREFIX)
+            if (opts.separateClauses && 
+                this.isMajorClauseKeyword(token) && 
+                parts.length > 0 &&
+                !inPrefix &&
+                !justEndedPrefix) {
+                addPart(lineEnd, true);
+                needsNewline = true;
+            }
+
+            // Keywords that just need a newline (not blank line): FROM, NAMED, WHERE
+            // Exception: ASK WHERE should stay on same line when no FROM clause
+            if (opts.separateClauses &&
+                this.isNewlineKeyword(token) &&
+                parts.length > 0 &&
+                !inPrefix) {
+                // For WHERE after ASK with no FROM, keep on same line
+                if (tokenName === 'WHERE' && isAskQuery && !hasFromClause) {
+                    needsNewline = false;
+                    needsSpace = true;
+                } else {
+                    needsNewline = true;
+                }
+            }
+
+            // Reset justEndedPrefix after processing a non-PREFIX keyword
+            if (tokenName !== 'PREFIX' && tokenName !== 'BASE') {
+                justEndedPrefix = false;
+            }
+
+            // Handle opening braces
+            if (tokenName === 'LCURLY') {
+                if (needsNewline) {
+                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                    lastWasNewline = true;
                     needsNewline = false;
                 } else if (needsSpace && parts.length > 0 && opts.sameBraceLine) {
                     addPart(' ');
                 } else if (!opts.sameBraceLine) {
                     addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                    lastWasNewline = true;
                 }
                 addPart('{');
                 indentLevel++;
                 needsNewline = opts.prettyPrint;
                 needsSpace = false;
                 lastToken = token;
+                lastNonWsToken = token;
                 inPrefix = false;
                 triplePosition = 0;
                 lastSubject = null;
@@ -561,21 +442,23 @@ export class SparqlFormatter implements ISparqlFormatter {
             }
 
             // Handle closing braces
-            if (token.value === '}') {
+            if (tokenName === 'RCURLY') {
                 indentLevel = Math.max(0, indentLevel - 1);
                 if (opts.prettyPrint) {
                     addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                    lastWasNewline = true;
                 }
                 addPart('}');
                 needsNewline = opts.prettyPrint;
                 needsSpace = false;
                 lastToken = token;
+                lastNonWsToken = token;
                 inWhereBlock = false;
                 continue;
             }
 
             // Handle period (end of triple/prefix)
-            if (token.value === '.') {
+            if (tokenName === 'PERIOD') {
                 // Add space before period if option is enabled
                 if (opts.spaceBeforePunctuation && !inPrefix && parts.length > 0) {
                     addPart(' ');
@@ -585,8 +468,8 @@ export class SparqlFormatter implements ISparqlFormatter {
                     // Always add newline after prefix declarations
                     needsNewline = opts.prettyPrint;
                     // Check if next is another PREFIX/BASE - don't add blank line between them
-                    const nextIsPrefix = nextToken?.type === 'KEYWORD' && 
-                        (nextToken.value.toUpperCase() === 'PREFIX' || nextToken.value.toUpperCase() === 'BASE');
+                    const nextTokenName = nextToken ? this.getTokenTypeName(nextToken) : '';
+                    const nextIsPrefix = nextTokenName === 'PREFIX' || nextTokenName === 'BASE';
                     if (!nextIsPrefix && nextToken) {
                         // Add extra newline to separate prefixes from rest of query
                         needsNewline = opts.prettyPrint;
@@ -596,39 +479,57 @@ export class SparqlFormatter implements ISparqlFormatter {
                 }
                 needsSpace = true;
                 lastToken = token;
+                lastNonWsToken = token;
                 inPrefix = false;
                 triplePosition = 0;
                 continue;
             }
 
             // Handle semicolon (predicate-object list)
-            if (token.value === ';') {
+            if (tokenName === 'SEMICOLON') {
                 // Add space before semicolon if option is enabled
                 if (opts.spaceBeforePunctuation && parts.length > 0) {
                     addPart(' ');
                 }
                 addPart(';');
                 
-                // Apply predicateListStyle
+                // Apply predicateListStyle - with indentation for predicate continuation
                 if (opts.predicateListStyle === 'single-line') {
                     needsNewline = false;
                     needsSpace = true;
                 } else if (opts.predicateListStyle === 'multi-line' || 
                           (opts.predicateListStyle === 'first-same-line' && indentLevel > 0)) {
-                    needsNewline = opts.prettyPrint && indentLevel > 0;
-                    needsSpace = !needsNewline;
+                    if (opts.prettyPrint && indentLevel > 0) {
+                        // Add newline with extra indentation for predicate continuation
+                        addPart(lineEnd + this.getIndent(indentLevel, indent) + indent, true);
+                        lastWasNewline = true;
+                        needsNewline = false;
+                        needsSpace = false;
+                    } else {
+                        needsNewline = false;
+                        needsSpace = true;
+                    }
                 } else {
-                    needsNewline = opts.prettyPrint && indentLevel > 0;
-                    needsSpace = true;
+                    if (opts.prettyPrint && indentLevel > 0) {
+                        // Add newline with extra indentation for predicate continuation
+                        addPart(lineEnd + this.getIndent(indentLevel, indent) + indent, true);
+                        lastWasNewline = true;
+                        needsNewline = false;
+                        needsSpace = false;
+                    } else {
+                        needsNewline = false;
+                        needsSpace = true;
+                    }
                 }
                 
                 triplePosition = 1; // Next token should be predicate
                 lastToken = token;
+                lastNonWsToken = token;
                 continue;
             }
 
             // Handle comma (object list)
-            if (token.value === ',') {
+            if (tokenName === 'COMMA') {
                 addPart(',');
                 
                 // Apply objectListStyle
@@ -637,7 +538,7 @@ export class SparqlFormatter implements ISparqlFormatter {
                     needsSpace = !needsNewline;
                 } else if (opts.objectListStyle === 'auto' && opts.maxLineWidth > 0) {
                     // Check if next object would exceed line width
-                    const nextObjLen = nextToken ? nextToken.value.length + 1 : 0;
+                    const nextObjLen = nextToken ? nextToken.image.length + 1 : 0;
                     if (shouldWrap(nextObjLen)) {
                         needsNewline = opts.prettyPrint;
                         needsSpace = !needsNewline;
@@ -649,61 +550,77 @@ export class SparqlFormatter implements ISparqlFormatter {
                 }
                 
                 lastToken = token;
+                lastNonWsToken = token;
                 continue;
             }
 
-            // Handle other punctuation
-            if (token.type === 'PUNCT' && '()[]'.includes(token.value)) {
-                if (token.value === '(' || token.value === '[') {
-                    // Track parentheses depth
-                    if (token.value === '(') {
-                        parenDepth++;
+            // Handle opening parentheses and brackets
+            if (tokenName === 'LPARENT' || tokenName === 'LBRACKET') {
+                if (tokenName === 'LPARENT') {
+                    // Track function calls for single-line formatting
+                    const lastWasFunction = lastNonWsToken && this.isFunctionKeyword(lastNonWsToken);
+                    if (lastWasFunction) {
+                        functionCallDepth++;
                     }
-                    // Don't add newline when inside a function call expression
-                    if (needsNewline && !inFunctionCall) {
-                        addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                        needsNewline = false;
-                    } else if (needsSpace && parts.length > 0) {
-                        // Don't add space before ( if last token was a function keyword
-                        const lastWasFunction = lastToken?.type === 'KEYWORD' && 
-                            FUNCTION_KEYWORDS.has(lastToken.value.toUpperCase());
-                        if (token.value !== '(' || !lastWasFunction) {
-                            addPart(' ');
-                        }
-                    }
+                }
+                
+                // Check if this paren is part of a function call
+                const lastWasFunction = lastNonWsToken && this.isFunctionKeyword(lastNonWsToken);
+                
+                // Don't add newline when opening paren is part of a function call
+                // or when already inside a function call expression
+                if (needsNewline && functionCallDepth === 0 && !lastWasFunction) {
+                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                    lastWasNewline = true;
                     needsNewline = false;
-                }
-                if (token.value === ')') {
-                    parenDepth--;
-                    // Reset function call tracking when we close the last paren
-                    if (parenDepth === 0) {
-                        inFunctionCall = false;
+                } else if (needsSpace && parts.length > 0) {
+                    // Don't add space before ( if last token was a function keyword
+                    if (tokenName !== 'LPARENT' || !lastWasFunction) {
+                        addPart(' ');
                     }
                 }
-                addPart(token.value);
-                needsSpace = token.value === ')' || token.value === ']';
+                needsNewline = false;
+                
+                addPart(token.image);
+                needsSpace = false;
+                lastToken = token;
+                lastNonWsToken = token;
+                continue;
+            }
+
+            // Handle closing parentheses and brackets
+            if (tokenName === 'RPARENT' || tokenName === 'RBRACKET') {
+                if (tokenName === 'RPARENT') {
+                    // Decrement function call depth when closing paren
+                    if (functionCallDepth > 0) {
+                        functionCallDepth--;
+                    }
+                }
+                addPart(token.image);
+                needsSpace = true;
                 needsNewline = false;
                 lastToken = token;
+                lastNonWsToken = token;
                 continue;
             }
 
             // Track triple position for alignment within WHERE blocks
-            if (inWhereBlock && indentLevel > 0) {
-                const isTermToken = ['VAR', 'PNAME', 'IRI', 'BNODE', 'STRING', 'NUMBER'].includes(token.type);
-                
-                if (isTermToken) {
+            // BUT skip this when inside a function call (FILTER, BIND, etc.)
+            if (inWhereBlock && indentLevel > 0 && functionCallDepth === 0) {
+                if (this.isTermToken(token)) {
                     // Check for subject change (blank line between subjects)
                     if (triplePosition === 0) {
-                        if (opts.blankLinesBetweenSubjects && lastSubject !== null && token.value !== lastSubject) {
+                        if (opts.blankLinesBetweenSubjects && lastSubject !== null && token.image !== lastSubject) {
                             // Add blank line between different subjects
                             if (!needsNewline) {
                                 addPart(lineEnd, true);
                             }
                             addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                            lastWasNewline = true;
                             needsNewline = false;
                             needsSpace = false;
                         }
-                        lastSubject = token.value;
+                        lastSubject = token.image;
                     }
                     
                     triplePosition++;
@@ -713,13 +630,14 @@ export class SparqlFormatter implements ISparqlFormatter {
 
             // Handle end of PREFIX/BASE declarations
             // PREFIX prefix: <iri> - after the IRI, the declaration is complete
-            if (inPrefix && token.type === 'IRI') {
+            if (inPrefix && (tokenName === 'IRIREF' || tokenName === 'IRIREF_ABS')) {
                 // Add the IRI first
                 if (needsNewline) {
                     addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                    lastWasNewline = true;
                     needsNewline = false;
                 } else if (needsSpace && parts.length > 0) {
-                    if (lastToken && !['(', '['].includes(lastToken.value)) {
+                    if (lastNonWsToken && !['LPARENT', 'LBRACKET'].includes(this.getTokenTypeName(lastNonWsToken))) {
                         addPart(' ');
                     }
                 }
@@ -729,14 +647,17 @@ export class SparqlFormatter implements ISparqlFormatter {
                 inPrefix = false;
                 justEndedPrefix = true; // Mark that we just finished a PREFIX block
                 lastToken = token;
+                lastNonWsToken = token;
                 continue;
             }
 
             // Check for line width wrapping
             if (opts.maxLineWidth > 0 && !needsNewline && needsSpace) {
-                const spaceNeeded = parts.length > 0 && lastToken && !['(', '['].includes(lastToken.value) ? 1 : 0;
+                const spaceNeeded = parts.length > 0 && lastNonWsToken && 
+                    !['LPARENT', 'LBRACKET'].includes(this.getTokenTypeName(lastNonWsToken)) ? 1 : 0;
                 if (shouldWrap(spaceNeeded + value.length)) {
                     addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                    lastWasNewline = true;
                     needsNewline = false;
                     needsSpace = false;
                 }
@@ -745,33 +666,39 @@ export class SparqlFormatter implements ISparqlFormatter {
             // Add newline or space as needed
             // Never add newline before ^^ or right after ^^ (datatype marker must stay with literal)
             // Never add newline when inside a function call (FILTER, BIND, etc.)
-            const isDatatypeContext = token.value === '^^' || lastToken?.value === '^^';
+            const isDatatypeContext = tokenName === 'DCARET' || 
+                (lastNonWsToken && this.getTokenTypeName(lastNonWsToken) === 'DCARET');
+            const inFunctionCall = functionCallDepth > 0;
             const shouldAvoidNewline = isDatatypeContext || inFunctionCall;
+            
             if (needsNewline && !shouldAvoidNewline) {
                 // Add blank line if there was one in source (but limit to one blank line)
                 if (needsBlankLine) {
-                    // Check if we just added a newline to avoid duplicate blank lines
-                    const lastPart = parts[parts.length - 1];
-                    if (!lastPart || !lastPart.endsWith(lineEnd + lineEnd)) {
+                    // Only add blank line if we haven't just added a newline
+                    if (!lastWasNewline) {
                         addPart(lineEnd, true);
                     }
                     needsBlankLine = false;
                 }
                 addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                lastWasNewline = true;
                 needsNewline = false;
             } else if (needsSpace && parts.length > 0) {
                 // Don't add space after opening parens/brackets
-                if (lastToken && !['(', '['].includes(lastToken.value)) {
+                if (lastNonWsToken && !['LPARENT', 'LBRACKET'].includes(this.getTokenTypeName(lastNonWsToken))) {
                     // Don't add space before ( if last token was a function keyword
-                    const isOpenParen = token.value === '(' || (token.type === 'PUNCT' && token.value === '(');
-                    const lastWasFunction = lastToken?.type === 'KEYWORD' && 
-                        FUNCTION_KEYWORDS.has(lastToken.value.toUpperCase());
+                    const isOpenParen = tokenName === 'LPARENT';
+                    const lastWasFunction = lastNonWsToken && this.isFunctionKeyword(lastNonWsToken);
                     // Don't add space before or after ^^ (datatype marker)
                     if (!(isOpenParen && lastWasFunction) && !isDatatypeContext) {
                         addPart(' ');
                     }
                 }
+                lastWasNewline = false;
+            } else {
+                lastWasNewline = false;
             }
+            
             // Reset newline flag if we skipped it due to datatype context or function call
             if (shouldAvoidNewline) {
                 needsNewline = false;
@@ -781,6 +708,24 @@ export class SparqlFormatter implements ISparqlFormatter {
             addPart(value);
             needsSpace = true;
             lastToken = token;
+            lastNonWsToken = token;
+        }
+
+        // Add any trailing comments
+        while (commentIndex < sortedComments.length) {
+            const comment = sortedComments[commentIndex];
+            if (parts.length > 0) {
+                // Check if comment is on a new line
+                if (lastNonWsToken && comment.startLine !== undefined && 
+                    lastNonWsToken.endLine !== undefined &&
+                    comment.startLine > lastNonWsToken.endLine) {
+                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
+                } else {
+                    addPart(' ');
+                }
+            }
+            addPart(comment.image);
+            commentIndex++;
         }
 
         return {

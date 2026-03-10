@@ -116,8 +116,11 @@ describe('SparqlFormatter', () => {
             expect(result.output).not.toContain('FALSE');
         });
 
-        it('should keep boolean literals lowercase even when input is uppercase', () => {
-            const query = 'SELECT ?x WHERE { ?x <http://example.org/active> TRUE . ?x <http://example.org/hidden> FALSE }';
+        // Note: In SPARQL, boolean literals MUST be lowercase (true, false).
+        // The SparqlLexer does not recognize uppercase variants as valid tokens.
+        // This test verifies that valid lowercase booleans are preserved.
+        it('should keep boolean literals lowercase when input is valid lowercase', () => {
+            const query = 'SELECT ?x WHERE { ?x <http://example.org/active> true . ?x <http://example.org/hidden> false }';
 
             const result = formatter.formatQuery(query);
 
@@ -298,6 +301,103 @@ describe('SparqlFormatter', () => {
             expect(result.output).not.toMatch(/\n\n\n/);
             // But should preserve one blank line
             expect(result.output).toContain('\n\n');
+        });
+
+        it('should keep FILTER(ISURI(?s)) on a single line', () => {
+            const query = 'SELECT ?s WHERE { ?s ?p ?o . FILTER(ISURI(?s)) }';
+
+            const result = formatter.formatQuery(query);
+
+            // FILTER with simple expression should stay on single line
+            const lines = result.output.split('\n');
+            const filterLine = lines.find(l => l.includes('FILTER'));
+            expect(filterLine).toContain('FILTER(ISURI(?s))');
+        });
+
+        it('should keep FILTER with comparison on single line', () => {
+            const query = 'SELECT ?s ?startDate ?endDate WHERE { ?s ?p ?o . FILTER(?startDate < ?endDate) }';
+
+            const result = formatter.formatQuery(query);
+
+            // FILTER with comparison should stay on single line
+            const lines = result.output.split('\n');
+            const filterLine = lines.find(l => l.includes('FILTER'));
+            expect(filterLine).toContain('FILTER(?startDate < ?endDate)');
+        });
+
+        it('should keep BIND on a single line', () => {
+            const query = 'SELECT ?s ?type WHERE { ?s ?p ?o . BIND(ex:Category1 AS ?type) }';
+
+            const result = formatter.formatQuery(query);
+
+            // BIND should stay on single line
+            const lines = result.output.split('\n');
+            const bindLine = lines.find(l => l.includes('BIND'));
+            expect(bindLine).toContain('BIND(ex:Category1 AS ?type)');
+        });
+
+        it('should keep ASK WHERE on same line when no FROM clause', () => {
+            const query = 'ASK WHERE { ?s ?p ?o }';
+
+            const result = formatter.formatQuery(query);
+
+            // ASK and WHERE should be on same line when no FROM
+            expect(result.output).toMatch(/ASK\s+WHERE/);
+            // No newline between ASK and WHERE
+            const askIndex = result.output.indexOf('ASK');
+            const whereIndex = result.output.indexOf('WHERE');
+            const textBetween = result.output.substring(askIndex + 3, whereIndex);
+            expect(textBetween).not.toContain('\n');
+        });
+
+        it('should put WHERE on new line after FROM in ASK query', () => {
+            const query = 'ASK FROM <http://example.org/graph> WHERE { ?s ?p ?o }';
+
+            const result = formatter.formatQuery(query);
+
+            // WHERE should be on new line after FROM
+            const fromIndex = result.output.indexOf('FROM');
+            const whereIndex = result.output.indexOf('WHERE');
+            const textBetween = result.output.substring(fromIndex, whereIndex);
+            expect(textBetween).toContain('\n');
+        });
+
+        it('should add indentation after semicolon in predicate list', () => {
+            const query = 'SELECT * WHERE { ?item a ex:Thing; ex:hasId ?id }';
+
+            const result = formatter.formatQuery(query);
+
+            // After semicolon, next predicate should be indented
+            expect(result.output).toContain(';');
+            // The line after semicolon should be indented
+            const lines = result.output.split('\n');
+            const typeLine = lines.find(l => l.includes('a ex:Thing'));
+            const idLine = lines.find(l => l.includes('ex:hasId'));
+            if (typeLine && idLine) {
+                // id line should have more indentation than type line
+                const typeIndent = typeLine.match(/^\s*/)?.[0]?.length ?? 0;
+                const idIndent = idLine.match(/^\s*/)?.[0]?.length ?? 0;
+                expect(idIndent).toBeGreaterThan(typeIndent);
+            }
+        });
+
+        it('should not generate duplicate empty lines in VALUES blocks', () => {
+            const query = `SELECT ?itemId WHERE {
+
+VALUES ?itemId {
+    "12345"
+}
+
+VALUES ?date {
+    "2025-11-01T00:00:00"^^xsd:dateTime
+}
+
+}`;
+
+            const result = formatter.formatQuery(query);
+
+            // Should not have 3+ consecutive newlines (duplicate blank lines)
+            expect(result.output).not.toMatch(/\n\n\n/);
         });
     });
 

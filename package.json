@@ -51,12 +51,12 @@
     "@rdfjs/data-model": "^2.1.0"
   },
   "devDependencies": {
-    "@faubulous/mentor-rdf-parsers": "^1.4.0",
+    "@faubulous/mentor-rdf-parsers": "^1.5.0",
     "@rdfjs/types": "^2.0.1",
     "@types/rdfjs__data-model": "^2.0.9",
-    "chevrotain": "^11.0.3",
+    "chevrotain": "^11.2.0",
     "typescript": "^5.9.3",
-    "vitest": "^2.1.9"
+    "vitest": "^4.0.18"
   },
   "peerDependencies": {
     "@faubulous/mentor-rdf-parsers": "^1.4.0",
