@@ -1,5 +1,6 @@
-import type { IToken } from 'chevrotain';
-import { SparqlLexer, RdfToken } from '@faubulous/mentor-rdf-parsers';
+import type { IToken, TokenType } from 'chevrotain';
+import type { TokenMetadata } from '@faubulous/mentor-rdf-parsers';
+import { RdfToken, SparqlLexer } from '@faubulous/mentor-rdf-parsers';
 import type {
     ISparqlFormatter,
     SerializationResult,
@@ -51,75 +52,28 @@ export interface SparqlFormatterOptions extends SerializerOptions {
 }
 
 /**
- * Token type names that are SPARQL keywords (should be formatted).
+ * Internal formatting context that tracks state during token processing.
  */
-const KEYWORD_TOKEN_NAMES = new Set([
-    'A', 'SELECT', 'CONSTRUCT', 'DESCRIBE', 'ASK', 'WHERE', 'FROM', 'NAMED',
-    'BASE', 'PREFIX', 'ORDER', 'BY', 'ASC', 'DESC', 'LIMIT', 'OFFSET',
-    'DISTINCT', 'REDUCED', 'OPTIONAL', 'UNION', 'FILTER', 'BIND', 'VALUES',
-    'AS', 'GROUP', 'HAVING', 'SERVICE', 'SILENT', 'MINUS', 'UNDEF',
-    'IN', 'NOT', 'EXISTS', 'INSERT', 'DELETE', 'DATA', 'LOAD', 'CLEAR',
-    'DROP', 'CREATE', 'ADD', 'MOVE', 'COPY', 'INTO', 'TO', 'USING',
-    'WITH', 'DEFAULT', 'ALL', 'GRAPH', 'COUNT', 'SUM', 'MIN', 'MAX',
-    'AVG', 'SAMPLE', 'GROUP_CONCAT', 'SEPARATOR', 'STR', 'LANG', 'LANGMATCHES',
-    'LANGDIR', 'DATATYPE', 'BOUND', 'IRI', 'URI', 'BNODE', 'RAND',
-    'ABS', 'CEIL', 'FLOOR', 'ROUND', 'CONCAT', 'STRLEN', 'UCASE', 'LCASE',
-    'ENCODE_FOR_URI', 'CONTAINS', 'STRSTARTS', 'STRENDS', 'STRBEFORE', 'STRAFTER',
-    'YEAR', 'MONTH', 'DAY', 'HOURS', 'MINUTES', 'SECONDS', 'TIMEZONE', 'TZ',
-    'NOW', 'UUID', 'STRUUID', 'MD5', 'SHA1', 'SHA256', 'SHA384', 'SHA512',
-    'COALESCE', 'IF', 'STRLANG', 'STRLANGDIR', 'STRDT', 'SAMETERM', 'ISIRI',
-    'ISURI', 'ISBLANK', 'ISLITERAL', 'ISNUMERIC', 'REGEX', 'SUBSTR', 'REPLACE',
-    'ISTRIPLE', 'TRIPLE', 'SUBJECT', 'PREDICATE', 'OBJECT', 'AND', 'OR'
-]);
-
-/**
- * Literal constants that should always be lowercase (not affected by uppercaseKeywords).
- * These are case-sensitive in SPARQL and must remain lowercase.
- * 'A' is the rdf:type shorthand and by convention is always lowercase.
- */
-const LITERAL_CONSTANT_TOKEN_NAMES = new Set(['true', 'false', 'A']);
-
-/**
- * Keywords that start a new major clause and should have a blank line before them.
- */
-const MAJOR_CLAUSE_TOKEN_NAMES = new Set([
-    'SELECT', 'CONSTRUCT', 'DESCRIBE', 'ASK', 'ORDER', 'GROUP',
-    'HAVING', 'LIMIT', 'OFFSET', 'VALUES', 'INSERT', 'DELETE', 'LOAD',
-    'CLEAR', 'DROP', 'CREATE', 'ADD', 'MOVE', 'COPY', 'WITH', 'OPTIONAL'
-]);
-
-/**
- * Keywords that should be on a new line but without a blank line before them.
- */
-const NEWLINE_TOKEN_NAMES = new Set(['FROM', 'NAMED', 'WHERE']);
-
-/**
- * Function keywords that should have no space before opening parenthesis.
- * These are keywords followed by ( that should keep the expression on a single line.
- */
-const FUNCTION_TOKEN_NAMES = new Set([
-    'COUNT', 'SUM', 'MIN', 'MAX', 'AVG', 'SAMPLE', 'GROUP_CONCAT',
-    'COALESCE', 'IF', 'STRLANG', 'STRLANGDIR', 'STRDT', 'SAMETERM',
-    'ISIRI', 'ISURI', 'ISBLANK', 'ISLITERAL', 'ISNUMERIC', 'REGEX', 'SUBSTR',
-    'REPLACE', 'STRLEN', 'UCASE', 'LCASE', 'ENCODE_FOR_URI', 'CONTAINS',
-    'STRSTARTS', 'STRENDS', 'STRBEFORE', 'STRAFTER', 'YEAR', 'MONTH',
-    'DAY', 'HOURS', 'MINUTES', 'SECONDS', 'TIMEZONE', 'TZ', 'NOW', 'UUID',
-    'STRUUID', 'MD5', 'SHA1', 'SHA256', 'SHA384', 'SHA512', 'ABS', 'ROUND',
-    'CEIL', 'FLOOR', 'RAND', 'BOUND', 'BNODE', 'IRI', 'URI', 'STR', 'LANG',
-    'LANGMATCHES', 'DATATYPE', 'EXISTS', 'FILTER', 'BIND', 'CONCAT',
-    'ISTRIPLE', 'TRIPLE', 'SUBJECT', 'PREDICATE', 'OBJECT'
-]);
-
-/**
- * Token names that represent term tokens (subjects, predicates, objects).
- */
-const TERM_TOKEN_NAMES = new Set([
-    'VAR1', 'VAR2', 'PNAME_LN', 'PNAME_NS', 'IRIREF', 'IRIREF_ABS',
-    'BLANK_NODE_LABEL', 'STRING_LITERAL_QUOTE', 'STRING_LITERAL_SINGLE_QUOTE',
-    'STRING_LITERAL_LONG_QUOTE', 'STRING_LITERAL_LONG_SINGLE_QUOTE',
-    'INTEGER', 'DECIMAL', 'DOUBLE', 'INTEGER_POSITIVE', 'DECIMAL_POSITIVE',
-    'DOUBLE_POSITIVE', 'INTEGER_NEGATIVE', 'DECIMAL_NEGATIVE', 'DOUBLE_NEGATIVE'
-]);
+interface FormatterContext {
+    parts: string[];
+    opts: Required<SparqlFormatterOptions>;
+    indentLevel: number;
+    needsNewline: boolean;
+    needsBlankLine: boolean;
+    needsSpace: boolean;
+    lastToken: IToken | null;
+    lastNonWsToken: IToken | null;
+    inPrefix: boolean;
+    justEndedPrefix: boolean;
+    inWhereBlock: boolean;
+    currentLineLength: number;
+    lastSubject: string | null;
+    triplePosition: number;
+    functionCallDepth: number;
+    hasFromClause: boolean;
+    isAskQuery: boolean;
+    lastWasNewline: boolean;
+}
 
 /**
  * Formatter for SPARQL queries and updates.
@@ -179,63 +133,62 @@ export class SparqlFormatter implements ISparqlFormatter {
     }
 
     /**
-     * Gets the token type name.
-     */
-    private getTokenTypeName(token: IToken): string {
-        return token.tokenType?.name ?? '';
-    }
-
-    /**
-     * Checks if a token is a keyword.
+     * Checks if a token is a keyword (uses token metadata).
      */
     private isKeyword(token: IToken): boolean {
-        return KEYWORD_TOKEN_NAMES.has(this.getTokenTypeName(token));
+        return (token.tokenType as TokenType & TokenMetadata)?.isKeyword === true;
     }
 
     /**
-     * Checks if a token is a function keyword (like FILTER, BIND, COUNT, etc.).
+     * Checks if a token is a function keyword (uses token metadata).
      */
     private isFunctionKeyword(token: IToken): boolean {
-        return FUNCTION_TOKEN_NAMES.has(this.getTokenTypeName(token));
+        return (token.tokenType as TokenType & TokenMetadata)?.isFunction === true;
     }
 
     /**
-     * Checks if a token is a literal constant (true, false, a).
+     * Checks if a token must remain lowercase (uses token metadata).
      */
-    private isLiteralConstant(token: IToken): boolean {
-        return LITERAL_CONSTANT_TOKEN_NAMES.has(this.getTokenTypeName(token));
+    private isLowercaseOnly(token: IToken): boolean {
+        return (token.tokenType as TokenType & TokenMetadata)?.isLowercaseOnly === true;
     }
 
     /**
-     * Checks if a token starts a major clause.
+     * Checks if a token starts a major clause (uses token metadata).
      */
     private isMajorClauseKeyword(token: IToken): boolean {
-        return MAJOR_CLAUSE_TOKEN_NAMES.has(this.getTokenTypeName(token));
+        return (token.tokenType as TokenType & TokenMetadata)?.isMajorClause === true;
     }
 
     /**
-     * Checks if a token should be on a new line.
+     * Checks if a token should be on a new line (uses token metadata).
      */
     private isNewlineKeyword(token: IToken): boolean {
-        return NEWLINE_TOKEN_NAMES.has(this.getTokenTypeName(token));
+        return (token.tokenType as TokenType & TokenMetadata)?.isNewlineKeyword === true;
     }
 
     /**
-     * Checks if a token is a term token (subject/predicate/object).
+     * Checks if a token is a term token (uses token metadata).
      */
     private isTermToken(token: IToken): boolean {
-        return TERM_TOKEN_NAMES.has(this.getTokenTypeName(token));
+        return (token.tokenType as TokenType & TokenMetadata)?.isTerm === true;
+    }
+
+    /**
+     * Checks if a token is an opening bracket (parenthesis or square bracket).
+     */
+    private isOpeningBracket(token: IToken): boolean {
+        return token.tokenType === RdfToken.LPARENT || token.tokenType === RdfToken.LBRACKET;
     }
 
     /**
      * Formats the token's value with appropriate casing.
      */
     private formatTokenValue(token: IToken, opts: Required<SparqlFormatterOptions>): string {
-        const tokenName = this.getTokenTypeName(token);
         const image = token.image;
 
-        // Literal constants (true, false, a) must stay lowercase
-        if (this.isLiteralConstant(token)) {
+        // Tokens marked as lowercase-only (true, false, a) must stay lowercase
+        if (this.isLowercaseOnly(token)) {
             return image.toLowerCase();
         }
 
@@ -251,486 +204,554 @@ export class SparqlFormatter implements ISparqlFormatter {
         return image;
     }
 
+    // ========================================================================
+    // Context Management
+    // ========================================================================
+
+    /**
+     * Creates a new formatting context.
+     */
+    private createContext(opts: Required<SparqlFormatterOptions>): FormatterContext {
+        return {
+            parts: [],
+            opts,
+            indentLevel: 0,
+            needsNewline: false,
+            needsBlankLine: false,
+            needsSpace: false,
+            lastToken: null,
+            lastNonWsToken: null,
+            inPrefix: false,
+            justEndedPrefix: false,
+            inWhereBlock: false,
+            currentLineLength: 0,
+            lastSubject: null,
+            triplePosition: 0,
+            functionCallDepth: 0,
+            hasFromClause: false,
+            isAskQuery: false,
+            lastWasNewline: false,
+        };
+    }
+
+    /**
+     * Adds content to output and tracks line length.
+     */
+    private addPart(ctx: FormatterContext, text: string, forceNewline = false): void {
+        const lineEnd = ctx.opts.lineEnd;
+        if (forceNewline || text === lineEnd || text.includes(lineEnd)) {
+            ctx.parts.push(text);
+            const lines = text.split(lineEnd);
+            ctx.currentLineLength = lines[lines.length - 1].length;
+        } else {
+            ctx.parts.push(text);
+            ctx.currentLineLength += text.length;
+        }
+    }
+
+    /**
+     * Checks if we should wrap based on maxLineWidth.
+     */
+    private shouldWrap(ctx: FormatterContext, nextLength: number): boolean {
+        return ctx.opts.maxLineWidth > 0 && 
+               ctx.currentLineLength + nextLength > ctx.opts.maxLineWidth;
+    }
+
+    // ========================================================================
+    // Token Handlers
+    // ========================================================================
+
+    /**
+     * Handles comment tokens from the comment group.
+     */
+    private handleGroupComment(ctx: FormatterContext, comment: IToken): void {
+        if (ctx.parts.length > 0) {
+            if (ctx.lastNonWsToken && comment.startLine !== undefined && 
+                ctx.lastNonWsToken.endLine !== undefined &&
+                comment.startLine > ctx.lastNonWsToken.endLine) {
+                this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+                ctx.lastWasNewline = true;
+            } else {
+                this.addPart(ctx, ' ');
+            }
+        }
+        this.addPart(ctx, comment.image);
+        ctx.needsNewline = true;
+        ctx.needsSpace = false;
+    }
+
+    /**
+     * Handles inline comment tokens.
+     */
+    private handleInlineComment(ctx: FormatterContext, token: IToken): void {
+        if (ctx.needsNewline) {
+            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            ctx.lastWasNewline = true;
+            ctx.needsNewline = false;
+        } else if (ctx.needsSpace && ctx.parts.length > 0) {
+            this.addPart(ctx, ' ');
+        }
+        this.addPart(ctx, token.image);
+        ctx.needsNewline = true;
+        ctx.needsSpace = false;
+    }
+
+    /**
+     * Handles opening brace '{'.
+     */
+    private handleOpenBrace(ctx: FormatterContext): void {
+        if (ctx.needsNewline) {
+            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            ctx.lastWasNewline = true;
+            ctx.needsNewline = false;
+        } else if (ctx.needsSpace && ctx.parts.length > 0 && ctx.opts.sameBraceLine) {
+            this.addPart(ctx, ' ');
+        } else if (!ctx.opts.sameBraceLine) {
+            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            ctx.lastWasNewline = true;
+        }
+        this.addPart(ctx, '{');
+        ctx.indentLevel++;
+        ctx.needsNewline = ctx.opts.prettyPrint;
+        ctx.needsSpace = false;
+        ctx.inPrefix = false;
+        ctx.triplePosition = 0;
+        ctx.lastSubject = null;
+    }
+
+    /**
+     * Handles closing brace '}'.
+     */
+    private handleCloseBrace(ctx: FormatterContext): void {
+        ctx.indentLevel = Math.max(0, ctx.indentLevel - 1);
+        if (ctx.opts.prettyPrint) {
+            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            ctx.lastWasNewline = true;
+        }
+        this.addPart(ctx, '}');
+        ctx.needsNewline = ctx.opts.prettyPrint;
+        ctx.needsSpace = false;
+        ctx.inWhereBlock = false;
+    }
+
+    /**
+     * Handles period '.'.
+     */
+    private handlePeriod(ctx: FormatterContext, nextToken: IToken | undefined): void {
+        if (ctx.opts.spaceBeforePunctuation && !ctx.inPrefix && ctx.parts.length > 0) {
+            this.addPart(ctx, ' ');
+        }
+        this.addPart(ctx, '.');
+        
+        if (ctx.inPrefix) {
+            ctx.needsNewline = ctx.opts.prettyPrint;
+            const nextIsPrefix = nextToken && (nextToken.tokenType === RdfToken.PREFIX || nextToken.tokenType === RdfToken.BASE);
+            if (!nextIsPrefix && nextToken) {
+                ctx.needsNewline = ctx.opts.prettyPrint;
+            }
+        } else if (ctx.indentLevel > 0) {
+            ctx.needsNewline = ctx.opts.prettyPrint;
+        }
+        
+        ctx.needsSpace = true;
+        ctx.inPrefix = false;
+        ctx.triplePosition = 0;
+    }
+
+    /**
+     * Handles semicolon ';'.
+     */
+    private handleSemicolon(ctx: FormatterContext): void {
+        if (ctx.opts.spaceBeforePunctuation && ctx.parts.length > 0) {
+            this.addPart(ctx, ' ');
+        }
+        this.addPart(ctx, ';');
+        
+        const shouldMultiLine = ctx.opts.predicateListStyle === 'multi-line' || 
+            (ctx.opts.predicateListStyle === 'first-same-line' && ctx.indentLevel > 0);
+        
+        if (ctx.opts.predicateListStyle === 'single-line') {
+            ctx.needsNewline = false;
+            ctx.needsSpace = true;
+        } else if (shouldMultiLine && ctx.opts.prettyPrint && ctx.indentLevel > 0) {
+            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent) + ctx.opts.indent, true);
+            ctx.lastWasNewline = true;
+            ctx.needsNewline = false;
+            ctx.needsSpace = false;
+        } else if (ctx.opts.prettyPrint && ctx.indentLevel > 0) {
+            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent) + ctx.opts.indent, true);
+            ctx.lastWasNewline = true;
+            ctx.needsNewline = false;
+            ctx.needsSpace = false;
+        } else {
+            ctx.needsNewline = false;
+            ctx.needsSpace = true;
+        }
+        
+        ctx.triplePosition = 1;
+    }
+
+    /**
+     * Handles comma ','.
+     */
+    private handleComma(ctx: FormatterContext, nextToken: IToken | undefined): void {
+        this.addPart(ctx, ',');
+        
+        if (ctx.opts.objectListStyle === 'multi-line') {
+            ctx.needsNewline = ctx.opts.prettyPrint && ctx.indentLevel > 0;
+            ctx.needsSpace = !ctx.needsNewline;
+        } else if (ctx.opts.objectListStyle === 'auto' && ctx.opts.maxLineWidth > 0) {
+            const nextObjLen = nextToken ? nextToken.image.length + 1 : 0;
+            if (this.shouldWrap(ctx, nextObjLen)) {
+                ctx.needsNewline = ctx.opts.prettyPrint;
+                ctx.needsSpace = !ctx.needsNewline;
+            } else {
+                ctx.needsSpace = true;
+            }
+        } else {
+            ctx.needsSpace = true;
+        }
+    }
+
+    /**
+     * Handles opening parenthesis '(' or bracket '['.
+     */
+    private handleOpenParen(ctx: FormatterContext, token: IToken): void {
+        const isLParen = token.tokenType === RdfToken.LPARENT;
+        
+        if (isLParen) {
+            const lastWasFunction = ctx.lastNonWsToken && this.isFunctionKeyword(ctx.lastNonWsToken);
+            if (lastWasFunction) {
+                ctx.functionCallDepth++;
+            }
+        }
+        
+        const lastWasFunction = ctx.lastNonWsToken && this.isFunctionKeyword(ctx.lastNonWsToken);
+        
+        if (ctx.needsNewline && ctx.functionCallDepth === 0 && !lastWasFunction) {
+            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            ctx.lastWasNewline = true;
+            ctx.needsNewline = false;
+        } else if (ctx.needsSpace && ctx.parts.length > 0) {
+            if (!isLParen || !lastWasFunction) {
+                this.addPart(ctx, ' ');
+            }
+        }
+        ctx.needsNewline = false;
+        
+        this.addPart(ctx, token.image);
+        ctx.needsSpace = false;
+    }
+
+    /**
+     * Handles closing parenthesis ')' or bracket ']'.
+     */
+    private handleCloseParen(ctx: FormatterContext, token: IToken): void {
+        if (token.tokenType === RdfToken.RPARENT && ctx.functionCallDepth > 0) {
+            ctx.functionCallDepth--;
+        }
+        this.addPart(ctx, token.image);
+        ctx.needsSpace = true;
+        ctx.needsNewline = false;
+    }
+
+    /**
+     * Handles IRI in PREFIX/BASE declaration.
+     */
+    private handlePrefixIri(ctx: FormatterContext, value: string): void {
+        if (ctx.needsNewline) {
+            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            ctx.lastWasNewline = true;
+            ctx.needsNewline = false;
+        } else if (ctx.needsSpace && ctx.parts.length > 0) {
+            if (ctx.lastNonWsToken && !this.isOpeningBracket(ctx.lastNonWsToken)) {
+                this.addPart(ctx, ' ');
+            }
+        }
+        this.addPart(ctx, value);
+        ctx.needsSpace = false;
+        ctx.needsNewline = ctx.opts.prettyPrint;
+        ctx.inPrefix = false;
+        ctx.justEndedPrefix = true;
+    }
+
+    // ========================================================================
+    // State Tracking
+    // ========================================================================
+
+    /**
+     * Updates clause tracking state.
+     */
+    private updateClauseState(ctx: FormatterContext, token: IToken): void {
+        if (token.tokenType === RdfToken.PREFIX || token.tokenType === RdfToken.BASE) {
+            ctx.inPrefix = true;
+        }
+        if (token.tokenType === RdfToken.WHERE) {
+            ctx.inWhereBlock = true;
+        }
+        if (token.tokenType === RdfToken.ASK) {
+            ctx.isAskQuery = true;
+        }
+        if (token.tokenType === RdfToken.FROM) {
+            ctx.hasFromClause = true;
+        }
+    }
+
+    /**
+     * Handles clause separation (blank lines before major clauses).
+     */
+    private handleClauseSeparation(ctx: FormatterContext, token: IToken): void {
+        if (ctx.opts.separateClauses && 
+            this.isMajorClauseKeyword(token) && 
+            ctx.parts.length > 0 &&
+            !ctx.inPrefix &&
+            !ctx.justEndedPrefix) {
+            this.addPart(ctx, ctx.opts.lineEnd, true);
+            ctx.needsNewline = true;
+        }
+
+        // Keywords that just need a newline: FROM, NAMED, WHERE
+        if (ctx.opts.separateClauses &&
+            this.isNewlineKeyword(token) &&
+            ctx.parts.length > 0 &&
+            !ctx.inPrefix) {
+            if (token.tokenType === RdfToken.WHERE && ctx.isAskQuery && !ctx.hasFromClause) {
+                ctx.needsNewline = false;
+                ctx.needsSpace = true;
+            } else {
+                ctx.needsNewline = true;
+            }
+        }
+
+        if (token.tokenType !== RdfToken.PREFIX && token.tokenType !== RdfToken.BASE) {
+            ctx.justEndedPrefix = false;
+        }
+    }
+
+    /**
+     * Handles triple position tracking for alignment.
+     */
+    private handleTriplePosition(ctx: FormatterContext, token: IToken): void {
+        if (!ctx.inWhereBlock || ctx.indentLevel <= 0 || ctx.functionCallDepth > 0) {
+            return;
+        }
+        
+        if (this.isTermToken(token)) {
+            if (ctx.triplePosition === 0) {
+                if (ctx.opts.blankLinesBetweenSubjects && ctx.lastSubject !== null && token.image !== ctx.lastSubject) {
+                    if (!ctx.needsNewline) {
+                        this.addPart(ctx, ctx.opts.lineEnd, true);
+                    }
+                    this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+                    ctx.lastWasNewline = true;
+                    ctx.needsNewline = false;
+                    ctx.needsSpace = false;
+                }
+                ctx.lastSubject = token.image;
+            }
+            ctx.triplePosition++;
+            if (ctx.triplePosition > 2) ctx.triplePosition = 2;
+        }
+    }
+
+    /**
+     * Handles line width wrapping.
+     */
+    private handleLineWrapping(ctx: FormatterContext, value: string): void {
+        if (ctx.opts.maxLineWidth > 0 && !ctx.needsNewline && ctx.needsSpace) {
+            const spaceNeeded = ctx.parts.length > 0 && ctx.lastNonWsToken && 
+                !this.isOpeningBracket(ctx.lastNonWsToken) ? 1 : 0;
+            if (this.shouldWrap(ctx, spaceNeeded + value.length)) {
+                this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+                ctx.lastWasNewline = true;
+                ctx.needsNewline = false;
+                ctx.needsSpace = false;
+            }
+        }
+    }
+
+    /**
+     * Handles token spacing (newlines and spaces).
+     */
+    private handleTokenSpacing(ctx: FormatterContext, token: IToken): void {
+        const isDatatypeContext = token.tokenType === RdfToken.DCARET || 
+            ctx.lastNonWsToken?.tokenType === RdfToken.DCARET;
+        const inFunctionCall = ctx.functionCallDepth > 0;
+        const shouldAvoidNewline = isDatatypeContext || inFunctionCall;
+        
+        if (ctx.needsNewline && !shouldAvoidNewline) {
+            if (ctx.needsBlankLine && !ctx.lastWasNewline) {
+                this.addPart(ctx, ctx.opts.lineEnd, true);
+                ctx.needsBlankLine = false;
+            }
+            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            ctx.lastWasNewline = true;
+            ctx.needsNewline = false;
+        } else if (ctx.needsSpace && ctx.parts.length > 0) {
+            if (ctx.lastNonWsToken && !this.isOpeningBracket(ctx.lastNonWsToken)) {
+                const isOpenParen = token.tokenType === RdfToken.LPARENT;
+                const lastWasFunction = ctx.lastNonWsToken && this.isFunctionKeyword(ctx.lastNonWsToken);
+                if (!(isOpenParen && lastWasFunction) && !isDatatypeContext) {
+                    this.addPart(ctx, ' ');
+                }
+            }
+            ctx.lastWasNewline = false;
+        } else {
+            ctx.lastWasNewline = false;
+        }
+        
+        if (shouldAvoidNewline) {
+            ctx.needsNewline = false;
+            ctx.needsBlankLine = false;
+        }
+    }
+
+    /**
+     * Detects blank lines from token positions.
+     */
+    private detectBlankLines(ctx: FormatterContext, token: IToken): void {
+        if (ctx.lastNonWsToken && token.startLine !== undefined && ctx.lastNonWsToken.endLine !== undefined) {
+            const lineGap = token.startLine - ctx.lastNonWsToken.endLine;
+            if (lineGap > 1) {
+                ctx.needsBlankLine = true;
+                ctx.needsNewline = true;
+            }
+        }
+    }
+
+    // ========================================================================
+    // Main Formatting Method
+    // ========================================================================
+
     /**
      * Formats tokens into a string.
      */
     private formatTokens(tokens: IToken[], opts: Required<SparqlFormatterOptions>, comments: IToken[] = []): SerializationResult {
-        const parts: string[] = [];
-        
-        // Sort comments by position for interleaving
+        const ctx = this.createContext(opts);
         const sortedComments = [...comments].sort((a, b) => (a.startOffset ?? 0) - (b.startOffset ?? 0));
         let commentIndex = 0;
-        let indentLevel = 0;
-        let needsNewline = false;
-        let needsBlankLine = false;
-        let needsSpace = false;
-        let lastToken: IToken | null = null;
-        let lastNonWsToken: IToken | null = null;
-        let inPrefix = false;
-        let justEndedPrefix = false;
-        let inWhereBlock = false;
-        let currentLineLength = 0;
-        let lastSubject: string | null = null;
-        let triplePosition = 0; // 0=subject, 1=predicate, 2=object
-        let functionCallDepth = 0; // Track nested function calls for single-line formatting
-        let hasFromClause = false; // Track if query has FROM clause (for ASK WHERE formatting)
-        let isAskQuery = false; // Track if this is an ASK query
-        let lastWasNewline = false; // Track if we just added a newline
-
-        const indent = opts.indent;
-        const lineEnd = opts.lineEnd;
-
-        // Helper to add content and track line length
-        const addPart = (text: string, forceNewline = false) => {
-            if (forceNewline || text === lineEnd || text.includes(lineEnd)) {
-                parts.push(text);
-                const lines = text.split(lineEnd);
-                currentLineLength = lines[lines.length - 1].length;
-            } else {
-                parts.push(text);
-                currentLineLength += text.length;
-            }
-        };
-
-        // Check if we should wrap based on maxLineWidth
-        const shouldWrap = (nextLength: number) => {
-            return opts.maxLineWidth > 0 && 
-                   currentLineLength + nextLength > opts.maxLineWidth;
-        };
 
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
             const nextToken = tokens[i + 1];
-            const tokenName = this.getTokenTypeName(token);
 
-            // Insert any comments that should appear before this token
+            // Insert comments that appear before this token
             while (commentIndex < sortedComments.length) {
                 const comment = sortedComments[commentIndex];
-                const commentOffset = comment.startOffset ?? 0;
-                const tokenOffset = token.startOffset ?? 0;
-                
-                if (commentOffset < tokenOffset) {
-                    // This comment comes before the current token
-                    if (parts.length > 0) {
-                        // Check if comment is on a new line
-                        if (lastNonWsToken && comment.startLine !== undefined && 
-                            lastNonWsToken.endLine !== undefined &&
-                            comment.startLine > lastNonWsToken.endLine) {
-                            addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                            lastWasNewline = true;
-                        } else {
-                            addPart(' ');
-                        }
-                    }
-                    addPart(comment.image);
-                    needsNewline = true;
-                    needsSpace = false;
+                if ((comment.startOffset ?? 0) < (token.startOffset ?? 0)) {
+                    this.handleGroupComment(ctx, comment);
                     commentIndex++;
                 } else {
                     break;
                 }
             }
 
-            // Skip whitespace tokens (though the lexer typically doesn't emit them)
-            if (tokenName === 'WS') {
-                lastToken = token;
+            // Skip whitespace tokens
+            if (token.tokenType === RdfToken.WS) {
+                ctx.lastToken = token;
                 continue;
             }
 
-            // Detect blank lines from token position information
-            // If there's a gap of more than one line between tokens, there was a blank line
-            if (lastNonWsToken && token.startLine !== undefined && lastNonWsToken.endLine !== undefined) {
-                const lineGap = token.startLine - lastNonWsToken.endLine;
-                if (lineGap > 1) {
-                    needsBlankLine = true;
-                    needsNewline = true;
-                }
-            }
+            // Detect blank lines
+            this.detectBlankLines(ctx, token);
 
-            // Handle comments
-            if (tokenName === 'COMMENT') {
-                if (needsNewline) {
-                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                    lastWasNewline = true;
-                    needsNewline = false;
-                } else if (needsSpace && parts.length > 0) {
-                    addPart(' ');
-                }
-                addPart(token.image);
-                needsNewline = true;
-                needsSpace = false;
-                lastToken = token;
-                lastNonWsToken = token;
+            // Handle comment tokens in stream
+            if (token.tokenType === RdfToken.COMMENT) {
+                this.handleInlineComment(ctx, token);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
                 continue;
             }
 
-            // Format the token value
-            let value = this.formatTokenValue(token, opts);
+            const value = this.formatTokenValue(token, opts);
 
-            // Track PREFIX declarations
-            if (tokenName === 'PREFIX' || tokenName === 'BASE') {
-                inPrefix = true;
-            }
+            // Update clause state
+            this.updateClauseState(ctx, token);
 
-            // Track WHERE blocks for pattern formatting
-            if (tokenName === 'WHERE') {
-                inWhereBlock = true;
-            }
+            // Handle clause separation
+            this.handleClauseSeparation(ctx, token);
 
-            // Track ASK queries
-            if (tokenName === 'ASK') {
-                isAskQuery = true;
-            }
-
-            // Track FROM clause
-            if (tokenName === 'FROM') {
-                hasFromClause = true;
-            }
-
-            // Add blank line before major clauses (but not for first clause or after PREFIX)
-            if (opts.separateClauses && 
-                this.isMajorClauseKeyword(token) && 
-                parts.length > 0 &&
-                !inPrefix &&
-                !justEndedPrefix) {
-                addPart(lineEnd, true);
-                needsNewline = true;
-            }
-
-            // Keywords that just need a newline (not blank line): FROM, NAMED, WHERE
-            // Exception: ASK WHERE should stay on same line when no FROM clause
-            if (opts.separateClauses &&
-                this.isNewlineKeyword(token) &&
-                parts.length > 0 &&
-                !inPrefix) {
-                // For WHERE after ASK with no FROM, keep on same line
-                if (tokenName === 'WHERE' && isAskQuery && !hasFromClause) {
-                    needsNewline = false;
-                    needsSpace = true;
-                } else {
-                    needsNewline = true;
-                }
-            }
-
-            // Reset justEndedPrefix after processing a non-PREFIX keyword
-            if (tokenName !== 'PREFIX' && tokenName !== 'BASE') {
-                justEndedPrefix = false;
-            }
-
-            // Handle opening braces
-            if (tokenName === 'LCURLY') {
-                if (needsNewline) {
-                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                    lastWasNewline = true;
-                    needsNewline = false;
-                } else if (needsSpace && parts.length > 0 && opts.sameBraceLine) {
-                    addPart(' ');
-                } else if (!opts.sameBraceLine) {
-                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                    lastWasNewline = true;
-                }
-                addPart('{');
-                indentLevel++;
-                needsNewline = opts.prettyPrint;
-                needsSpace = false;
-                lastToken = token;
-                lastNonWsToken = token;
-                inPrefix = false;
-                triplePosition = 0;
-                lastSubject = null;
+            // Handle structural tokens
+            if (token.tokenType === RdfToken.LCURLY) {
+                this.handleOpenBrace(ctx);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
                 continue;
             }
 
-            // Handle closing braces
-            if (tokenName === 'RCURLY') {
-                indentLevel = Math.max(0, indentLevel - 1);
-                if (opts.prettyPrint) {
-                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                    lastWasNewline = true;
-                }
-                addPart('}');
-                needsNewline = opts.prettyPrint;
-                needsSpace = false;
-                lastToken = token;
-                lastNonWsToken = token;
-                inWhereBlock = false;
+            if (token.tokenType === RdfToken.RCURLY) {
+                this.handleCloseBrace(ctx);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
                 continue;
             }
 
-            // Handle period (end of triple/prefix)
-            if (tokenName === 'PERIOD') {
-                // Add space before period if option is enabled
-                if (opts.spaceBeforePunctuation && !inPrefix && parts.length > 0) {
-                    addPart(' ');
-                }
-                addPart('.');
-                if (inPrefix) {
-                    // Always add newline after prefix declarations
-                    needsNewline = opts.prettyPrint;
-                    // Check if next is another PREFIX/BASE - don't add blank line between them
-                    const nextTokenName = nextToken ? this.getTokenTypeName(nextToken) : '';
-                    const nextIsPrefix = nextTokenName === 'PREFIX' || nextTokenName === 'BASE';
-                    if (!nextIsPrefix && nextToken) {
-                        // Add extra newline to separate prefixes from rest of query
-                        needsNewline = opts.prettyPrint;
-                    }
-                } else if (indentLevel > 0) {
-                    needsNewline = opts.prettyPrint;
-                }
-                needsSpace = true;
-                lastToken = token;
-                lastNonWsToken = token;
-                inPrefix = false;
-                triplePosition = 0;
+            if (token.tokenType === RdfToken.PERIOD) {
+                this.handlePeriod(ctx, nextToken);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
                 continue;
             }
 
-            // Handle semicolon (predicate-object list)
-            if (tokenName === 'SEMICOLON') {
-                // Add space before semicolon if option is enabled
-                if (opts.spaceBeforePunctuation && parts.length > 0) {
-                    addPart(' ');
-                }
-                addPart(';');
-                
-                // Apply predicateListStyle - with indentation for predicate continuation
-                if (opts.predicateListStyle === 'single-line') {
-                    needsNewline = false;
-                    needsSpace = true;
-                } else if (opts.predicateListStyle === 'multi-line' || 
-                          (opts.predicateListStyle === 'first-same-line' && indentLevel > 0)) {
-                    if (opts.prettyPrint && indentLevel > 0) {
-                        // Add newline with extra indentation for predicate continuation
-                        addPart(lineEnd + this.getIndent(indentLevel, indent) + indent, true);
-                        lastWasNewline = true;
-                        needsNewline = false;
-                        needsSpace = false;
-                    } else {
-                        needsNewline = false;
-                        needsSpace = true;
-                    }
-                } else {
-                    if (opts.prettyPrint && indentLevel > 0) {
-                        // Add newline with extra indentation for predicate continuation
-                        addPart(lineEnd + this.getIndent(indentLevel, indent) + indent, true);
-                        lastWasNewline = true;
-                        needsNewline = false;
-                        needsSpace = false;
-                    } else {
-                        needsNewline = false;
-                        needsSpace = true;
-                    }
-                }
-                
-                triplePosition = 1; // Next token should be predicate
-                lastToken = token;
-                lastNonWsToken = token;
+            if (token.tokenType === RdfToken.SEMICOLON) {
+                this.handleSemicolon(ctx);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
                 continue;
             }
 
-            // Handle comma (object list)
-            if (tokenName === 'COMMA') {
-                addPart(',');
-                
-                // Apply objectListStyle
-                if (opts.objectListStyle === 'multi-line') {
-                    needsNewline = opts.prettyPrint && indentLevel > 0;
-                    needsSpace = !needsNewline;
-                } else if (opts.objectListStyle === 'auto' && opts.maxLineWidth > 0) {
-                    // Check if next object would exceed line width
-                    const nextObjLen = nextToken ? nextToken.image.length + 1 : 0;
-                    if (shouldWrap(nextObjLen)) {
-                        needsNewline = opts.prettyPrint;
-                        needsSpace = !needsNewline;
-                    } else {
-                        needsSpace = true;
-                    }
-                } else {
-                    needsSpace = true;
-                }
-                
-                lastToken = token;
-                lastNonWsToken = token;
+            if (token.tokenType === RdfToken.COMMA) {
+                this.handleComma(ctx, nextToken);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
                 continue;
             }
 
-            // Handle opening parentheses and brackets
-            if (tokenName === 'LPARENT' || tokenName === 'LBRACKET') {
-                if (tokenName === 'LPARENT') {
-                    // Track function calls for single-line formatting
-                    const lastWasFunction = lastNonWsToken && this.isFunctionKeyword(lastNonWsToken);
-                    if (lastWasFunction) {
-                        functionCallDepth++;
-                    }
-                }
-                
-                // Check if this paren is part of a function call
-                const lastWasFunction = lastNonWsToken && this.isFunctionKeyword(lastNonWsToken);
-                
-                // Don't add newline when opening paren is part of a function call
-                // or when already inside a function call expression
-                if (needsNewline && functionCallDepth === 0 && !lastWasFunction) {
-                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                    lastWasNewline = true;
-                    needsNewline = false;
-                } else if (needsSpace && parts.length > 0) {
-                    // Don't add space before ( if last token was a function keyword
-                    if (tokenName !== 'LPARENT' || !lastWasFunction) {
-                        addPart(' ');
-                    }
-                }
-                needsNewline = false;
-                
-                addPart(token.image);
-                needsSpace = false;
-                lastToken = token;
-                lastNonWsToken = token;
+            if (token.tokenType === RdfToken.LPARENT || token.tokenType === RdfToken.LBRACKET) {
+                this.handleOpenParen(ctx, token);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
                 continue;
             }
 
-            // Handle closing parentheses and brackets
-            if (tokenName === 'RPARENT' || tokenName === 'RBRACKET') {
-                if (tokenName === 'RPARENT') {
-                    // Decrement function call depth when closing paren
-                    if (functionCallDepth > 0) {
-                        functionCallDepth--;
-                    }
-                }
-                addPart(token.image);
-                needsSpace = true;
-                needsNewline = false;
-                lastToken = token;
-                lastNonWsToken = token;
+            if (token.tokenType === RdfToken.RPARENT || token.tokenType === RdfToken.RBRACKET) {
+                this.handleCloseParen(ctx, token);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
                 continue;
             }
 
-            // Track triple position for alignment within WHERE blocks
-            // BUT skip this when inside a function call (FILTER, BIND, etc.)
-            if (inWhereBlock && indentLevel > 0 && functionCallDepth === 0) {
-                if (this.isTermToken(token)) {
-                    // Check for subject change (blank line between subjects)
-                    if (triplePosition === 0) {
-                        if (opts.blankLinesBetweenSubjects && lastSubject !== null && token.image !== lastSubject) {
-                            // Add blank line between different subjects
-                            if (!needsNewline) {
-                                addPart(lineEnd, true);
-                            }
-                            addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                            lastWasNewline = true;
-                            needsNewline = false;
-                            needsSpace = false;
-                        }
-                        lastSubject = token.image;
-                    }
-                    
-                    triplePosition++;
-                    if (triplePosition > 2) triplePosition = 2; // Stay at object position
-                }
-            }
-
-            // Handle end of PREFIX/BASE declarations
-            // PREFIX prefix: <iri> - after the IRI, the declaration is complete
-            if (inPrefix && (tokenName === 'IRIREF' || tokenName === 'IRIREF_ABS')) {
-                // Add the IRI first
-                if (needsNewline) {
-                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                    lastWasNewline = true;
-                    needsNewline = false;
-                } else if (needsSpace && parts.length > 0) {
-                    if (lastNonWsToken && !['LPARENT', 'LBRACKET'].includes(this.getTokenTypeName(lastNonWsToken))) {
-                        addPart(' ');
-                    }
-                }
-                addPart(value);
-                needsSpace = false;
-                needsNewline = opts.prettyPrint;
-                inPrefix = false;
-                justEndedPrefix = true; // Mark that we just finished a PREFIX block
-                lastToken = token;
-                lastNonWsToken = token;
+            // Handle PREFIX/BASE IRI completion
+            if (ctx.inPrefix && (token.tokenType === RdfToken.IRIREF || token.tokenType === RdfToken.IRIREF_ABS)) {
+                this.handlePrefixIri(ctx, value);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
                 continue;
             }
 
-            // Check for line width wrapping
-            if (opts.maxLineWidth > 0 && !needsNewline && needsSpace) {
-                const spaceNeeded = parts.length > 0 && lastNonWsToken && 
-                    !['LPARENT', 'LBRACKET'].includes(this.getTokenTypeName(lastNonWsToken)) ? 1 : 0;
-                if (shouldWrap(spaceNeeded + value.length)) {
-                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                    lastWasNewline = true;
-                    needsNewline = false;
-                    needsSpace = false;
-                }
-            }
+            // Handle triple position tracking
+            this.handleTriplePosition(ctx, token);
 
-            // Add newline or space as needed
-            // Never add newline before ^^ or right after ^^ (datatype marker must stay with literal)
-            // Never add newline when inside a function call (FILTER, BIND, etc.)
-            const isDatatypeContext = tokenName === 'DCARET' || 
-                (lastNonWsToken && this.getTokenTypeName(lastNonWsToken) === 'DCARET');
-            const inFunctionCall = functionCallDepth > 0;
-            const shouldAvoidNewline = isDatatypeContext || inFunctionCall;
-            
-            if (needsNewline && !shouldAvoidNewline) {
-                // Add blank line if there was one in source (but limit to one blank line)
-                if (needsBlankLine) {
-                    // Only add blank line if we haven't just added a newline
-                    if (!lastWasNewline) {
-                        addPart(lineEnd, true);
-                    }
-                    needsBlankLine = false;
-                }
-                addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                lastWasNewline = true;
-                needsNewline = false;
-            } else if (needsSpace && parts.length > 0) {
-                // Don't add space after opening parens/brackets
-                if (lastNonWsToken && !['LPARENT', 'LBRACKET'].includes(this.getTokenTypeName(lastNonWsToken))) {
-                    // Don't add space before ( if last token was a function keyword
-                    const isOpenParen = tokenName === 'LPARENT';
-                    const lastWasFunction = lastNonWsToken && this.isFunctionKeyword(lastNonWsToken);
-                    // Don't add space before or after ^^ (datatype marker)
-                    if (!(isOpenParen && lastWasFunction) && !isDatatypeContext) {
-                        addPart(' ');
-                    }
-                }
-                lastWasNewline = false;
-            } else {
-                lastWasNewline = false;
-            }
-            
-            // Reset newline flag if we skipped it due to datatype context or function call
-            if (shouldAvoidNewline) {
-                needsNewline = false;
-                needsBlankLine = false;
-            }
+            // Handle line wrapping
+            this.handleLineWrapping(ctx, value);
 
-            addPart(value);
-            needsSpace = true;
-            lastToken = token;
-            lastNonWsToken = token;
+            // Handle spacing
+            this.handleTokenSpacing(ctx, token);
+
+            // Output the token
+            this.addPart(ctx, value);
+            ctx.needsSpace = true;
+            ctx.lastToken = token;
+            ctx.lastNonWsToken = token;
         }
 
-        // Add any trailing comments
+        // Add trailing comments
         while (commentIndex < sortedComments.length) {
-            const comment = sortedComments[commentIndex];
-            if (parts.length > 0) {
-                // Check if comment is on a new line
-                if (lastNonWsToken && comment.startLine !== undefined && 
-                    lastNonWsToken.endLine !== undefined &&
-                    comment.startLine > lastNonWsToken.endLine) {
-                    addPart(lineEnd + this.getIndent(indentLevel, indent), true);
-                } else {
-                    addPart(' ');
-                }
-            }
-            addPart(comment.image);
+            this.handleGroupComment(ctx, sortedComments[commentIndex]);
             commentIndex++;
         }
 
-        return {
-            output: parts.join('').trim()
-        };
+        return { output: ctx.parts.join('').trim() };
     }
 
     /**

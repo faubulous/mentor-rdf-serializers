@@ -2,6 +2,7 @@
 export type {
     ISerializer,
     ITokenSerializer,
+    IRdfFormatter,
     ISparqlFormatter,
     Rdf12Quad,
     Rdf12Term,
@@ -94,6 +95,30 @@ export {
     SparqlFormatter,
     type SparqlFormatterOptions
 } from './sparql/formatter.js';
+
+// Turtle formatter
+export {
+    TurtleFormatter,
+    type TurtleFormatterOptions
+} from './turtle/formatter.js';
+
+// N-Triples formatter
+export { NTriplesFormatter } from './ntriples/formatter.js';
+
+// N-Quads formatter
+export { NQuadsFormatter } from './nquads/formatter.js';
+
+// TriG formatter
+export {
+    TrigFormatter,
+    type TrigFormatterOptions
+} from './trig/formatter.js';
+
+// N3 formatter
+export {
+    N3Formatter,
+    type N3FormatterOptions
+} from './n3/formatter.js';
 
 // Token-based serialization
 export {

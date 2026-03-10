@@ -1,3 +1,6 @@
+import type { IToken, TokenType } from 'chevrotain';
+import type { TokenMetadata } from '@faubulous/mentor-rdf-parsers';
+import { RdfToken } from '@faubulous/mentor-rdf-parsers';
 import type {
     SerializationResult,
     SourceMapEntry,
@@ -16,9 +19,7 @@ export interface Token {
     startColumn?: number;
     endLine?: number;
     endColumn?: number;
-    tokenType: {
-        name: string;
-    };
+    tokenType: TokenType & Partial<TokenMetadata>;
     payload?: {
         blankNodeId?: string;
         [key: string]: unknown;
@@ -26,94 +27,128 @@ export interface Token {
 }
 
 /**
- * Token names that represent blank node tokens.
+ * Checks if a token is a whitespace token.
  */
-const BLANK_NODE_TOKEN_NAMES = new Set([
-    'LBRACKET',           // Anonymous blank nodes [ ... ]
-    'LPARENT',            // Collections (list heads)
-    'OPEN_ANNOTATION',    // Annotations {| ... |}
-    'TILDE',              // N3 quick variables ~
-    'OPEN_REIFIED_TRIPLE', // Anonymous reified triples <<
-    'LCURLY',             // N3 formulas { ... }
-]);
+function isWhitespaceToken(token: Token): boolean {
+    const name = token.tokenType.name;
+    return token.tokenType.isWhitespace === true ||
+           token.tokenType === RdfToken.WS ||
+           name === 'WS' || name === 'NL' || name === 'NEWLINE';
+}
 
 /**
- * Token names that represent whitespace/formatting.
+ * Checks if a token is a comment token.
  */
-const WHITESPACE_TOKEN_NAMES = new Set([
-    'WS',
-    'NL',
-    'NEWLINE'
-]);
+function isCommentToken(token: Token): boolean {
+    return token.tokenType.isComment === true ||
+           token.tokenType === RdfToken.COMMENT ||
+           token.tokenType.name === 'COMMENT';
+}
 
 /**
- * Token names that represent comments.
+ * Checks if a token is a blank node token.
  */
-const COMMENT_TOKEN_NAMES = new Set([
-    'COMMENT'
-]);
+function isBlankNodeType(token: Token): boolean {
+    const name = token.tokenType.name;
+    return token.tokenType.isBlankNodeScope === true ||
+           token.tokenType === RdfToken.BLANK_NODE_LABEL ||
+           token.tokenType === RdfToken.LBRACKET ||
+           token.tokenType === RdfToken.LPARENT ||
+           token.tokenType === RdfToken.OPEN_ANNOTATION ||
+           token.tokenType === RdfToken.TILDE ||
+           token.tokenType === RdfToken.OPEN_REIFIED_TRIPLE ||
+           token.tokenType === RdfToken.LCURLY ||
+           name === 'BLANK_NODE_LABEL' || name === 'LBRACKET' || name === 'LPARENT' ||
+           name === 'OPEN_ANNOTATION' || name === 'TILDE' || name === 'OPEN_REIFIED_TRIPLE' ||
+           name === 'LCURLY';
+}
 
 /**
- * Token names that represent keywords.
+ * Checks if a token is an opening bracket.
  */
-const KEYWORD_TOKEN_NAMES = new Set([
-    'A',
-    'BASE',
-    'PREFIX',
-    'SPARQL_BASE',
-    'SPARQL_PREFIX',
-    'VERSION',
-    'GRAPH',
-    'TRUE',
-    'FALSE'
-]);
+function isOpeningBracket(token: Token): boolean {
+    const name = token.tokenType.name;
+    return token.tokenType.isOpeningBracket === true ||
+           token.tokenType === RdfToken.LBRACKET ||
+           token.tokenType === RdfToken.LPARENT ||
+           token.tokenType === RdfToken.LCURLY ||
+           token.tokenType === RdfToken.OPEN_TRIPLE_TERM ||
+           token.tokenType === RdfToken.OPEN_REIFIED_TRIPLE ||
+           token.tokenType === RdfToken.OPEN_ANNOTATION ||
+           name === 'LBRACKET' || name === 'LPARENT' || name === 'LCURLY' ||
+           name === 'OPEN_TRIPLE_TERM' || name === 'OPEN_REIFIED_TRIPLE' || name === 'OPEN_ANNOTATION';
+}
 
 /**
- * Token names that represent IRIs.
+ * Checks if a token is a closing bracket.
  */
-const IRI_TOKEN_NAMES = new Set([
-    'IRIREF',
-    'IRIREF_REL',
-    'PNAME_LN',
-    'PNAME_NS'
-]);
+function isClosingBracket(token: Token): boolean {
+    const name = token.tokenType.name;
+    return token.tokenType.isClosingBracket === true ||
+           token.tokenType === RdfToken.RBRACKET ||
+           token.tokenType === RdfToken.RPARENT ||
+           token.tokenType === RdfToken.RCURLY ||
+           token.tokenType === RdfToken.CLOSE_TRIPLE_TERM ||
+           token.tokenType === RdfToken.CLOSE_REIFIED_TRIPLE ||
+           token.tokenType === RdfToken.CLOSE_ANNOTATION ||
+           name === 'RBRACKET' || name === 'RPARENT' || name === 'RCURLY' ||
+           name === 'CLOSE_TRIPLE_TERM' || name === 'CLOSE_REIFIED_TRIPLE' || name === 'CLOSE_ANNOTATION';
+}
 
 /**
- * Token names that represent literals.
+ * Checks if a token is punctuation.
  */
-const LITERAL_TOKEN_NAMES = new Set([
-    'STRING_LITERAL_QUOTE',
-    'STRING_LITERAL_SINGLE_QUOTE',
-    'STRING_LITERAL_LONG_SINGLE_QUOTE',
-    'STRING_LITERAL_LONG_QUOTE',
-    'INTEGER',
-    'DECIMAL',
-    'DOUBLE'
-]);
+function isPunctuationToken(token: Token): boolean {
+    const name = token.tokenType.name;
+    return token.tokenType.isPunctuation === true ||
+           token.tokenType === RdfToken.PERIOD ||
+           token.tokenType === RdfToken.SEMICOLON ||
+           token.tokenType === RdfToken.COMMA ||
+           name === 'PERIOD' || name === 'SEMICOLON' || name === 'COMMA';
+}
 
 /**
- * Token names that represent punctuation.
+ * Checks if a token is an IRI token.
  */
-const PUNCTUATION_TOKEN_NAMES = new Set([
-    'PERIOD',
-    'SEMICOLON',
-    'COMMA',
-    'LBRACKET',
-    'RBRACKET',
-    'LPARENT',
-    'RPARENT',
-    'LCURLY',
-    'RCURLY',
-    'DCARET',
-    'LANGTAG',
-    'OPEN_ANNOTATION',
-    'CLOSE_ANNOTATION',
-    'OPEN_REIFIED_TRIPLE',
-    'CLOSE_REIFIED_TRIPLE',
-    'OPEN_TRIPLE_TERM',
-    'CLOSE_TRIPLE_TERM',
-    'TILDE'
-]);
+function isIriToken(token: Token): boolean {
+    const name = token.tokenType.name;
+    return token.tokenType.isIri === true ||
+           token.tokenType === RdfToken.IRIREF ||
+           token.tokenType === RdfToken.IRIREF_ABS ||
+           token.tokenType === RdfToken.PNAME_LN ||
+           token.tokenType === RdfToken.PNAME_NS ||
+           name === 'IRIREF' || name === 'IRIREF_ABS' || name === 'IRIREF_REL' ||
+           name === 'PNAME_LN' || name === 'PNAME_NS';
+}
+
+/**
+ * Checks if a token is a literal token.
+ */
+function isLiteralToken(token: Token): boolean {
+    const name = token.tokenType.name;
+    return token.tokenType.isLiteral === true ||
+           token.tokenType === RdfToken.STRING_LITERAL_QUOTE ||
+           token.tokenType === RdfToken.STRING_LITERAL_SINGLE_QUOTE ||
+           token.tokenType === RdfToken.STRING_LITERAL_LONG_QUOTE ||
+           token.tokenType === RdfToken.STRING_LITERAL_LONG_SINGLE_QUOTE ||
+           token.tokenType === RdfToken.INTEGER ||
+           token.tokenType === RdfToken.DECIMAL ||
+           token.tokenType === RdfToken.DOUBLE ||
+           name === 'STRING_LITERAL_QUOTE' || name === 'STRING_LITERAL_SINGLE_QUOTE' ||
+           name === 'STRING_LITERAL_LONG_QUOTE' || name === 'STRING_LITERAL_LONG_SINGLE_QUOTE' ||
+           name === 'INTEGER' || name === 'DECIMAL' || name === 'DOUBLE';
+}
+
+/**
+ * Checks if a token needs no space before it.
+ */
+function noSpaceBefore(token: Token): boolean {
+    const name = token.tokenType.name;
+    return token.tokenType.noSpaceBefore === true ||
+           token.tokenType === RdfToken.DCARET ||
+           token.tokenType === RdfToken.LANGTAG ||
+           name === 'DCARET' || name === 'LANGTAG';
+}
 
 /**
  * Serializes RDF content directly from parser tokens, preserving source information.
@@ -144,12 +179,12 @@ export class TokenSerializer {
 
         for (const token of tokens) {
             // Skip whitespace tokens (we regenerate formatting)
-            if (WHITESPACE_TOKEN_NAMES.has(token.tokenType.name)) {
+            if (isWhitespaceToken(token)) {
                 continue;
             }
 
             // Handle comments
-            if (COMMENT_TOKEN_NAMES.has(token.tokenType.name)) {
+            if (isCommentToken(token)) {
                 if (opts.preserveComments) {
                     // Store comment to emit with appropriate spacing
                     pendingComment = token;
@@ -256,113 +291,102 @@ export class TokenSerializer {
      * Serializes a single token to a string.
      */
     private serializeToken(token: Token, opts: Required<TokenSerializerOptions>): string {
-        const { name } = token.tokenType;
+        const tokenType = token.tokenType;
 
         // Handle blank node tokens with preserved IDs
-        if (BLANK_NODE_TOKEN_NAMES.has(name) && opts.preserveBlankNodeIds) {
+        if (isBlankNodeType(token) && opts.preserveBlankNodeIds) {
             const blankNodeId = token.payload?.blankNodeId;
-            if (blankNodeId && name === 'LBRACKET') {
+            if (blankNodeId && tokenType === RdfToken.LBRACKET) {
                 // Keep the bracket but associate with the blank node ID
                 // The ID will be used when generating _:id references
             }
         }
 
-        // Handle different token types
-        switch (name) {
-            // IRIs
-            case 'IRIREF':
-            case 'IRIREF_REL':
-                return token.image; // Already includes < >
-
-            // Prefixed names
-            case 'PNAME_LN':
-            case 'PNAME_NS':
-                return token.image;
-
-            // Blank node labels
-            case 'BLANK_NODE_LABEL':
-                return token.image;
-
-            // Literals
-            case 'STRING_LITERAL_QUOTE':
-            case 'STRING_LITERAL_SINGLE_QUOTE':
-            case 'STRING_LITERAL_LONG_QUOTE':
-            case 'STRING_LITERAL_LONG_SINGLE_QUOTE':
-                return token.image;
-
-            // Numbers
-            case 'INTEGER':
-            case 'DECIMAL':
-            case 'DOUBLE':
-                return token.image;
-
-            // Keywords - optionally uppercase/lowercase
-            case 'A':
-            case 'TRUE':
-            case 'FALSE':
-                return token.image.toLowerCase();
-
-            case 'BASE':
-            case 'PREFIX':
-                return token.image; // @base, @prefix
-
-            case 'SPARQL_BASE':
-            case 'SPARQL_PREFIX':
-            case 'GRAPH':
-            case 'VERSION':
-                return token.image.toUpperCase();
-
-            // Variables (SPARQL)
-            case 'VAR1':
-            case 'VAR2':
-                return token.image;
-
-            // Language tag
-            case 'LANGTAG':
-                return token.image;
-
-            // RDF 1.2 specific tokens
-            case 'OPEN_TRIPLE_TERM':
-                return '<<(';
-            case 'CLOSE_TRIPLE_TERM':
-                return ')>>';
-            case 'OPEN_REIFIED_TRIPLE':
-                return '<<';
-            case 'CLOSE_REIFIED_TRIPLE':
-                return '>>';
-            case 'OPEN_ANNOTATION':
-                return '{|';
-            case 'CLOSE_ANNOTATION':
-                return '|}';
-            case 'TILDE':
-                return '~';
-
-            // Punctuation
-            case 'PERIOD':
-                return '.';
-            case 'SEMICOLON':
-                return ';';
-            case 'COMMA':
-                return ',';
-            case 'LBRACKET':
-                return '[';
-            case 'RBRACKET':
-                return ']';
-            case 'LPARENT':
-                return '(';
-            case 'RPARENT':
-                return ')';
-            case 'LCURLY':
-                return '{';
-            case 'RCURLY':
-                return '}';
-            case 'DCARET':
-                return '^^';
-
-            // Default: use the image as-is
-            default:
-                return token.image;
+        // Handle different token types using direct type comparison
+        // IRIs
+        if (tokenType === RdfToken.IRIREF || tokenType === RdfToken.IRIREF_ABS) {
+            return token.image; // Already includes < >
         }
+
+        // Prefixed names
+        if (tokenType === RdfToken.PNAME_LN || tokenType === RdfToken.PNAME_NS) {
+            return token.image;
+        }
+
+        // Blank node labels
+        if (tokenType === RdfToken.BLANK_NODE_LABEL) {
+            return token.image;
+        }
+
+        // Literals
+        if (tokenType === RdfToken.STRING_LITERAL_QUOTE ||
+            tokenType === RdfToken.STRING_LITERAL_SINGLE_QUOTE ||
+            tokenType === RdfToken.STRING_LITERAL_LONG_QUOTE ||
+            tokenType === RdfToken.STRING_LITERAL_LONG_SINGLE_QUOTE) {
+            return token.image;
+        }
+
+        // Numbers
+        if (tokenType === RdfToken.INTEGER ||
+            tokenType === RdfToken.DECIMAL ||
+            tokenType === RdfToken.DOUBLE) {
+            return token.image;
+        }
+
+        // Keywords that stay lowercase
+        if (tokenType === RdfToken.A ||
+            tokenType === RdfToken.TRUE ||
+            tokenType === RdfToken.FALSE) {
+            return token.image.toLowerCase();
+        }
+
+        // Turtle-style keywords (@base, @prefix)
+        if (tokenType === RdfToken.TTL_BASE || tokenType === RdfToken.TTL_PREFIX) {
+            return token.image;
+        }
+
+        // SPARQL-style keywords (also BASE/PREFIX without @)
+        if (tokenType === RdfToken.BASE ||
+            tokenType === RdfToken.PREFIX ||
+            tokenType === RdfToken.GRAPH ||
+            tokenType === RdfToken.VERSION ||
+            tokenType === RdfToken.SPARQL_VERSION) {
+            return token.image.toUpperCase();
+        }
+
+        // Variables (SPARQL)
+        if (tokenType === RdfToken.VAR1 || tokenType === RdfToken.VAR2) {
+            return token.image;
+        }
+
+        // Language tag
+        if (tokenType === RdfToken.LANGTAG) {
+            return token.image;
+        }
+
+        // RDF 1.2 specific tokens
+        if (tokenType === RdfToken.OPEN_TRIPLE_TERM) return '<<(';
+        if (tokenType === RdfToken.CLOSE_TRIPLE_TERM) return ')>>';
+        if (tokenType === RdfToken.OPEN_REIFIED_TRIPLE) return '<<';
+        if (tokenType === RdfToken.CLOSE_REIFIED_TRIPLE) return '>>';
+        if (tokenType === RdfToken.OPEN_ANNOTATION) return '{|';
+        if (tokenType === RdfToken.CLOSE_ANNOTATION) return '|}';
+        if (tokenType === RdfToken.TILDE) return '~';
+
+        // Punctuation
+        if (tokenType === RdfToken.PERIOD) return '.';
+        if (tokenType === RdfToken.SEMICOLON) return ';';
+        if (tokenType === RdfToken.COMMA) return ',';
+        if (tokenType === RdfToken.LBRACKET) return '[';
+        if (tokenType === RdfToken.RBRACKET) return ']';
+        if (tokenType === RdfToken.LPARENT) return '(';
+        if (tokenType === RdfToken.RPARENT) return ')';
+        if (tokenType === RdfToken.LCURLY) return '{';
+        if (tokenType === RdfToken.RCURLY) return '}';
+        if (tokenType === RdfToken.DCARET) return '^^';
+
+        // Default: use the image as-is
+        return token.image;
     }
 
     /**
@@ -373,51 +397,43 @@ export class TokenSerializer {
         current: Token,
         opts: Required<TokenSerializerOptions>
     ): string {
-        const prevName = prev.tokenType.name;
-        const currName = current.tokenType.name;
-
         // No space after opening brackets/parens
-        if (['LBRACKET', 'LPARENT', 'LCURLY', 'OPEN_TRIPLE_TERM', 'OPEN_REIFIED_TRIPLE', 'OPEN_ANNOTATION'].includes(prevName)) {
+        if (isOpeningBracket(prev)) {
             return '';
         }
 
         // No space before closing brackets/parens
-        if (['RBRACKET', 'RPARENT', 'RCURLY', 'CLOSE_TRIPLE_TERM', 'CLOSE_REIFIED_TRIPLE', 'CLOSE_ANNOTATION'].includes(currName)) {
+        if (isClosingBracket(current)) {
             return '';
         }
 
-        // No space before datatype marker
-        if (currName === 'DCARET') {
+        // No space before datatype marker or language tag
+        if (noSpaceBefore(current)) {
             return '';
         }
 
         // No space after datatype marker
-        if (prevName === 'DCARET') {
-            return '';
-        }
-
-        // No space before language tag
-        if (currName === 'LANGTAG') {
+        if (prev.tokenType === RdfToken.DCARET || prev.tokenType.name === 'DCARET') {
             return '';
         }
 
         // No space before punctuation (period, semicolon, comma)
-        if (['PERIOD', 'SEMICOLON', 'COMMA'].includes(currName)) {
+        if (isPunctuationToken(current)) {
             return '';
         }
 
         // Newline after period (but compact if not pretty printing)
-        if (prevName === 'PERIOD') {
+        if (prev.tokenType === RdfToken.PERIOD || prev.tokenType.name === 'PERIOD') {
             return opts.prettyPrint ? opts.lineEnd : ' ';
         }
 
         // Newline after semicolon in pretty print mode
-        if (prevName === 'SEMICOLON' && opts.prettyPrint) {
+        if ((prev.tokenType === RdfToken.SEMICOLON || prev.tokenType.name === 'SEMICOLON') && opts.prettyPrint) {
             return opts.lineEnd + opts.indent;
         }
 
         // Space after comma
-        if (prevName === 'COMMA') {
+        if (prev.tokenType === RdfToken.COMMA || prev.tokenType.name === 'COMMA') {
             return ' ';
         }
 
@@ -429,11 +445,10 @@ export class TokenSerializer {
      * Determines if space should be omitted between tokens.
      */
     private shouldOmitSpace(prev: Token, current: Token): boolean {
-        const prevName = prev.tokenType.name;
-        const currName = current.tokenType.name;
-
         // No space between prefix namespace and local name
-        if (prevName === 'PNAME_NS' && currName === 'PNAME_LN') {
+        const prevIsPnameNs = prev.tokenType === RdfToken.PNAME_NS || prev.tokenType.name === 'PNAME_NS';
+        const currIsPnameLn = current.tokenType === RdfToken.PNAME_LN || current.tokenType.name === 'PNAME_LN';
+        if (prevIsPnameNs && currIsPnameLn) {
             return true;
         }
 
@@ -444,29 +459,33 @@ export class TokenSerializer {
      * Gets the type category for a token.
      */
     private getTokenType(token: Token): SourceMapEntry['type'] {
-        const name = token.tokenType.name;
+        const tokenType = token.tokenType;
+        const name = tokenType.name;
 
-        if (IRI_TOKEN_NAMES.has(name)) {
-            return name === 'PNAME_LN' || name === 'PNAME_NS' ? 'prefixedName' : 'iri';
+        if (isIriToken(token)) {
+            const isPrefixed = tokenType === RdfToken.PNAME_LN || tokenType === RdfToken.PNAME_NS ||
+                               name === 'PNAME_LN' || name === 'PNAME_NS';
+            return isPrefixed ? 'prefixedName' : 'iri';
         }
 
-        if (name === 'BLANK_NODE_LABEL' || BLANK_NODE_TOKEN_NAMES.has(name)) {
+        if (isBlankNodeType(token)) {
             return 'blankNode';
         }
 
-        if (LITERAL_TOKEN_NAMES.has(name) || name === 'LANGTAG') {
+        if (isLiteralToken(token) || tokenType === RdfToken.LANGTAG || name === 'LANGTAG') {
             return 'literal';
         }
 
-        if (KEYWORD_TOKEN_NAMES.has(name)) {
+        if (tokenType.isKeyword === true) {
             return 'keyword';
         }
 
-        if (PUNCTUATION_TOKEN_NAMES.has(name)) {
+        if (isPunctuationToken(token) || isOpeningBracket(token) || isClosingBracket(token)) {
             return 'punctuation';
         }
 
-        if (name === 'VAR1' || name === 'VAR2') {
+        if (tokenType === RdfToken.VAR1 || tokenType === RdfToken.VAR2 ||
+            name === 'VAR1' || name === 'VAR2') {
             return 'variable';
         }
 
@@ -500,8 +519,7 @@ export function getBlankNodeIdFromToken(token: Token): string | undefined {
  * @param token The token to check
  */
 export function isBlankNodeToken(token: Token): boolean {
-    return token.tokenType.name === 'BLANK_NODE_LABEL' || 
-           BLANK_NODE_TOKEN_NAMES.has(token.tokenType.name);
+    return isBlankNodeType(token);
 }
 
 /**

@@ -359,3 +359,31 @@ export interface ISparqlFormatter {
      */
     formatFromTokens(tokens: unknown[], options?: TokenSerializerOptions): SerializationResult;
 }
+
+/**
+ * Interface for RDF text formatters (Turtle, N-Triples, etc.).
+ */
+export interface IRdfFormatter {
+    /**
+     * The RDF syntax this formatter handles.
+     */
+    readonly syntax: RdfSyntax;
+
+    /**
+     * Formats RDF text input.
+     * 
+     * @param input The raw RDF text to format.
+     * @param options Formatting options.
+     * @returns The formatted output with any warnings/errors.
+     */
+    format(input: string, options?: SerializerOptions): SerializationResult;
+
+    /**
+     * Formats from already-parsed tokens.
+     * 
+     * @param tokens The tokens from parsing the input.
+     * @param options Formatting options.
+     * @returns The formatted output.
+     */
+    formatFromTokens(tokens: unknown[], options?: TokenSerializerOptions): SerializationResult;
+}

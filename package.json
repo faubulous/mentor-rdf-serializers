@@ -48,10 +48,10 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@rdfjs/data-model": "^2.1.0"
+    "@rdfjs/data-model": "^2.1.0",
+    "@faubulous/mentor-rdf-parsers": "^1.6.2"
   },
   "devDependencies": {
-    "@faubulous/mentor-rdf-parsers": "^1.5.0",
     "@rdfjs/types": "^2.0.1",
     "@types/rdfjs__data-model": "^2.0.9",
     "chevrotain": "^11.2.0",
