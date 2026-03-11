@@ -175,11 +175,8 @@ export class TurtleFormatter
                     // For blank node property lists, the closing ']' should
                     // align with the predicate that introduced the '['.
                     // The scope's indentLevel represents the indentation at
-                    // the point where '[' was seen (typically the subject
-                    // line). We therefore add one extra indent level to
-                    // match the predicate indentation rather than flushing
-                    // the ']' to column 0.
-                    const baseIndentLevel = scope.indentLevel + 1;
+                    // the point where '[' was seen (the predicate line).
+                    const baseIndentLevel = scope.indentLevel;
                     this.addPart(ctx, le + this.getIndent(baseIndentLevel, ind), le, true);
                     ctx.lastWasNewline = true;
                 }
@@ -203,6 +200,12 @@ export class TurtleFormatter
         ctx.triplePosition = 0;
         ctx.lastSubject = null;
         ctx.inlineStatement = false;
+
+        // Reset indentation back to the current structural scope (if any).
+        // This prevents predicate-list indentation from leaking into the next
+        // statement.
+        const scope = this.currentScope(ctx);
+        ctx.indentLevel = scope ? scope.indentLevel + 1 : 0;
     }
 
     protected handleTurtleSemicolon(ctx: TurtleFormatterContext): void {
@@ -217,13 +220,20 @@ export class TurtleFormatter
             // Source had the statement on one line and it fits → keep inline.
             ctx.needsNewline = false;
             ctx.needsSpace = true;
-        } else if (ctx.opts.prettyPrint && ctx.indentLevel > 0) {
-            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind) + ind, le, true);
-            ctx.lastWasNewline = true;
-            ctx.needsNewline = false;
-            ctx.needsSpace = false;
         } else if (ctx.opts.prettyPrint) {
-            this.addPart(ctx, le + ind, le, true);
+            // Turtle predicate-object lists indent continuation predicates.
+            // At the top level, that means moving from column 0 to 1 indent.
+            // Inside blank node property lists ([ ... ]), we keep the same
+            // indentation level for subsequent predicates.
+            const inBlankNodePropertyList = this.inBracketScope(ctx);
+
+            if (!inBlankNodePropertyList) {
+                const scope = this.currentScope(ctx);
+                const statementBaseIndentLevel = scope ? scope.indentLevel + 1 : 0;
+                ctx.indentLevel = statementBaseIndentLevel + 1;
+            }
+
+            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
             ctx.needsSpace = false;

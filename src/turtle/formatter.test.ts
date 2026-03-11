@@ -106,5 +106,34 @@ describe('TurtleFormatter', () => {
             expect(closingLine.trim()).toBe('].');
             expect(closingLine.startsWith('  ')).toBe(true);
         });
+
+        it('indents blank node contents one level deeper than the predicate', () => {
+            const input = [
+                '<ex:s> a sh:NodeShape ;',
+                '  sh:property [',
+                '  sh:path <ex:p1> ;',
+                '  sh:class <ex:C1>',
+                '  ], [',
+                '  sh:path <ex:p2> ;',
+                '  sh:class <ex:C2>',
+                '  ] ;',
+                '  sh:targetClass <ex:T> .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { indent: '  ' });
+
+            // Predicate line
+            expect(result.output).toContain('\n  sh:property [');
+
+            // Inner blank node property list should be indented one level deeper
+            expect(result.output).toContain('\n    sh:path <ex:p1>;');
+            expect(result.output).toContain('\n    sh:class <ex:C1>');
+
+            // Closing bracket + comma should align with predicate indentation
+            expect(result.output).toContain('\n  ], [');
+
+            // Final closing bracket before ';' should align too
+            expect(result.output).toContain('\n  ];');
+        });
     });
 });

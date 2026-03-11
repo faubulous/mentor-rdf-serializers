@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readFileSync } from 'fs';
 import { SparqlLexer } from '@faubulous/mentor-rdf-parsers';
 import { SparqlFormatter } from './formatter.js';
 
@@ -15,7 +14,18 @@ describe('SparqlFormatter', () => {
 
     describe('formatFromTokens', () => {
         it('should produce the same indentation as formatFromText for lexer tokens', () => {
-            const query = readFileSync(new URL('../../input.rq', import.meta.url), 'utf8');
+            const query = [
+                'PREFIX ex: <http://example.org/>',
+                'PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>',
+                '',
+                'SELECT ?s ?p ?o WHERE {',
+                '    VALUES ?cutoff { "2025-11-01T00:00:00"^^xsd:dateTime }',
+                '    ?s ?p ?o .',
+                '    OPTIONAL { ?s ex:updatedAt ?t }',
+                '    FILTER(!BOUND(?t) || ?t > ?cutoff)',
+                '}',
+                '',
+            ].join('\n');
             const lexer = new SparqlLexer();
             const lexResult = lexer.tokenize(query);
 
