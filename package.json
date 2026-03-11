@@ -15,7 +15,7 @@
     "sparql",
     "typescript"
   ],
-  "version": "1.0.3",
+  "version": "1.1.0",
   "private": false,
   "author": {
     "name": "Sebastian Faubel"
