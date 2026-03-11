@@ -62,6 +62,17 @@ export {
 // Base serializer
 export { BaseSerializer } from './base-serializer.js';
 
+// Base token formatter
+export {
+    BaseTokenFormatter,
+    annotateTokens,
+    type TokenAnnotation,
+    type AnnotatedToken,
+    type Scope,
+    type BaseFormatterContext,
+    type BaseFormatterOptions,
+} from './base-token-formatter.js';
+
 // N-Triples serializer
 export { NTriplesSerializer } from './ntriples/serializer.js';
 

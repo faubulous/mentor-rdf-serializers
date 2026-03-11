@@ -4,71 +4,60 @@ import { RdfToken, TurtleLexer } from '@faubulous/mentor-rdf-parsers';
 import type {
     IRdfFormatter,
     SerializationResult,
-    SerializerOptions,
     TokenSerializerOptions,
     RdfSyntax as RdfSyntaxType
 } from '../types.js';
 import { RdfSyntax } from '../types.js';
-import { mergeOptions } from '../utils.js';
+import {
+    BaseTokenFormatter,
+    type BaseFormatterContext,
+    type BaseFormatterOptions,
+} from '../base-token-formatter.js';
 
 /**
  * Turtle-specific formatting options.
  */
-export interface TurtleFormatterOptions extends SerializerOptions {
+export interface TurtleFormatterOptions extends BaseFormatterOptions {
     /**
      * Whether to use lowercase `@prefix` and `@base` (Turtle style).
      * When false, uses uppercase `PREFIX` and `BASE` (SPARQL style).
      * Default: true
      */
     lowercaseDirectives?: boolean;
-
-    /**
-     * Whether to add a space before punctuation (. and ;).
-     * Default: false
-     */
-    spaceBeforePunctuation?: boolean;
 }
 
 /**
  * Internal formatting context for Turtle.
  */
-interface FormatterContext {
-    parts: string[];
+interface TurtleFormatterContext extends BaseFormatterContext {
     opts: Required<TurtleFormatterOptions>;
-    indentLevel: number;
-    needsNewline: boolean;
-    needsSpace: boolean;
-    lastToken: IToken | null;
-    lastNonWsToken: IToken | null;
-    inPrefix: boolean;
-    currentLineLength: number;
-    triplePosition: number;
-    lastSubject: string | null;
-    lastWasNewline: boolean;
-    blankNodeDepth: number;
 }
 
 /**
  * Formatter for Turtle (Terse RDF Triple Language).
- * 
+ *
  * Uses the W3C-compliant TurtleLexer from mentor-rdf-parsers for tokenization.
- * 
+ *
  * This formatter can:
  * - Format Turtle documents with consistent indentation
  * - Normalize prefix directive style
  * - Apply consistent spacing around punctuation
  * - Preserve comments
  * - Support RDF 1.2 features (triple terms, annotations)
- * 
+ *
  * @see https://www.w3.org/TR/rdf12-turtle/
  */
-export class TurtleFormatter implements IRdfFormatter {
+export class TurtleFormatter
+    extends BaseTokenFormatter<TurtleFormatterContext, TurtleFormatterOptions>
+    implements IRdfFormatter
+{
     readonly syntax: RdfSyntaxType = RdfSyntax.Turtle;
     protected lexer = new TurtleLexer();
 
-    /**
-     * Formats a Turtle document.
-     */
+    // ========================================================================
+    // Public API
+    // ========================================================================
+
     format(input: string, options?: TurtleFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
         const result = this.lexer.tokenize(input);
@@ -81,60 +70,31 @@ export class TurtleFormatter implements IRdfFormatter {
         return this.formatTokens(result.tokens, opts, comments);
     }
 
-    /**
-     * Formats from already-parsed tokens.
-     */
     formatFromTokens(tokens: IToken[], options?: TokenSerializerOptions): SerializationResult {
         const opts = this.getOptions(options as TurtleFormatterOptions);
         return this.formatTokens(tokens, opts);
     }
 
-    /**
-     * Checks if a token is a keyword.
-     */
-    protected isKeyword(token: IToken): boolean {
-        return (token.tokenType as TokenType & TokenMetadata)?.isKeyword === true;
+    // ========================================================================
+    // BaseTokenFormatter implementations
+    // ========================================================================
+
+    protected getOptions(options?: TurtleFormatterOptions): Required<TurtleFormatterOptions> {
+        const base = this.mergeBaseOptions(options);
+        return {
+            ...base,
+            lowercaseDirectives: options?.lowercaseDirectives ?? true,
+            spaceBeforePunctuation: options?.spaceBeforePunctuation ?? false,
+        };
     }
 
-    /**
-     * Checks if a token must remain lowercase.
-     */
-    protected isLowercaseOnly(token: IToken): boolean {
-        return (token.tokenType as TokenType & TokenMetadata)?.isLowercaseOnly === true;
+    protected createContext(opts: Required<TurtleFormatterOptions>): TurtleFormatterContext {
+        return {
+            ...this.createBaseContext(),
+            opts,
+        };
     }
 
-    /**
-     * Checks if a token is an opening bracket.
-     */
-    protected isOpeningBracket(token: IToken): boolean {
-        return token.tokenType === RdfToken.LBRACKET ||
-               token.tokenType === RdfToken.LPARENT ||
-               token.tokenType === RdfToken.OPEN_ANNOTATION ||
-               token.tokenType === RdfToken.OPEN_REIFIED_TRIPLE ||
-               token.tokenType === RdfToken.OPEN_TRIPLE_TERM;
-    }
-
-    /**
-     * Checks if a token is a closing bracket.
-     */
-    protected isClosingBracket(token: IToken): boolean {
-        return token.tokenType === RdfToken.RBRACKET ||
-               token.tokenType === RdfToken.RPARENT ||
-               token.tokenType === RdfToken.CLOSE_ANNOTATION ||
-               token.tokenType === RdfToken.CLOSE_REIFIED_TRIPLE ||
-               token.tokenType === RdfToken.CLOSE_TRIPLE_TERM;
-    }
-
-    /**
-     * Checks if a token is a term (subject, predicate, or object).
-     */
-    protected isTermToken(token: IToken): boolean {
-        return (token.tokenType as TokenType & TokenMetadata)?.isTerm === true;
-    }
-
-    /**
-     * Formats the token's value with appropriate casing.
-     */
     protected formatTokenValue(token: IToken, opts: Required<TurtleFormatterOptions>): string {
         const tokenType = token.tokenType;
 
@@ -155,85 +115,43 @@ export class TurtleFormatter implements IRdfFormatter {
         return token.image;
     }
 
-    /**
-     * Creates a new formatting context.
-     */
-    protected createContext(opts: Required<TurtleFormatterOptions>): FormatterContext {
-        return {
-            parts: [],
-            opts,
-            indentLevel: 0,
-            needsNewline: false,
-            needsSpace: false,
-            lastToken: null,
-            lastNonWsToken: null,
-            inPrefix: false,
-            currentLineLength: 0,
-            triplePosition: 0,
-            lastSubject: null,
-            lastWasNewline: false,
-            blankNodeDepth: 0,
-        };
-    }
+    // ========================================================================
+    // Token handlers
+    // ========================================================================
 
-    /**
-     * Adds content to output and tracks line length.
-     */
-    protected addPart(ctx: FormatterContext, text: string, forceNewline = false): void {
-        const lineEnd = ctx.opts.lineEnd;
-        if (forceNewline || text === lineEnd || text.includes(lineEnd)) {
-            ctx.parts.push(text);
-            const lines = text.split(lineEnd);
-            ctx.currentLineLength = lines[lines.length - 1].length;
-        } else {
-            ctx.parts.push(text);
-            ctx.currentLineLength += text.length;
-        }
-    }
-
-    /**
-     * Gets the indentation string for a given level.
-     */
-    protected getIndent(level: number, indent: string): string {
-        return indent.repeat(level);
-    }
-
-    /**
-     * Handles comment tokens.
-     */
-    protected handleComment(ctx: FormatterContext, comment: IToken): void {
+    protected handleTurtleComment(ctx: TurtleFormatterContext, comment: IToken): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
         if (ctx.parts.length > 0) {
             if (ctx.lastNonWsToken && comment.startLine !== undefined &&
                 ctx.lastNonWsToken.endLine !== undefined &&
                 comment.startLine > ctx.lastNonWsToken.endLine) {
-                this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+                this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
                 ctx.lastWasNewline = true;
             } else {
-                this.addPart(ctx, ' ');
+                this.addPart(ctx, ' ', le);
             }
         }
-        this.addPart(ctx, comment.image);
+        this.addPart(ctx, comment.image, le);
         ctx.needsNewline = true;
         ctx.needsSpace = false;
     }
 
-    /**
-     * Handles opening bracket tokens.
-     */
-    protected handleOpenBracket(ctx: FormatterContext, token: IToken): void {
+    protected handleTurtleOpenBracket(ctx: TurtleFormatterContext, token: IToken): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
         if (ctx.needsNewline) {
-            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
         } else if (ctx.needsSpace && ctx.parts.length > 0) {
-            this.addPart(ctx, ' ');
+            this.addPart(ctx, ' ', le);
         }
 
-        this.addPart(ctx, token.image);
+        this.addPart(ctx, token.image, le);
 
         if (token.tokenType === RdfToken.LBRACKET) {
-            ctx.blankNodeDepth++;
-            ctx.indentLevel++;
+            this.pushScope(ctx, 'bracket', false, false);
             ctx.needsNewline = ctx.opts.prettyPrint;
         }
 
@@ -241,55 +159,58 @@ export class TurtleFormatter implements IRdfFormatter {
         ctx.triplePosition = 0;
     }
 
-    /**
-     * Handles closing bracket tokens.
-     */
-    protected handleCloseBracket(ctx: FormatterContext, token: IToken): void {
-        if (token.tokenType === RdfToken.RBRACKET && ctx.blankNodeDepth > 0) {
-            ctx.blankNodeDepth--;
-            ctx.indentLevel = Math.max(0, ctx.indentLevel - 1);
-            if (ctx.opts.prettyPrint) {
-                this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
-                ctx.lastWasNewline = true;
+    protected handleTurtleCloseBracket(ctx: TurtleFormatterContext, token: IToken): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
+        if (token.tokenType === RdfToken.RBRACKET) {
+            const scope = this.currentScope(ctx);
+            if (scope?.type === 'bracket') {
+                this.popScope(ctx);
+                if (ctx.opts.prettyPrint) {
+                    this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+                    ctx.lastWasNewline = true;
+                }
             }
         }
 
-        this.addPart(ctx, token.image);
+        this.addPart(ctx, token.image, le);
         ctx.needsSpace = true;
         ctx.needsNewline = false;
     }
 
-    /**
-     * Handles period (statement terminator).
-     */
-    protected handlePeriod(ctx: FormatterContext): void {
+    protected handleTurtlePeriod(ctx: TurtleFormatterContext): void {
+        const le = ctx.opts.lineEnd;
         if (ctx.opts.spaceBeforePunctuation && !ctx.inPrefix && ctx.parts.length > 0) {
-            this.addPart(ctx, ' ');
+            this.addPart(ctx, ' ', le);
         }
-        this.addPart(ctx, '.');
+        this.addPart(ctx, '.', le);
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.needsSpace = true;
         ctx.inPrefix = false;
         ctx.triplePosition = 0;
         ctx.lastSubject = null;
+        ctx.inlineStatement = false;
     }
 
-    /**
-     * Handles semicolon (predicate-object list separator).
-     */
-    protected handleSemicolon(ctx: FormatterContext): void {
+    protected handleTurtleSemicolon(ctx: TurtleFormatterContext): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
         if (ctx.opts.spaceBeforePunctuation && ctx.parts.length > 0) {
-            this.addPart(ctx, ' ');
+            this.addPart(ctx, ' ', le);
         }
-        this.addPart(ctx, ';');
+        this.addPart(ctx, ';', le);
 
-        if (ctx.opts.prettyPrint && ctx.indentLevel > 0) {
-            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent) + ctx.opts.indent, true);
+        if (ctx.inlineStatement) {
+            // Source had the statement on one line and it fits → keep inline.
+            ctx.needsNewline = false;
+            ctx.needsSpace = true;
+        } else if (ctx.opts.prettyPrint && ctx.indentLevel > 0) {
+            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind) + ind, le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
             ctx.needsSpace = false;
         } else if (ctx.opts.prettyPrint) {
-            this.addPart(ctx, ctx.opts.lineEnd + ctx.opts.indent, true);
+            this.addPart(ctx, le + ind, le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
             ctx.needsSpace = false;
@@ -297,45 +218,40 @@ export class TurtleFormatter implements IRdfFormatter {
             ctx.needsSpace = true;
         }
 
-        ctx.triplePosition = 1; // Reset to predicate position
+        ctx.triplePosition = 1;
     }
 
-    /**
-     * Handles comma (object list separator).
-     */
-    protected handleComma(ctx: FormatterContext): void {
-        this.addPart(ctx, ',');
+    protected handleTurtleComma(ctx: TurtleFormatterContext): void {
+        const le = ctx.opts.lineEnd;
+        this.addPart(ctx, ',', le);
         ctx.needsSpace = true;
     }
 
-    /**
-     * Handles prefix/base declaration IRI.
-     */
-    protected handlePrefixIri(ctx: FormatterContext, value: string): void {
+    protected handleTurtlePrefixIri(ctx: TurtleFormatterContext, value: string): void {
+        const le = ctx.opts.lineEnd;
         if (ctx.needsSpace && ctx.parts.length > 0) {
-            this.addPart(ctx, ' ');
+            this.addPart(ctx, ' ', le);
         }
-        this.addPart(ctx, value);
+        this.addPart(ctx, value, le);
         ctx.needsSpace = false;
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.inPrefix = false;
     }
 
-    /**
-     * Handles token spacing.
-     */
-    protected handleTokenSpacing(ctx: FormatterContext, token: IToken): void {
+    protected handleTurtleTokenSpacing(ctx: TurtleFormatterContext, token: IToken): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
         const isDatatypeContext = token.tokenType === RdfToken.DCARET ||
             ctx.lastNonWsToken?.tokenType === RdfToken.DCARET;
         const isLangTag = token.tokenType === RdfToken.LANGTAG;
 
         if (ctx.needsNewline && !isDatatypeContext && !isLangTag) {
-            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
         } else if (ctx.needsSpace && ctx.parts.length > 0 && !isDatatypeContext && !isLangTag) {
             if (ctx.lastNonWsToken && !this.isOpeningBracket(ctx.lastNonWsToken)) {
-                this.addPart(ctx, ' ');
+                this.addPart(ctx, ' ', le);
             }
             ctx.lastWasNewline = false;
         } else {
@@ -343,15 +259,17 @@ export class TurtleFormatter implements IRdfFormatter {
         }
     }
 
-    /**
-     * Formats tokens into a string.
-     */
+    // ========================================================================
+    // Main formatting loop
+    // ========================================================================
+
     protected formatTokens(
         tokens: IToken[],
         opts: Required<TurtleFormatterOptions>,
         comments: IToken[] = []
     ): SerializationResult {
         const ctx = this.createContext(opts);
+        const le = opts.lineEnd;
         const sortedComments = [...comments].sort((a, b) => (a.startOffset ?? 0) - (b.startOffset ?? 0));
         let commentIndex = 0;
 
@@ -362,7 +280,7 @@ export class TurtleFormatter implements IRdfFormatter {
             while (commentIndex < sortedComments.length) {
                 const comment = sortedComments[commentIndex];
                 if ((comment.startOffset ?? 0) < (token.startOffset ?? 0)) {
-                    this.handleComment(ctx, comment);
+                    this.handleTurtleComment(ctx, comment);
                     commentIndex++;
                 } else {
                     break;
@@ -377,7 +295,7 @@ export class TurtleFormatter implements IRdfFormatter {
 
             // Handle comment tokens in stream
             if (token.tokenType === RdfToken.COMMENT) {
-                this.handleComment(ctx, token);
+                this.handleTurtleComment(ctx, token);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -393,35 +311,35 @@ export class TurtleFormatter implements IRdfFormatter {
 
             // Handle structural tokens
             if (this.isOpeningBracket(token)) {
-                this.handleOpenBracket(ctx, token);
+                this.handleTurtleOpenBracket(ctx, token);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (this.isClosingBracket(token)) {
-                this.handleCloseBracket(ctx, token);
+                this.handleTurtleCloseBracket(ctx, token);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.PERIOD) {
-                this.handlePeriod(ctx);
+                this.handleTurtlePeriod(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.SEMICOLON) {
-                this.handleSemicolon(ctx);
+                this.handleTurtleSemicolon(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.COMMA) {
-                this.handleComma(ctx);
+                this.handleTurtleComma(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -429,7 +347,7 @@ export class TurtleFormatter implements IRdfFormatter {
 
             // Handle PREFIX/BASE IRI completion
             if (ctx.inPrefix && (token.tokenType === RdfToken.IRIREF || token.tokenType === RdfToken.IRIREF_ABS)) {
-                this.handlePrefixIri(ctx, value);
+                this.handleTurtlePrefixIri(ctx, value);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -437,12 +355,13 @@ export class TurtleFormatter implements IRdfFormatter {
 
             // Handle triple position tracking
             if (this.isTermToken(token) && ctx.triplePosition === 0 && !ctx.inPrefix) {
-                if (opts.blankLinesBetweenSubjects && ctx.lastSubject !== null && token.image !== ctx.lastSubject) {
+                if (ctx.opts.blankLinesBetweenSubjects && ctx.lastSubject !== null && token.image !== ctx.lastSubject) {
                     if (!ctx.needsNewline && ctx.parts.length > 0) {
-                        this.addPart(ctx, ctx.opts.lineEnd, true);
+                        this.addPart(ctx, le, le, true);
                     }
                 }
                 ctx.lastSubject = token.image;
+                this.detectInlineStatement(ctx, tokens, i, ctx.opts.indent, ctx.opts.maxLineWidth);
                 ctx.triplePosition++;
             } else if (this.isTermToken(token) && !ctx.inPrefix) {
                 ctx.triplePosition++;
@@ -450,10 +369,10 @@ export class TurtleFormatter implements IRdfFormatter {
             }
 
             // Handle spacing
-            this.handleTokenSpacing(ctx, token);
+            this.handleTurtleTokenSpacing(ctx, token);
 
             // Output the token
-            this.addPart(ctx, value);
+            this.addPart(ctx, value, le);
             ctx.needsSpace = true;
             ctx.lastToken = token;
             ctx.lastNonWsToken = token;
@@ -461,22 +380,10 @@ export class TurtleFormatter implements IRdfFormatter {
 
         // Add trailing comments
         while (commentIndex < sortedComments.length) {
-            this.handleComment(ctx, sortedComments[commentIndex]);
+            this.handleTurtleComment(ctx, sortedComments[commentIndex]);
             commentIndex++;
         }
 
         return { output: ctx.parts.join('').trim() };
-    }
-
-    /**
-     * Gets merged options with defaults.
-     */
-    protected getOptions(options?: TurtleFormatterOptions): Required<TurtleFormatterOptions> {
-        const base = mergeOptions(options);
-        return {
-            ...base,
-            lowercaseDirectives: options?.lowercaseDirectives ?? true,
-            spaceBeforePunctuation: options?.spaceBeforePunctuation ?? false,
-        };
     }
 }

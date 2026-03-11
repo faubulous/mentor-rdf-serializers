@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SparqlFormatter } from './formatter.js';
 
+// NOTE: All IRIs, prefixes, and sample data in these tests are synthetic
+// examples used solely to exercise formatting behaviour.
+
 describe('SparqlFormatter', () => {
     let formatter: SparqlFormatter;
 
@@ -68,12 +71,162 @@ describe('SparqlFormatter', () => {
             expect(result.output).toContain('# This is a comment');
         });
 
+        it('should not add blank line between comment and following VALUES clause', () => {
+            const query = `SELECT ?x WHERE {
+    # VALUES ?itemCode { "3125416" }
+    VALUES ?eventDate { "2025-11-01T00:00:00"^^xsd:dateTime }
+    ?x <http://example.org/date> ?eventDate
+}`;
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+            // Should not have blank line between comment and VALUES
+            expect(result.output).toContain('# VALUES ?itemCode { "3125416" }\n');
+            // Find the comment line and check the next line is VALUES without blank line
+            const lines = result.output.split('\n');
+            const commentIndex = lines.findIndex(l => l.includes('# VALUES ?itemCode'));
+            expect(commentIndex).toBeGreaterThan(-1);
+            // Next line should be VALUES, not blank
+            expect(lines[commentIndex + 1].trim()).toMatch(/^VALUES/);
+        });
+
+        it('should not add blank line between consecutive VALUES clauses', () => {
+            const query = `SELECT ?x ?y WHERE {
+    VALUES ?x { "a" }
+    VALUES ?y { "b" }
+    ?s ?p ?o
+}`;
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+            // The output should not have a blank line between the two VALUES clauses
+            // Check that VALUES ?y directly follows VALUES ?x (possibly on same or next line)
+            const output = result.output;
+            
+            // There should be no double newline between the two VALUES clauses
+            expect(output).not.toMatch(/VALUES \?x \{ "a" \}\s*\n\n\s*VALUES \?y/);
+            
+            // The two VALUES should be close together (either on same line or adjacent lines)
+            const lines = output.split('\n');
+            const firstValuesIndex = lines.findIndex(l => l.includes('VALUES ?x'));
+            const secondValuesIndex = lines.findIndex(l => l.includes('VALUES ?y'));
+            expect(firstValuesIndex).toBeGreaterThan(-1);
+            expect(secondValuesIndex).toBeGreaterThan(-1);
+            // Second VALUES should be at most 1 line after first (same line or next line)
+            expect(secondValuesIndex - firstValuesIndex).toBeLessThanOrEqual(1);
+        });
+
+        it('should preserve multi-line VALUES block when source has explicit newlines', () => {
+            const query = `SELECT ?x WHERE {
+    VALUES ?code {
+        ex:StraightReplacement
+        ex:CompositeReplacement
+        ex:AlternativeReplacement
+    }
+    ?x a ?code
+}`;
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+            // The multi-line VALUES block should be preserved
+            const lines = result.output.split('\n');
+            const valuesLineIndex = lines.findIndex(l => l.includes('VALUES ?code'));
+            expect(valuesLineIndex).toBeGreaterThan(-1);
+            
+            // The opening brace should be on the VALUES line
+            expect(lines[valuesLineIndex]).toContain('VALUES ?code {');
+            
+            // Each value should be on its own line
+            expect(lines.find(l => l.trim() === 'ex:StraightReplacement')).toBeDefined();
+            expect(lines.find(l => l.trim() === 'ex:CompositeReplacement')).toBeDefined();
+            expect(lines.find(l => l.trim() === 'ex:AlternativeReplacement')).toBeDefined();
+            
+            // The closing brace should be on its own line
+            const closingBraceIndex = lines.findIndex((l, i) => i > valuesLineIndex && l.trim() === '}');
+            expect(closingBraceIndex).toBeGreaterThan(valuesLineIndex);
+        });
+
+        it('should not add blank line between VALUES keyword and variable', () => {
+            const query = `SELECT ?x WHERE {
+    VALUES ?code {
+        ex:StraightReplacement
+        ex:CompositeReplacement
+    }
+    ?x a ?code
+}`;
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+            // There should be no blank line between VALUES and ?code
+            // i.e., "VALUES" should NOT be followed by a blank line before ?code
+            expect(result.output).not.toMatch(/VALUES\s*\n\s*\n\s*\?code/);
+            
+            // VALUES ?code should be on the same line
+            expect(result.output).toMatch(/VALUES \?code/);
+            
+            // There should be no blank line between "WHERE {" and VALUES
+            // The opening brace should be immediately followed by the VALUES on the next line
+            expect(result.output).not.toMatch(/WHERE \{\s*\n\s*\n\s*VALUES/);
+        });
+
+        it('should use consistent indentation for predicate-object lists after semicolon', () => {
+            const query = `SELECT ?item ?itemID ?code WHERE {
+        ?item a ex:Item ;
+        ex:identifiedBy / ex:id ?itemID ;
+        ex:hasReplacementCode ?code .
+    }`;
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 120, indent: '    ' });
+
+            // Check the indentation of predicate continuations
+            const lines = result.output.split('\n');
+            const partLineIndex = lines.findIndex(l => l.includes('?item a ex:Item'));
+            expect(partLineIndex).toBeGreaterThan(-1);
+            
+            // The continuation lines should have consistent indentation (one level more than the subject line)
+            const partLine = lines[partLineIndex];
+            const partIndent = partLine.match(/^(\s*)/)?[1] || '';
+
+            // Get continuation lines
+            const idLine = lines.find(l => l.includes('ex:identifiedBy'));
+            const replacementLine = lines.find(l => l.includes('ex:hasReplacementCode'));
+
+            expect(idLine).toBeDefined();
+            expect(replacementLine).toBeDefined();
+            
+            // Continuation lines should be indented by exactly one additional indent level
+            const expectedContinuationIndent = partIndent + '    ';
+            expect(idLine?.startsWith(expectedContinuationIndent)).toBe(true);
+            expect(replacementLine?.startsWith(expectedContinuationIndent)).toBe(true);
+            
+            // Make sure they're NOT double-indented
+            const doubleIndent = partIndent + '        ';
+            expect(idLine?.startsWith(doubleIndent)).toBe(false);
+            expect(replacementLine?.startsWith(doubleIndent)).toBe(false);
+        });
+
         it('should format ORDER BY clause', () => {
             const query = 'SELECT ?x WHERE { ?x ?p ?o } ORDER BY ?x';
 
             const result = formatter.formatQuery(query);
 
             expect(result.output).toContain('ORDER BY');
+        });
+
+        it('should not add blank lines between closing brace and ORDER BY LIMIT', () => {
+            const query = `SELECT ?part WHERE {
+    ?part a <http://example.org/Part>
+}
+ORDER BY ?part
+LIMIT 200`;
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+            // There should be no blank lines between } and ORDER BY
+            expect(result.output).not.toMatch(/\}\s*\n\s*\n\s*ORDER BY/);
+            
+            // There should be no blank lines between ORDER BY and LIMIT
+            expect(result.output).not.toMatch(/ORDER BY \?part\s*\n\s*\n\s*LIMIT/);
         });
 
         it('should format LIMIT and OFFSET', () => {
@@ -363,7 +516,12 @@ describe('SparqlFormatter', () => {
         });
 
         it('should add indentation after semicolon in predicate list', () => {
-            const query = 'SELECT * WHERE { ?item a ex:Thing; ex:hasId ?id }';
+            const query = [
+                'SELECT * WHERE {',
+                '  ?item a ex:Thing;',
+                '    ex:hasId ?id',
+                '}',
+            ].join('\n');
 
             const result = formatter.formatQuery(query);
 
@@ -397,6 +555,172 @@ VALUES ?date {
             const result = formatter.formatQuery(query);
 
             // Should not have 3+ consecutive newlines (duplicate blank lines)
+            expect(result.output).not.toMatch(/\n\n\n/);
+        });
+    });
+
+    describe('complex query scenarios', () => {
+        it('should preserve blank line before comment', () => {
+            const query = `SELECT ?x WHERE {
+    ?x a <http://ex.org/Class>.
+
+    # This is a comment
+    ?x <http://ex.org/prop> ?y.
+}`;
+
+            const result = formatter.formatQuery(query);
+
+            // There should be a blank line before the comment
+            expect(result.output).toContain('.\n\n');
+            expect(result.output).toContain('# This is a comment');
+        });
+
+        it('should keep property paths on a single line', () => {
+            const query = 'SELECT ?x WHERE { ?x <http://ex.org/a> / <http://ex.org/b> / <http://ex.org/c> ?y }';
+
+            const result = formatter.formatQuery(query);
+
+            // Property path should stay on one line
+            const lines = result.output.split('\n');
+            const pathLine = lines.find(l => l.includes('<http://ex.org/a>'));
+            expect(pathLine).toContain('/ <http://ex.org/b> / <http://ex.org/c>');
+        });
+
+        it('should keep prefixed property paths on a single line', () => {
+            const query = 'PREFIX ex: <http://ex.org/> SELECT ?x WHERE { ?x ex:hasSOP / ex:hasPDV / ex:hasEvent ?y }';
+
+            const result = formatter.formatQuery(query);
+
+            // Prefixed property path should stay on one line
+            const lines = result.output.split('\n');
+            const pathLine = lines.find(l => l.includes('ex:hasSOP'));
+            expect(pathLine).toContain('ex:hasSOP / ex:hasPDV / ex:hasEvent');
+        });
+
+        it('should format FILTER NOT EXISTS blocks properly', () => {
+            const query = `SELECT ?x WHERE {
+    ?x a <http://ex.org/Class>.
+
+    FILTER NOT EXISTS {
+        ?x <http://ex.org/prop> ?y.
+        ?y a <http://ex.org/Other>.
+    }
+}`;
+
+            const result = formatter.formatQuery(query);
+
+            // Should preserve blank line before FILTER NOT EXISTS
+            expect(result.output).toContain('.\n\n');
+            // Should contain FILTER NOT EXISTS
+            expect(result.output).toContain('FILTER NOT EXISTS');
+            // Should not have duplicate blank lines
+            expect(result.output).not.toMatch(/\n\n\n/);
+        });
+
+        it('should keep FILTER with comparison inside FILTER NOT EXISTS on single line', () => {
+            const query = `SELECT ?x WHERE {
+    FILTER NOT EXISTS {
+        ?x <http://ex.org/date> ?d.
+        FILTER(?d < ?otherDate)
+    }
+}`;
+
+            const result = formatter.formatQuery(query);
+
+            // FILTER inside NOT EXISTS should stay on single line
+            const lines = result.output.split('\n');
+            const filterLine = lines.find(l => l.includes('FILTER(?d'));
+            expect(filterLine).toContain('FILTER(?d < ?otherDate)');
+        });
+
+        it('should keep BIND with dayTimeDuration on a single line', () => {
+            const query = 'SELECT ?x ?adjusted WHERE { ?x <http://ex.org/date> ?d . BIND(?d - "P25D"^^xsd:dayTimeDuration AS ?adjusted) }';
+
+            const result = formatter.formatQuery(query);
+
+            // BIND expression should stay on single line
+            const lines = result.output.split('\n');
+            const bindLine = lines.find(l => l.includes('BIND'));
+            expect(bindLine).toContain('BIND(?d - "P25D"^^xsd:dayTimeDuration AS ?adjusted)');
+        });
+
+        it('should keep BIND with arithmetic on a single line', () => {
+            const query = 'SELECT ?x WHERE { ?x <http://ex.org/val> ?v . BIND(?v * 2 + 1 AS ?result) }';
+
+            const result = formatter.formatQuery(query);
+
+            // BIND with arithmetic should stay on single line
+            const lines = result.output.split('\n');
+            const bindLine = lines.find(l => l.includes('BIND'));
+            expect(bindLine).toContain('BIND(?v * 2 + 1 AS ?result)');
+        });
+
+        it('should format queries with predicate lists correctly', () => {
+            const query = `SELECT ?x WHERE {
+    ?x a <http://ex.org/Class>;
+        <http://ex.org/name> ?name.
+    ?y a <http://ex.org/Other>;
+        <http://ex.org/value> ?val.
+}`;
+
+            const result = formatter.formatQuery(query);
+
+            // Should contain both subjects
+            expect(result.output).toContain('?x a');
+            expect(result.output).toContain('?y a');
+            // Predicate list continuation should be indented
+            expect(result.output).toContain(';');
+            // Should not have duplicate blank lines
+            expect(result.output).not.toMatch(/\n\n\n/);
+        });
+
+        it('should format complex query with comments, blank lines, nested blocks and expressions', () => {
+            const query = `PREFIX ex: <http://ex.org/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT DISTINCT ?item ?startDate ?adjustedDate
+WHERE {
+    ?item a ex:Item;
+        ex:hasRef ?ref.
+
+    # Get the earliest start date
+    ?ref ex:hasConfig / ex:hasSchedule / ex:hasEvent ?event.
+
+    ?event a ex:StartEvent;
+        ex:startDate ?startDate.
+
+    FILTER NOT EXISTS {
+        ?ref ex:hasConfig / ex:hasSchedule / ex:hasEvent ?otherEvent.
+
+        ?otherEvent a ex:StartEvent;
+            ex:startDate ?otherDate.
+
+        FILTER(?otherDate < ?startDate)
+    }
+
+    BIND(?startDate - "P14D"^^xsd:dayTimeDuration AS ?adjustedDate)
+}
+LIMIT 100`;
+
+            const result = formatter.formatQuery(query);
+
+            // Property paths should stay on single lines
+            expect(result.output).toMatch(/ex:hasConfig \/ ex:hasSchedule \/ ex:hasEvent/);
+
+            // BIND should stay on single line
+            const lines = result.output.split('\n');
+            const bindLine = lines.find(l => l.includes('BIND'));
+            expect(bindLine).toContain('BIND(?startDate - "P14D"^^xsd:dayTimeDuration AS ?adjustedDate)');
+
+            // FILTER comparison should stay on single line
+            const filterLine = lines.find(l => l.includes('FILTER(?otherDate'));
+            expect(filterLine).toContain('FILTER(?otherDate < ?startDate)');
+
+            // Comment should be preserved
+            expect(result.output).toContain('# Get the earliest start date');
+
+            // Blank lines should be preserved but not duplicated
+            expect(result.output).toContain('\n\n');
             expect(result.output).not.toMatch(/\n\n\n/);
         });
     });
@@ -503,6 +827,58 @@ VALUES ?date {
                 expect(result.output).toContain('SELECT');
                 expect(result.output).toContain('WHERE');
             });
+
+            it('should keep short FILTER NOT EXISTS block on a single line', () => {
+                const query = 'SELECT ?item WHERE { ?item a <http://example.org/Item> . FILTER NOT EXISTS { ?item ex:hasDecision ex:No . } }';
+
+                const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+                // The FILTER NOT EXISTS block should stay on one line
+                const lines = result.output.split('\n');
+                const filterLine = lines.find(l => l.includes('FILTER NOT EXISTS'));
+                expect(filterLine).toBeDefined();
+                expect(filterLine).toContain('FILTER NOT EXISTS {');
+                expect(filterLine).toContain('}');
+            });
+
+            it('should keep short VALUES block on a single line', () => {
+                const query = 'SELECT ?x WHERE { VALUES ?eventDate { "2025-11-01T00:00:00"^^xsd:dateTime } ?x <http://example.org/date> ?eventDate }';
+
+                const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+                // The VALUES block should stay on one line
+                const lines = result.output.split('\n');
+                const valuesLine = lines.find(l => l.includes('VALUES'));
+                expect(valuesLine).toBeDefined();
+                expect(valuesLine).toContain('VALUES ?eventDate {');
+                expect(valuesLine).toContain('}');
+            });
+
+            it('should break FILTER NOT EXISTS block when it exceeds maxLineWidth', () => {
+                const query = 'SELECT ?part WHERE { FILTER NOT EXISTS { ?part <http://example.org/very/long/predicate/name> <http://example.org/very/long/object/name> . } }';
+
+                const result = formatter.formatQuery(query, { maxLineWidth: 60 });
+
+                // The block should be broken into multiple lines
+                const lines = result.output.split('\n');
+                const filterLine = lines.find(l => l.includes('FILTER NOT EXISTS'));
+                expect(filterLine).toBeDefined();
+                // The closing } should be on a different line
+                expect(filterLine).not.toMatch(/\}[^\}]*$/);
+            });
+
+            it('should keep nested short blocks inline', () => {
+                const query = 'SELECT ?x WHERE { OPTIONAL { ?x <http://ex.org/p> ?y } }';
+
+                const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+                // The OPTIONAL block should stay on one line
+                const lines = result.output.split('\n');
+                const optionalLine = lines.find(l => l.includes('OPTIONAL'));
+                expect(optionalLine).toBeDefined();
+                expect(optionalLine).toContain('OPTIONAL {');
+                expect(optionalLine).toContain('}');
+            });
         });
 
         describe('blankLinesBetweenSubjects', () => {
@@ -524,6 +900,317 @@ VALUES ?date {
                 expect(result.output).toContain('?s1');
                 expect(result.output).toContain('?s2');
             });
+        });
+    });
+
+    describe('input preservation', () => {
+        describe('issue 1: blank node property list indentation in [ ]', () => {
+            it('should preserve consistent indentation inside blank node brackets', () => {
+                const query = `SELECT ?item ?status WHERE {
+    ?item ex:hasReview [
+        ex:reviewDate ?reviewDate ;
+        ex:hasReviewer ?reviewer ;
+        ex:hasStatus ?status ;
+    ]
+}`;
+                const result = formatter.formatQuery(query, {
+                    indent: '    ',
+                    maxLineWidth: 120,
+                });
+
+                const lines = result.output.split('\n');
+
+                // Find lines inside the brackets
+                const reviewDateLine = lines.find(l => l.includes('ex:reviewDate'));
+                const reviewerLine = lines.find(l => l.includes('ex:hasReviewer'));
+                const statusLine = lines.find(l => l.includes('ex:hasStatus'));
+
+                expect(reviewDateLine).toBeDefined();
+                expect(reviewerLine).toBeDefined();
+                expect(statusLine).toBeDefined();
+
+                // All predicate-object pairs inside [] should have the same indentation
+                const reviewDateIndent = reviewDateLine!.match(/^(\s*)/)?.[1].length ?? 0;
+                const reviewerIndent = reviewerLine!.match(/^(\s*)/)?.[1].length ?? 0;
+                const statusIndent = statusLine!.match(/^(\s*)/)?.[1].length ?? 0;
+
+                expect(reviewerIndent).toBe(reviewDateIndent);
+                expect(statusIndent).toBe(reviewDateIndent);
+
+                // The closing ] should be at the same indent as the line with [
+                const openBracketLine = lines.find(l => l.includes('['));
+                const closeBracketLine = lines.find(l => l.trim() === ']');
+                expect(closeBracketLine).toBeDefined();
+                const openIndent = openBracketLine!.match(/^(\s*)/)?.[1].length ?? 0;
+                const closeIndent = closeBracketLine!.match(/^(\s*)/)?.[1].length ?? 0;
+                expect(closeIndent).toBe(openIndent);
+            });
+        });
+
+        describe('issue 2: multi-line FILTER preservation', () => {
+            it('should preserve newlines inside multi-line FILTER expressions', () => {
+                const query = `SELECT ?item WHERE {
+    ?item a ex:Item .
+    FILTER (
+        EXISTS { ?item ex:isValid true } ||
+        EXISTS { ?item ex:isVerified true }
+    )
+}`;
+                const result = formatter.formatQuery(query, {
+                    indent: '    ',
+                    maxLineWidth: 120,
+                });
+
+                // The FILTER body should span multiple lines, not be collapsed
+                const lines = result.output.split('\n');
+                const filterLine = lines.find(l => l.includes('FILTER'));
+                expect(filterLine).toBeDefined();
+
+                // EXISTS clauses should be on separate lines
+                const existsLines = lines.filter(l => l.includes('EXISTS'));
+                expect(existsLines.length).toBe(2);
+
+                // The two EXISTS clauses should NOT be on the same line
+                const existsValidLine = lines.findIndex(l => l.includes('ex:isValid'));
+                const existsVerifiedLine = lines.findIndex(l => l.includes('ex:isVerified'));
+                expect(existsValidLine).not.toBe(existsVerifiedLine);
+            });
+        });
+
+        describe('issue 3: VALUES keyword and variable on same line', () => {
+            it('should keep VALUES keyword and variable on the same line', () => {
+                const query = `SELECT ?item WHERE {
+    VALUES ?type {
+        ex:TypeA
+        ex:TypeB
+        ex:TypeC
+    }
+    ?item a ?type
+}`;
+                const result = formatter.formatQuery(query, {
+                    indent: '    ',
+                    maxLineWidth: 120,
+                });
+
+                // VALUES and ?type should be on the same line
+                expect(result.output).toMatch(/VALUES \?type \{/);
+
+                // There should NOT be a blank line between VALUES and ?type
+                expect(result.output).not.toMatch(/VALUES\s*\n/);
+            });
+        });
+
+        describe('issue 4: ORDER BY line break preservation', () => {
+            it('should preserve line break between ORDER BY and LIMIT', () => {
+                const query = `SELECT ?item WHERE {
+    ?item a ex:Item
+}
+ORDER BY ?item
+LIMIT 100`;
+                const result = formatter.formatQuery(query, {
+                    indent: '    ',
+                    maxLineWidth: 120,
+                });
+
+                // ORDER BY and LIMIT should be on separate lines
+                const lines = result.output.split('\n');
+                const orderByLine = lines.findIndex(l => l.includes('ORDER BY'));
+                const limitLine = lines.findIndex(l => l.includes('LIMIT'));
+
+                expect(orderByLine).toBeGreaterThan(-1);
+                expect(limitLine).toBeGreaterThan(-1);
+                expect(limitLine).toBe(orderByLine + 1);
+            });
+        });
+
+        describe('issue 5: comment and blank line preservation', () => {
+            it('should preserve comments in the output', () => {
+                const query = `SELECT ?item WHERE {
+    # This item must be active.
+    ?item a ex:ActiveItem .
+
+    ?item ex:hasDate ?date .
+}`;
+                const result = formatter.formatQuery(query, {
+                    indent: '    ',
+                    maxLineWidth: 120,
+                });
+
+                // Comment should be preserved
+                expect(result.output).toContain('# This item must be active.');
+            });
+
+            it('should preserve blank lines between statement groups', () => {
+                const query = `SELECT ?item ?eventDate WHERE {
+    ?item ex:hasSchedule / ex:hasPhase / ex:hasEvent ?event .
+
+    ?event a ex:MilestoneEvent ;
+        ex:eventDate ?eventDate .
+}`;
+                const result = formatter.formatQuery(query, {
+                    indent: '    ',
+                    maxLineWidth: 120,
+                });
+
+                const lines = result.output.split('\n');
+
+                // Find the line with the first triple (ending with .)
+                const firstTripleLine = lines.findIndex(l => l.includes('ex:hasEvent'));
+                // Find the line with the second triple
+                const secondTripleLine = lines.findIndex(l => l.includes('ex:MilestoneEvent'));
+
+                expect(firstTripleLine).toBeGreaterThan(-1);
+                expect(secondTripleLine).toBeGreaterThan(-1);
+
+                // There should be a blank line between the two groups
+                // i.e., the gap should be >= 2 lines
+                expect(secondTripleLine - firstTripleLine).toBeGreaterThanOrEqual(2);
+            });
+
+            it('should preserve space before period in triple terminator', () => {
+                const query = `SELECT ?item WHERE {
+    ?item ex:hasSchedule / ex:hasPhase / ex:hasEvent ?event .
+
+    ?event a ex:MilestoneEvent ;
+        ex:eventDate ?eventDate .
+}`;
+                const result = formatter.formatQuery(query, {
+                    indent: '    ',
+                    maxLineWidth: 120,
+                    spaceBeforePunctuation: true,
+                });
+
+                // Period should have space before it
+                expect(result.output).toContain('?event .');
+            });
+        });
+    });
+
+    describe('inline statements (semicolon on single line)', () => {
+        it('should keep a short triple pattern on one line when source has no line breaks', () => {
+            const query = 'SELECT * WHERE { ?item a ex:Item; ex:hasIntro ?intro. }';
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+            // The triple pattern should stay on one line
+            expect(result.output).toContain('?item a ex:Item; ex:hasIntro ?intro.');
+        });
+
+        it('should break triple pattern when source has explicit line breaks after semicolon', () => {
+            const query = [
+                'SELECT * WHERE {',
+                '  ?item a ex:Item;',
+                '    ex:hasIntro ?intro.',
+                '}',
+            ].join('\n');
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+            // Should follow the source layout and break at the semicolon
+            expect(result.output).toContain(';\n');
+        });
+
+        it('should break a long triple pattern that exceeds maxLineWidth', () => {
+            const query = 'SELECT * WHERE { ?veryLongSubject a veryLong:TypeName; veryLong:predicateName ?veryLongObject. }';
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 40 });
+
+            // Should break because total length exceeds 40
+            expect(result.output).toContain(';\n');
+        });
+
+        it('should keep multiple semicolons on one line when it fits', () => {
+            const query = 'SELECT * WHERE { ?s a ex:T; ex:p1 ?o1; ex:p2 ?o2. }';
+
+            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+
+            expect(result.output).toContain('?s a ex:T; ex:p1 ?o1; ex:p2 ?o2.');
+        });
+
+        it('should preserve indentation for multi-line predicate list with property paths', () => {
+            const query = [
+                'SELECT * WHERE {',
+                '    ?item a ex:Item ;',
+                '        ex:identifiedBy / ex:id ?itemID ;',
+                '        ex:hasIntro ?intro .',
+                '}',
+            ].join('\n');
+
+            const result = formatter.formatQuery(query);
+
+            // Each continuation after semicolon should be indented more than the subject line
+            const lines = result.output.split('\n');
+            const subjectLine = lines.find(l => l.includes('?item a ex:Item'));
+            const idLine = lines.find(l => l.includes('ex:identifiedBy'));
+            const introLine = lines.find(l => l.includes('ex:hasIntro'));
+
+            expect(subjectLine).toBeDefined();
+            expect(idLine).toBeDefined();
+            expect(introLine).toBeDefined();
+
+            const subjectIndent = subjectLine!.match(/^\s*/)?.[0]?.length ?? 0;
+            const idIndent = idLine!.match(/^\s*/)?.[0]?.length ?? 0;
+            const introIndent = introLine!.match(/^\s*/)?.[0]?.length ?? 0;
+
+            // Continuations should be indented more than the subject
+            expect(idIndent).toBeGreaterThan(subjectIndent);
+            expect(introIndent).toBeGreaterThan(subjectIndent);
+        });
+
+        it('should not introduce blank line between comment and following statement', () => {
+            const query = [
+                'SELECT * WHERE {',
+                '    ?config ex:hasConfig / ex:hasSchedule / ex:hasEvent ?earliestEvent .',
+                '    # The second event occurs after the first event.',
+                '    ?item ex:hasDate ?date .',
+                '}',
+            ].join('\n');
+
+            const result = formatter.formatQuery(query);
+
+            // Comment should be present
+            expect(result.output).toContain('# The second event occurs after the first event.');
+
+            // The blank line (from blankLinesBetweenSubjects) should be BEFORE the comment,
+            // not between the comment and the statement it annotates.
+            // i.e., there should be NO blank line between # comment and ?item
+            expect(result.output).not.toMatch(/#[^\n]*\n\s*\n\s*\?item/);
+
+            // The blank line between subjects should appear before the comment
+            expect(result.output).toMatch(/\.\s*\n\s*\n\s*#/);
+        });
+
+        it('should place blank line before comment when comment precedes new subject with multi-line predicates', () => {
+            const query = [
+                'SELECT * WHERE {',
+                '    ?item a ex:Item ;',
+                '        ex:identifiedBy / ex:id ?itemID ;',
+                '        ex:hasIntro ?intro .',
+                '    # The second event occurs after the first event (with an offset).',
+                '    ?config ex:hasConfig / ex:hasSchedule / ex:hasEvent ?earliestEvent .',
+                '}',
+            ].join('\n');
+
+            const result = formatter.formatQuery(query);
+            const lines = result.output.split('\n');
+
+            // Comment should be present
+            expect(result.output).toContain('# The second event occurs after the first event');
+
+            // No blank line between comment and ?config
+            expect(result.output).not.toMatch(/#[^\n]*\n\s*\n\s*\?config/);
+
+            // Blank line between subjects should appear before the comment
+            expect(result.output).toMatch(/\.\s*\n\s*\n\s*#/);
+
+            // Multi-line predicate list should have proper indentation
+            const partLine = lines.find(l => l.trimStart().startsWith('?item'));
+            const idLine = lines.find(l => l.includes('ex:identifiedBy'));
+            expect(partLine).toBeDefined();
+            expect(idLine).toBeDefined();
+            const partIndent = partLine!.match(/^\s*/)?.[0]?.length ?? 0;
+            const idIndent = idLine!.match(/^\s*/)?.[0]?.length ?? 0;
+            expect(idIndent).toBeGreaterThan(partIndent);
         });
     });
 });

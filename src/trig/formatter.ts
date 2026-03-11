@@ -1,16 +1,21 @@
-import type { IToken, TokenType } from 'chevrotain';
-import type { TokenMetadata } from '@faubulous/mentor-rdf-parsers';
+import type { IToken } from 'chevrotain';
 import { RdfToken, TrigLexer } from '@faubulous/mentor-rdf-parsers';
 import type {
     IRdfFormatter,
     SerializationResult,
-    SerializerOptions,
     TokenSerializerOptions,
     RdfSyntax as RdfSyntaxType
 } from '../types.js';
 import { RdfSyntax } from '../types.js';
-import { TurtleFormatter, TurtleFormatterOptions } from '../turtle/formatter.js';
-import { mergeOptions } from '../utils.js';
+import {
+    BaseTokenFormatter,
+    type BaseFormatterContext,
+} from '../base-token-formatter.js';
+import type { TurtleFormatterOptions } from '../turtle/formatter.js';
+
+// ============================================================================
+// Options & Context
+// ============================================================================
 
 /**
  * TriG-specific formatting options.
@@ -32,34 +37,35 @@ export interface TrigFormatterOptions extends TurtleFormatterOptions {
 /**
  * Internal formatting context for TriG.
  */
-interface FormatterContext {
-    parts: string[];
+interface TrigFormatterContext extends BaseFormatterContext {
     opts: Required<TrigFormatterOptions>;
-    indentLevel: number;
-    needsNewline: boolean;
-    needsSpace: boolean;
-    lastToken: IToken | null;
-    lastNonWsToken: IToken | null;
-    inPrefix: boolean;
-    currentLineLength: number;
-    triplePosition: number;
-    lastSubject: string | null;
-    lastWasNewline: boolean;
-    blankNodeDepth: number;
+    /** Whether we are currently inside a graph block. */
     inGraph: boolean;
-    graphDepth: number;
 }
+
+// ============================================================================
+// TrigFormatter
+// ============================================================================
 
 /**
  * Formatter for TriG (RDF datasets with named graphs).
- * 
- * TriG extends Turtle to support named graphs.
- * 
+ *
+ * TriG extends Turtle to support named graphs with `{ }` graph blocks.
+ * Uses the scope stack for both graph braces (curly) and blank node
+ * brackets, replacing the manual `graphDepth` / `blankNodeDepth` counters.
+ *
  * @see https://www.w3.org/TR/rdf12-trig/
  */
-export class TrigFormatter implements IRdfFormatter {
+export class TrigFormatter
+    extends BaseTokenFormatter<TrigFormatterContext, TrigFormatterOptions>
+    implements IRdfFormatter
+{
     readonly syntax: RdfSyntaxType = RdfSyntax.TriG;
     private lexer = new TrigLexer();
+
+    // ========================================================================
+    // Public API
+    // ========================================================================
 
     /**
      * Formats a TriG document.
@@ -84,59 +90,38 @@ export class TrigFormatter implements IRdfFormatter {
         return this.formatTokens(tokens, opts);
     }
 
-    /**
-     * Checks if a token is a keyword.
-     */
-    private isKeyword(token: IToken): boolean {
-        return (token.tokenType as TokenType & TokenMetadata)?.isKeyword === true;
+    // ========================================================================
+    // BaseTokenFormatter implementations
+    // ========================================================================
+
+    protected getOptions(options?: TrigFormatterOptions): Required<TrigFormatterOptions> {
+        const base = this.mergeBaseOptions(options);
+        return {
+            ...base,
+            lowercaseDirectives: options?.lowercaseDirectives ?? true,
+            spaceBeforePunctuation: options?.spaceBeforePunctuation ?? false,
+            sameBraceLine: options?.sameBraceLine ?? true,
+            useGraphKeyword: options?.useGraphKeyword ?? false,
+        };
     }
 
-    /**
-     * Checks if a token must remain lowercase.
-     */
-    private isLowercaseOnly(token: IToken): boolean {
-        return (token.tokenType as TokenType & TokenMetadata)?.isLowercaseOnly === true;
+    protected createContext(opts: Required<TrigFormatterOptions>): TrigFormatterContext {
+        return {
+            ...this.createBaseContext(),
+            opts,
+            inGraph: false,
+        };
     }
 
-    /**
-     * Checks if a token is an opening bracket.
-     */
-    private isOpeningBracket(token: IToken): boolean {
-        return token.tokenType === RdfToken.LBRACKET ||
-               token.tokenType === RdfToken.LPARENT ||
-               token.tokenType === RdfToken.OPEN_ANNOTATION ||
-               token.tokenType === RdfToken.OPEN_REIFIED_TRIPLE ||
-               token.tokenType === RdfToken.OPEN_TRIPLE_TERM;
-    }
-
-    /**
-     * Checks if a token is a closing bracket.
-     */
-    private isClosingBracket(token: IToken): boolean {
-        return token.tokenType === RdfToken.RBRACKET ||
-               token.tokenType === RdfToken.RPARENT ||
-               token.tokenType === RdfToken.CLOSE_ANNOTATION ||
-               token.tokenType === RdfToken.CLOSE_REIFIED_TRIPLE ||
-               token.tokenType === RdfToken.CLOSE_TRIPLE_TERM;
-    }
-
-    /**
-     * Checks if a token is a term token.
-     */
-    private isTermToken(token: IToken): boolean {
-        return (token.tokenType as TokenType & TokenMetadata)?.isTerm === true;
-    }
-
-    /**
-     * Formats the token's value with appropriate casing.
-     */
-    private formatTokenValue(token: IToken, opts: Required<TrigFormatterOptions>): string {
+    protected formatTokenValue(token: IToken, opts: Required<TrigFormatterOptions>): string {
         const tokenType = token.tokenType;
 
+        // Tokens marked as lowercase-only (true, false, a) stay lowercase
         if (this.isLowercaseOnly(token)) {
             return token.image.toLowerCase();
         }
 
+        // Handle directive keywords (@prefix, @base vs PREFIX, BASE)
         if (tokenType === RdfToken.TTL_PREFIX || tokenType === RdfToken.TTL_BASE) {
             return opts.lowercaseDirectives ? token.image.toLowerCase() : token.image.toUpperCase().replace('@', '');
         }
@@ -145,6 +130,7 @@ export class TrigFormatter implements IRdfFormatter {
             return opts.lowercaseDirectives ? '@' + token.image.toLowerCase() : token.image.toUpperCase();
         }
 
+        // GRAPH keyword is always uppercased
         if (tokenType === RdfToken.GRAPH) {
             return token.image.toUpperCase();
         }
@@ -152,85 +138,49 @@ export class TrigFormatter implements IRdfFormatter {
         return token.image;
     }
 
-    /**
-     * Creates a new formatting context.
-     */
-    private createContext(opts: Required<TrigFormatterOptions>): FormatterContext {
-        return {
-            parts: [],
-            opts,
-            indentLevel: 0,
-            needsNewline: false,
-            needsSpace: false,
-            lastToken: null,
-            lastNonWsToken: null,
-            inPrefix: false,
-            currentLineLength: 0,
-            triplePosition: 0,
-            lastSubject: null,
-            lastWasNewline: false,
-            blankNodeDepth: 0,
-            inGraph: false,
-            graphDepth: 0,
-        };
-    }
-
-    /**
-     * Adds content to output.
-     */
-    private addPart(ctx: FormatterContext, text: string, forceNewline = false): void {
-        const lineEnd = ctx.opts.lineEnd;
-        if (forceNewline || text === lineEnd || text.includes(lineEnd)) {
-            ctx.parts.push(text);
-            const lines = text.split(lineEnd);
-            ctx.currentLineLength = lines[lines.length - 1].length;
-        } else {
-            ctx.parts.push(text);
-            ctx.currentLineLength += text.length;
-        }
-    }
-
-    /**
-     * Gets the indentation string for a given level.
-     */
-    private getIndent(level: number, indent: string): string {
-        return indent.repeat(level);
-    }
+    // ========================================================================
+    // Token handlers
+    // ========================================================================
 
     /**
      * Handles comment tokens.
      */
-    private handleComment(ctx: FormatterContext, comment: IToken): void {
+    private handleTrigComment(ctx: TrigFormatterContext, comment: IToken): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
         if (ctx.parts.length > 0) {
             if (ctx.lastNonWsToken && comment.startLine !== undefined &&
                 ctx.lastNonWsToken.endLine !== undefined &&
                 comment.startLine > ctx.lastNonWsToken.endLine) {
-                this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+                this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
                 ctx.lastWasNewline = true;
             } else {
-                this.addPart(ctx, ' ');
+                this.addPart(ctx, ' ', le);
             }
         }
-        this.addPart(ctx, comment.image);
+        this.addPart(ctx, comment.image, le);
         ctx.needsNewline = true;
         ctx.needsSpace = false;
     }
 
     /**
      * Handles opening curly brace (graph start).
+     * Uses the scope stack to track graph nesting.
      */
-    private handleOpenCurly(ctx: FormatterContext): void {
+    private handleTrigOpenCurly(ctx: TrigFormatterContext): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
+
         if (ctx.needsNewline && !ctx.opts.sameBraceLine) {
-            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
         } else if (ctx.needsSpace && ctx.parts.length > 0) {
-            this.addPart(ctx, ' ');
+            this.addPart(ctx, ' ', le);
         }
 
-        this.addPart(ctx, '{');
-        ctx.graphDepth++;
-        ctx.indentLevel++;
+        this.addPart(ctx, '{', le);
+        this.pushScope(ctx, 'curly', false, false);
         ctx.inGraph = true;
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.needsSpace = false;
@@ -240,39 +190,48 @@ export class TrigFormatter implements IRdfFormatter {
 
     /**
      * Handles closing curly brace (graph end).
+     * Pops the curly scope and checks if we're still inside a graph.
      */
-    private handleCloseCurly(ctx: FormatterContext): void {
-        ctx.graphDepth = Math.max(0, ctx.graphDepth - 1);
-        ctx.indentLevel = Math.max(0, ctx.indentLevel - 1);
+    private handleTrigCloseCurly(ctx: TrigFormatterContext): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
+
+        const scope = this.currentScope(ctx);
+        if (scope?.type === 'curly') {
+            this.popScope(ctx);
+        }
 
         if (ctx.opts.prettyPrint) {
-            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
         }
 
-        this.addPart(ctx, '}');
+        this.addPart(ctx, '}', le);
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.needsSpace = false;
-        ctx.inGraph = ctx.graphDepth > 0;
+        // Still inside a graph if there are curly scopes remaining
+        ctx.inGraph = ctx.scopeStack.some(s => s.type === 'curly');
     }
 
     /**
-     * Handles opening bracket tokens.
+     * Handles opening bracket tokens ([ for blank nodes, etc.).
      */
-    private handleOpenBracket(ctx: FormatterContext, token: IToken): void {
+    private handleTrigOpenBracket(ctx: TrigFormatterContext, token: IToken): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
+
         if (ctx.needsNewline) {
-            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
         } else if (ctx.needsSpace && ctx.parts.length > 0) {
-            this.addPart(ctx, ' ');
+            this.addPart(ctx, ' ', le);
         }
 
-        this.addPart(ctx, token.image);
+        this.addPart(ctx, token.image, le);
 
         if (token.tokenType === RdfToken.LBRACKET) {
-            ctx.blankNodeDepth++;
-            ctx.indentLevel++;
+            this.pushScope(ctx, 'bracket', false, false);
             ctx.needsNewline = ctx.opts.prettyPrint;
         }
 
@@ -281,54 +240,68 @@ export class TrigFormatter implements IRdfFormatter {
     }
 
     /**
-     * Handles closing bracket tokens.
+     * Handles closing bracket tokens (] for blank nodes, etc.).
      */
-    private handleCloseBracket(ctx: FormatterContext, token: IToken): void {
-        if (token.tokenType === RdfToken.RBRACKET && ctx.blankNodeDepth > 0) {
-            ctx.blankNodeDepth--;
-            ctx.indentLevel = Math.max(0, ctx.indentLevel - 1);
-            if (ctx.opts.prettyPrint) {
-                this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
-                ctx.lastWasNewline = true;
+    private handleTrigCloseBracket(ctx: TrigFormatterContext, token: IToken): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
+
+        if (token.tokenType === RdfToken.RBRACKET) {
+            const scope = this.currentScope(ctx);
+            if (scope?.type === 'bracket') {
+                this.popScope(ctx);
+                if (ctx.opts.prettyPrint) {
+                    this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+                    ctx.lastWasNewline = true;
+                }
             }
         }
 
-        this.addPart(ctx, token.image);
+        this.addPart(ctx, token.image, le);
         ctx.needsSpace = true;
         ctx.needsNewline = false;
     }
 
     /**
-     * Handles period.
+     * Handles period (statement terminator).
      */
-    private handlePeriod(ctx: FormatterContext): void {
+    private handleTrigPeriod(ctx: TrigFormatterContext): void {
+        const le = ctx.opts.lineEnd;
         if (ctx.opts.spaceBeforePunctuation && !ctx.inPrefix && ctx.parts.length > 0) {
-            this.addPart(ctx, ' ');
+            this.addPart(ctx, ' ', le);
         }
-        this.addPart(ctx, '.');
+        this.addPart(ctx, '.', le);
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.needsSpace = true;
         ctx.inPrefix = false;
         ctx.triplePosition = 0;
         ctx.lastSubject = null;
+        ctx.inlineStatement = false;
     }
 
     /**
-     * Handles semicolon.
+     * Handles semicolon (predicate separator).
+     * Always adds extra indent for continuation, matching Turtle behaviour.
      */
-    private handleSemicolon(ctx: FormatterContext): void {
-        if (ctx.opts.spaceBeforePunctuation && ctx.parts.length > 0) {
-            this.addPart(ctx, ' ');
-        }
-        this.addPart(ctx, ';');
+    private handleTrigSemicolon(ctx: TrigFormatterContext): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
 
-        if (ctx.opts.prettyPrint && ctx.indentLevel > 0) {
-            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent) + ctx.opts.indent, true);
+        if (ctx.opts.spaceBeforePunctuation && ctx.parts.length > 0) {
+            this.addPart(ctx, ' ', le);
+        }
+        this.addPart(ctx, ';', le);
+
+        if (ctx.inlineStatement) {
+            ctx.needsNewline = false;
+            ctx.needsSpace = true;
+        } else if (ctx.opts.prettyPrint && ctx.indentLevel > 0) {
+            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind) + ind, le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
             ctx.needsSpace = false;
         } else if (ctx.opts.prettyPrint) {
-            this.addPart(ctx, ctx.opts.lineEnd + ctx.opts.indent, true);
+            this.addPart(ctx, le + ind, le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
             ctx.needsSpace = false;
@@ -340,21 +313,23 @@ export class TrigFormatter implements IRdfFormatter {
     }
 
     /**
-     * Handles comma.
+     * Handles comma (object separator).
      */
-    private handleComma(ctx: FormatterContext): void {
-        this.addPart(ctx, ',');
+    private handleTrigComma(ctx: TrigFormatterContext): void {
+        const le = ctx.opts.lineEnd;
+        this.addPart(ctx, ',', le);
         ctx.needsSpace = true;
     }
 
     /**
-     * Handles prefix IRI.
+     * Handles PREFIX/BASE IRI completion.
      */
-    private handlePrefixIri(ctx: FormatterContext, value: string): void {
+    private handleTrigPrefixIri(ctx: TrigFormatterContext, value: string): void {
+        const le = ctx.opts.lineEnd;
         if (ctx.needsSpace && ctx.parts.length > 0) {
-            this.addPart(ctx, ' ');
+            this.addPart(ctx, ' ', le);
         }
-        this.addPart(ctx, value);
+        this.addPart(ctx, value, le);
         ctx.needsSpace = false;
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.inPrefix = false;
@@ -362,20 +337,23 @@ export class TrigFormatter implements IRdfFormatter {
 
     /**
      * Handles token spacing.
+     * TriG additionally suppresses space after opening curly braces.
      */
-    private handleTokenSpacing(ctx: FormatterContext, token: IToken): void {
+    private handleTrigTokenSpacing(ctx: TrigFormatterContext, token: IToken): void {
+        const le = ctx.opts.lineEnd;
+        const ind = ctx.opts.indent;
         const isDatatypeContext = token.tokenType === RdfToken.DCARET ||
             ctx.lastNonWsToken?.tokenType === RdfToken.DCARET;
         const isLangTag = token.tokenType === RdfToken.LANGTAG;
 
         if (ctx.needsNewline && !isDatatypeContext && !isLangTag) {
-            this.addPart(ctx, ctx.opts.lineEnd + this.getIndent(ctx.indentLevel, ctx.opts.indent), true);
+            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
         } else if (ctx.needsSpace && ctx.parts.length > 0 && !isDatatypeContext && !isLangTag) {
             if (ctx.lastNonWsToken && !this.isOpeningBracket(ctx.lastNonWsToken) &&
                 ctx.lastNonWsToken.tokenType !== RdfToken.LCURLY) {
-                this.addPart(ctx, ' ');
+                this.addPart(ctx, ' ', le);
             }
             ctx.lastWasNewline = false;
         } else {
@@ -383,41 +361,43 @@ export class TrigFormatter implements IRdfFormatter {
         }
     }
 
-    /**
-     * Formats tokens into a string.
-     */
+    // ========================================================================
+    // Main formatting loop
+    // ========================================================================
+
     private formatTokens(
         tokens: IToken[],
         opts: Required<TrigFormatterOptions>,
         comments: IToken[] = []
     ): SerializationResult {
         const ctx = this.createContext(opts);
+        const le = opts.lineEnd;
         const sortedComments = [...comments].sort((a, b) => (a.startOffset ?? 0) - (b.startOffset ?? 0));
         let commentIndex = 0;
 
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
 
-            // Insert comments
+            // Insert comments that appear before this token
             while (commentIndex < sortedComments.length) {
                 const comment = sortedComments[commentIndex];
                 if ((comment.startOffset ?? 0) < (token.startOffset ?? 0)) {
-                    this.handleComment(ctx, comment);
+                    this.handleTrigComment(ctx, comment);
                     commentIndex++;
                 } else {
                     break;
                 }
             }
 
-            // Skip whitespace
+            // Skip whitespace tokens
             if (token.tokenType === RdfToken.WS) {
                 ctx.lastToken = token;
                 continue;
             }
 
-            // Handle comments
+            // Handle comment tokens in stream
             if (token.tokenType === RdfToken.COMMENT) {
-                this.handleComment(ctx, token);
+                this.handleTrigComment(ctx, token);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -431,16 +411,16 @@ export class TrigFormatter implements IRdfFormatter {
                 ctx.inPrefix = true;
             }
 
-            // Handle graph braces
+            // Handle graph braces (must come before generic bracket handling)
             if (token.tokenType === RdfToken.LCURLY) {
-                this.handleOpenCurly(ctx);
+                this.handleTrigOpenCurly(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.RCURLY) {
-                this.handleCloseCurly(ctx);
+                this.handleTrigCloseCurly(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -448,35 +428,35 @@ export class TrigFormatter implements IRdfFormatter {
 
             // Handle structural tokens
             if (this.isOpeningBracket(token)) {
-                this.handleOpenBracket(ctx, token);
+                this.handleTrigOpenBracket(ctx, token);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (this.isClosingBracket(token)) {
-                this.handleCloseBracket(ctx, token);
+                this.handleTrigCloseBracket(ctx, token);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.PERIOD) {
-                this.handlePeriod(ctx);
+                this.handleTrigPeriod(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.SEMICOLON) {
-                this.handleSemicolon(ctx);
+                this.handleTrigSemicolon(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.COMMA) {
-                this.handleComma(ctx);
+                this.handleTrigComma(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -484,7 +464,7 @@ export class TrigFormatter implements IRdfFormatter {
 
             // Handle PREFIX/BASE IRI completion
             if (ctx.inPrefix && (token.tokenType === RdfToken.IRIREF || token.tokenType === RdfToken.IRIREF_ABS)) {
-                this.handlePrefixIri(ctx, value);
+                this.handleTrigPrefixIri(ctx, value);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -492,12 +472,13 @@ export class TrigFormatter implements IRdfFormatter {
 
             // Handle triple position tracking
             if (this.isTermToken(token) && ctx.triplePosition === 0 && !ctx.inPrefix) {
-                if (opts.blankLinesBetweenSubjects && ctx.lastSubject !== null && token.image !== ctx.lastSubject) {
+                if (ctx.opts.blankLinesBetweenSubjects && ctx.lastSubject !== null && token.image !== ctx.lastSubject) {
                     if (!ctx.needsNewline && ctx.parts.length > 0) {
-                        this.addPart(ctx, ctx.opts.lineEnd, true);
+                        this.addPart(ctx, le, le, true);
                     }
                 }
                 ctx.lastSubject = token.image;
+                this.detectInlineStatement(ctx, tokens, i, ctx.opts.indent, ctx.opts.maxLineWidth);
                 ctx.triplePosition++;
             } else if (this.isTermToken(token) && !ctx.inPrefix) {
                 ctx.triplePosition++;
@@ -505,10 +486,10 @@ export class TrigFormatter implements IRdfFormatter {
             }
 
             // Handle spacing
-            this.handleTokenSpacing(ctx, token);
+            this.handleTrigTokenSpacing(ctx, token);
 
             // Output the token
-            this.addPart(ctx, value);
+            this.addPart(ctx, value, le);
             ctx.needsSpace = true;
             ctx.lastToken = token;
             ctx.lastNonWsToken = token;
@@ -516,24 +497,10 @@ export class TrigFormatter implements IRdfFormatter {
 
         // Add trailing comments
         while (commentIndex < sortedComments.length) {
-            this.handleComment(ctx, sortedComments[commentIndex]);
+            this.handleTrigComment(ctx, sortedComments[commentIndex]);
             commentIndex++;
         }
 
         return { output: ctx.parts.join('').trim() };
-    }
-
-    /**
-     * Gets merged options with defaults.
-     */
-    private getOptions(options?: TrigFormatterOptions): Required<TrigFormatterOptions> {
-        const base = mergeOptions(options);
-        return {
-            ...base,
-            lowercaseDirectives: options?.lowercaseDirectives ?? true,
-            spaceBeforePunctuation: options?.spaceBeforePunctuation ?? false,
-            sameBraceLine: options?.sameBraceLine ?? true,
-            useGraphKeyword: options?.useGraphKeyword ?? false,
-        };
     }
 }
