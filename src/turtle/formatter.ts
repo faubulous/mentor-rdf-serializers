@@ -24,6 +24,19 @@ export interface TurtleFormatterOptions extends BaseFormatterOptions {
      * Default: true
      */
     lowercaseDirectives?: boolean;
+
+    /**
+     * When true (and prettyPrint is enabled), place the subject on its own line
+     * and start the predicate list on the next line.
+     *
+     * Example:
+     * ex:s
+     *   a ex:T;
+     *   ex:p ex:o.
+     *
+     * Default: false
+     */
+    newlineAfterSubject?: boolean;
 }
 
 /**
@@ -89,6 +102,7 @@ export class TurtleFormatter
         return {
             ...base,
             lowercaseDirectives: options?.lowercaseDirectives ?? true,
+            newlineAfterSubject: options?.newlineAfterSubject ?? false,
             spaceBeforePunctuation: options?.spaceBeforePunctuation ?? false,
         };
     }
@@ -376,6 +390,12 @@ export class TurtleFormatter
                 continue;
             }
 
+            const isStatementSubjectToken =
+                this.isTermToken(token) &&
+                ctx.triplePosition === 0 &&
+                !ctx.inPrefix &&
+                !this.inBracketScope(ctx);
+
             // Handle triple position tracking
             if (this.isTermToken(token) && ctx.triplePosition === 0 && !ctx.inPrefix) {
                 if (ctx.opts.blankLinesBetweenSubjects && ctx.lastSubject !== null && token.image !== ctx.lastSubject) {
@@ -397,6 +417,18 @@ export class TurtleFormatter
             // Output the token
             this.addPart(ctx, value, le);
             ctx.needsSpace = true;
+
+            // Option: force predicate list onto a new line after the subject.
+            // Only applies to real statement subjects (not blank node property lists).
+            if (isStatementSubjectToken && ctx.opts.prettyPrint && ctx.opts.newlineAfterSubject) {
+                const scope = this.currentScope(ctx);
+                const statementBaseIndentLevel = scope ? scope.indentLevel + 1 : 0;
+                ctx.indentLevel = statementBaseIndentLevel + 1;
+                ctx.inlineStatement = false;
+                ctx.needsNewline = true;
+                ctx.needsSpace = false;
+            }
+
             ctx.lastToken = token;
             ctx.lastNonWsToken = token;
         }

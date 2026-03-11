@@ -4,6 +4,34 @@ import { TurtleFormatter } from './formatter.js';
 describe('TurtleFormatter', () => {
     const formatter = new TurtleFormatter();
 
+    describe('newlineAfterSubject', () => {
+        it('puts the subject on its own line and indents the predicate list', () => {
+            const input = 'ex:s a ex:T; ex:p ex:o.';
+
+            const result = formatter.formatFromText(input, {
+                indent: '  ',
+                newlineAfterSubject: true,
+                maxLineWidth: 120,
+            });
+
+            expect(result.output).toBe(['ex:s', '  a ex:T;', '  ex:p ex:o.'].join('\n'));
+        });
+
+        it('does not treat the first predicate in a blank node property list as a subject', () => {
+            const input = 'ex:s ex:p [ a ex:T; ex:q ex:o ].';
+
+            const result = formatter.formatFromText(input, {
+                indent: '  ',
+                newlineAfterSubject: true,
+                maxLineWidth: 120,
+            });
+
+            // Within [ ... ], the formatter should not insert a newline between
+            // the predicate `a` and its object.
+            expect(result.output).toContain('a ex:T; ex:q ex:o');
+        });
+    });
+
     describe('inline statements (semicolon on single line)', () => {
         it('should keep a short statement on one line when source has no line breaks', () => {
             const input = 'ex:part a ex:Part; ex:hasCO ex:co1.';
