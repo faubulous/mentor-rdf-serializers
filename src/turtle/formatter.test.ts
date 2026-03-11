@@ -164,4 +164,45 @@ describe('TurtleFormatter', () => {
             expect(result.output).toContain('\n  ];');
         });
     });
+
+    describe('blankLinesBetweenSubjects', () => {
+        it('inserts an empty line between root-level subjects when enabled', () => {
+            const input = 'ex:s a ex:T. ex:s2 a ex:T2.';
+
+            const result = formatter.formatFromText(input, {
+                blankLinesBetweenSubjects: true,
+                maxLineWidth: 120,
+            });
+
+            expect(result.output).toBe(['ex:s a ex:T.', '', 'ex:s2 a ex:T2.'].join('\n'));
+        });
+
+        it('does not insert an empty line between root-level subjects when disabled', () => {
+            const input = 'ex:s a ex:T. ex:s2 a ex:T2.';
+
+            const result = formatter.formatFromText(input, {
+                blankLinesBetweenSubjects: false,
+                maxLineWidth: 120,
+            });
+
+            expect(result.output).toBe(['ex:s a ex:T.', 'ex:s2 a ex:T2.'].join('\n'));
+        });
+
+        it('does not treat blank node property lists as root-level subjects', () => {
+            const input = 'ex:s ex:p [ a ex:T; ex:q ex:o ]. ex:s2 a ex:T2.';
+
+            const result = formatter.formatFromText(input, {
+                blankLinesBetweenSubjects: true,
+                maxLineWidth: 120,
+            });
+
+            // No *empty* line should be inserted inside the blank node property list
+            // (the formatter may still choose to pretty-print it across multiple lines).
+            expect(result.output).not.toContain('[\n\n');
+            expect(result.output).not.toContain(';\n\n');
+
+            // But we should still separate root-level subject blocks
+            expect(result.output).toContain('\n\nex:s2 a ex:T2.');
+        });
+    });
 });

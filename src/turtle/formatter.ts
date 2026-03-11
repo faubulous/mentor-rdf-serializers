@@ -212,7 +212,6 @@ export class TurtleFormatter
         ctx.needsSpace = true;
         ctx.inPrefix = false;
         ctx.triplePosition = 0;
-        ctx.lastSubject = null;
         ctx.inlineStatement = false;
 
         // Reset indentation back to the current structural scope (if any).
@@ -283,6 +282,12 @@ export class TurtleFormatter
         const isLangTag = token.tokenType === RdfToken.LANGTAG;
 
         if (ctx.needsNewline && !isDatatypeContext && !isLangTag) {
+            if (ctx.needsBlankLine) {
+                // Insert an extra line break so we end up with an empty line
+                // before the next root-level subject.
+                this.addPart(ctx, le, le, true);
+                ctx.needsBlankLine = false;
+            }
             this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
@@ -398,12 +403,20 @@ export class TurtleFormatter
 
             // Handle triple position tracking
             if (this.isTermToken(token) && ctx.triplePosition === 0 && !ctx.inPrefix) {
-                if (ctx.opts.blankLinesBetweenSubjects && ctx.lastSubject !== null && token.image !== ctx.lastSubject) {
-                    if (!ctx.needsNewline && ctx.parts.length > 0) {
-                        this.addPart(ctx, le, le, true);
-                    }
+                // Root-level subject separation (before each new subject block)
+                if (isStatementSubjectToken &&
+                    ctx.opts.prettyPrint &&
+                    ctx.opts.blankLinesBetweenSubjects &&
+                    ctx.lastSubject !== null &&
+                    token.image !== ctx.lastSubject) {
+                    ctx.needsBlankLine = true;
+                    ctx.needsNewline = true;
+                    ctx.needsSpace = false;
                 }
-                ctx.lastSubject = token.image;
+
+                if (isStatementSubjectToken) {
+                    ctx.lastSubject = token.image;
+                }
                 this.detectInlineStatement(ctx, tokens, i, ctx.opts.indent, ctx.opts.maxLineWidth);
                 ctx.triplePosition++;
             } else if (this.isTermToken(token) && !ctx.inPrefix) {
