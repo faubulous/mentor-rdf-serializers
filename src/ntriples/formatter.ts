@@ -39,7 +39,7 @@ export class NTriplesFormatter implements IRdfFormatter {
     /**
      * Formats an N-Triples document.
      */
-    format(input: string, options?: NTriplesFormatterOptions): SerializationResult {
+    formatFromText(input: string, options?: NTriplesFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
         const result = this.lexer.tokenize(input);
 
@@ -54,9 +54,14 @@ export class NTriplesFormatter implements IRdfFormatter {
     /**
      * Formats from already-parsed tokens.
      */
-    formatFromTokens(tokens: IToken[], options?: TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options as NTriplesFormatterOptions);
+    formatFromTokens(tokens: IToken[], options?: NTriplesFormatterOptions & TokenSerializerOptions): SerializationResult {
+        const opts = this.getOptions(options);
         return this.formatTokens(tokens, opts);
+    }
+
+    // Backwards-compatible alias
+    format(input: string, options?: NTriplesFormatterOptions): SerializationResult {
+        return this.formatFromText(input, options);
     }
 
     /**

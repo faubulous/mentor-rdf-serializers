@@ -70,7 +70,7 @@ export class TrigFormatter
     /**
      * Formats a TriG document.
      */
-    format(input: string, options?: TrigFormatterOptions): SerializationResult {
+    formatFromText(input: string, options?: TrigFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
         const result = this.lexer.tokenize(input);
 
@@ -85,9 +85,14 @@ export class TrigFormatter
     /**
      * Formats from already-parsed tokens.
      */
-    formatFromTokens(tokens: IToken[], options?: TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options as TrigFormatterOptions);
+    formatFromTokens(tokens: IToken[], options?: TrigFormatterOptions & TokenSerializerOptions): SerializationResult {
+        const opts = this.getOptions(options);
         return this.formatTokens(tokens, opts);
+    }
+
+    // Backwards-compatible alias
+    format(input: string, options?: TrigFormatterOptions): SerializationResult {
+        return this.formatFromText(input, options);
     }
 
     // ========================================================================
@@ -251,7 +256,14 @@ export class TrigFormatter
             if (scope?.type === 'bracket') {
                 this.popScope(ctx);
                 if (ctx.opts.prettyPrint) {
-                    this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+                    // Align the closing ']' with the predicate that
+                    // introduced the blank node property list. The
+                    // scope's indentLevel is the indentation at the
+                    // time '[' was seen (typically the subject line),
+                    // so we add one extra indent level to reach the
+                    // predicate indentation.
+                    const baseIndentLevel = scope.indentLevel + 1;
+                    this.addPart(ctx, le + this.getIndent(baseIndentLevel, ind), le, true);
                     ctx.lastWasNewline = true;
                 }
             }

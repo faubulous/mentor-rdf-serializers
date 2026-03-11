@@ -25,31 +25,40 @@ The `mentor-rdf-serializers` package is designed to work seamlessly with `mentor
 
 ```mermaid
 flowchart LR
-    subgraph Input
-        A[RDF Document]
+    subgraph Source
+        A[RDF text (Turtle, TriG, ...)]
+        B[SPARQL text]
+        C[RDF/JS quads]
     end
-    
+
     subgraph mentor-rdf-parsers
-        B[Tokenizer]
-        C[Parser]
-        D[Quad Stream]
-        A --> B --> C --> D
+        P1[Parser]
+        T1[Tokens]
+        Q1[Quads]
+
+        A --> P1
+        P1 --> T1
+        P1 --> Q1
+
+        B --> L2[SparqlLexer] --> T2[SPARQL tokens]
     end
-    
+
     subgraph mentor-rdf-serializers
-        E[Serializer]
-        F[TokenSerializer]
-        G[SparqlFormatter]
+        S1[Quad serializers\n(Turtle, N-Triples, ...)]
+        TS[TokenSerializer]
+        SF[SparqlFormatter]
     end
-    
+
     subgraph Output
-        H[Formatted Document]
+        O1[Serialized / formatted RDF]
+        O2[Formatted SPARQL]
     end
-    
-    D --> E --> H
-    B --> F --> H
-    A --> G --> H
-    
+
+    C --> S1 --> O1
+    Q1 --> S1
+    T1 --> TS --> O1
+    T2 --> SF --> O2
+
     style mentor-rdf-parsers fill:#e1f5fe
     style mentor-rdf-serializers fill:#fff3e0
 ```
@@ -173,7 +182,7 @@ import { SparqlFormatter } from '@faubulous/mentor-rdf-serializers';
 const formatter = new SparqlFormatter();
 
 // Format a SELECT query
-const formatted = formatter.formatQuery(`
+const selectResult = formatter.formatFromText(`
     SELECT ?s ?p ?o WHERE { ?s ?p ?o . FILTER(?o > 10) }
 `, {
     uppercaseKeywords: true,
@@ -183,22 +192,27 @@ const formatted = formatter.formatQuery(`
     maxLineWidth: 80
 });
 
-// Format an UPDATE
-const update = formatter.formatUpdate(`
+console.log(selectResult.output);
+
+// Format a SPARQL UPDATE (same API)
+const updateResult = formatter.formatFromText(`
     INSERT DATA { <http://example.org/s> <http://example.org/p> "value" }
 `, { 
     indent: '    ',
     uppercaseKeywords: true 
 });
 
+console.log(updateResult.output);
+
 // Comments are preserved
-const withComments = formatter.formatQuery(`
+const withComments = formatter.formatFromText(`
     # Find all people
     SELECT ?person WHERE {
         ?person a <http://example.org/Person> .  # Match persons
     }
 `);
-// Comments remain in the formatted output
+
+console.log(withComments.output); // Comments remain in the formatted output
 ```
 
 ## Token-based Serialization
@@ -395,7 +409,7 @@ interface ISerializer {
 interface SerializationResult {
     output: string;
     warnings?: string[];
-    errors?: string[];
+    sourceMap?: SourceMapEntry[];
 }
 ```
 
@@ -403,8 +417,8 @@ interface SerializationResult {
 
 ```typescript
 interface ISparqlFormatter {
-    formatQuery(query: string, options?: SparqlFormatterOptions): string;
-    formatUpdate(update: string, options?: SparqlFormatterOptions): string;
+    formatFromText(query: string, options?: SerializerOptions): SerializationResult;
+    formatFromTokens(tokens: unknown[], options?: SerializerOptions): SerializationResult;
 }
 ```
 
@@ -492,7 +506,7 @@ export class SparqlDocumentFormatter implements vscode.DocumentFormattingEditPro
         const text = document.getText();
         const config = vscode.workspace.getConfiguration('sparql');
         
-        const result = this.formatter.formatQuery(text, {
+        const result = this.formatter.formatFromText(text, {
             indent: options.insertSpaces ? ' '.repeat(options.tabSize) : '\t',
             prettyPrint: true,
             uppercaseKeywords: config.get('uppercaseKeywords', true),

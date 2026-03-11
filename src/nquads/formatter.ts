@@ -39,7 +39,7 @@ export class NQuadsFormatter implements IRdfFormatter {
     /**
      * Formats an N-Quads document.
      */
-    format(input: string, options?: NQuadsFormatterOptions): SerializationResult {
+    formatFromText(input: string, options?: NQuadsFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
         const result = this.lexer.tokenize(input);
 
@@ -54,9 +54,14 @@ export class NQuadsFormatter implements IRdfFormatter {
     /**
      * Formats from already-parsed tokens.
      */
-    formatFromTokens(tokens: IToken[], options?: TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options as NQuadsFormatterOptions);
+    formatFromTokens(tokens: IToken[], options?: NQuadsFormatterOptions & TokenSerializerOptions): SerializationResult {
+        const opts = this.getOptions(options);
         return this.formatTokens(tokens, opts);
+    }
+
+    // Backwards-compatible alias
+    format(input: string, options?: NQuadsFormatterOptions): SerializationResult {
+        return this.formatFromText(input, options);
     }
 
     /**

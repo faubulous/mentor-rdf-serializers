@@ -58,7 +58,7 @@ export class TurtleFormatter
     // Public API
     // ========================================================================
 
-    format(input: string, options?: TurtleFormatterOptions): SerializationResult {
+    formatFromText(input: string, options?: TurtleFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
         const result = this.lexer.tokenize(input);
 
@@ -70,9 +70,14 @@ export class TurtleFormatter
         return this.formatTokens(result.tokens, opts, comments);
     }
 
-    formatFromTokens(tokens: IToken[], options?: TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options as TurtleFormatterOptions);
+    formatFromTokens(tokens: IToken[], options?: TurtleFormatterOptions & TokenSerializerOptions): SerializationResult {
+        const opts = this.getOptions(options);
         return this.formatTokens(tokens, opts);
+    }
+
+    // Backwards-compatible alias
+    format(input: string, options?: TurtleFormatterOptions): SerializationResult {
+        return this.formatFromText(input, options);
     }
 
     // ========================================================================
@@ -167,7 +172,15 @@ export class TurtleFormatter
             if (scope?.type === 'bracket') {
                 this.popScope(ctx);
                 if (ctx.opts.prettyPrint) {
-                    this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+                    // For blank node property lists, the closing ']' should
+                    // align with the predicate that introduced the '['.
+                    // The scope's indentLevel represents the indentation at
+                    // the point where '[' was seen (typically the subject
+                    // line). We therefore add one extra indent level to
+                    // match the predicate indentation rather than flushing
+                    // the ']' to column 0.
+                    const baseIndentLevel = scope.indentLevel + 1;
+                    this.addPart(ctx, le + this.getIndent(baseIndentLevel, ind), le, true);
                     ctx.lastWasNewline = true;
                 }
             }

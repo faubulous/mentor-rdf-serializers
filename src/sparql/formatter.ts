@@ -63,6 +63,10 @@ interface SparqlFormatterContext extends BaseFormatterContext {
     lastCommentPartIndex: number;
     /** Whether the last comment block already consumed a blank line (from source or clause separation). */
     lastCommentHadBlankLine: boolean;
+    /** Whether we are inside a VALUES clause (between VALUES keyword and matching close brace). */
+    inValuesClause: boolean;
+    /** Depth of the VALUES scope (to match the correct closing brace). */
+    valuesDepth: number;
 }
 
 /**
@@ -82,24 +86,27 @@ interface SparqlFormatterContext extends BaseFormatterContext {
  */
 export class SparqlFormatter
     extends BaseTokenFormatter<SparqlFormatterContext, SparqlFormatterOptions>
-    implements ISparqlFormatter
-{
+    implements ISparqlFormatter {
     private lexer = new SparqlLexer();
 
     // ========================================================================
     // Public API
     // ========================================================================
 
-    formatQuery(query: string, options?: SparqlFormatterOptions): SerializationResult {
-        return this.formatSparql(query, options);
+    formatFromText(query: string, options?: SparqlFormatterOptions): SerializationResult {
+        const opts = this.getOptions(options);
+        const result = this.lexer.tokenize(query);
+
+        if (result.errors.length > 0) {
+            return { output: query };
+        } else {
+            return this.formatTokenStream(result.tokens, opts);
+        }
     }
 
-    formatUpdate(update: string, options?: SparqlFormatterOptions): SerializationResult {
-        return this.formatSparql(update, options);
-    }
+    formatFromTokens(tokens: IToken[], options?: SparqlFormatterOptions & TokenSerializerOptions): SerializationResult {
+        const opts = this.getOptions(options);
 
-    formatFromTokens(tokens: IToken[], options?: TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options as SparqlFormatterOptions);
         return this.formatTokenStream(tokens, opts);
     }
 
@@ -138,6 +145,8 @@ export class SparqlFormatter
             lastWasInlineBlock: false,
             lastCommentPartIndex: 0,
             lastCommentHadBlankLine: false,
+            inValuesClause: false,
+            valuesDepth: 0,
         };
     }
 
@@ -150,22 +159,6 @@ export class SparqlFormatter
             if (opts.uppercaseKeywords) return token.image.toUpperCase();
         }
         return token.image;
-    }
-
-    // ========================================================================
-    // Lexing
-    // ========================================================================
-
-    private formatSparql(input: string, options?: SparqlFormatterOptions): SerializationResult {
-        const opts = this.getOptions(options);
-        const result = this.lexer.tokenize(input);
-
-        if (result.errors.length > 0) {
-            return { output: input };
-        }
-
-        const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
-        return this.formatTokenStream(result.tokens, opts, comments);
     }
 
     // ========================================================================
@@ -292,8 +285,19 @@ export class SparqlFormatter
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
 
+        // When a blank line or newline was detected in the source *before* the
+        // opening brace, we need to honour it here so that the blank line
+        // appears before the brace, not after it. This mirrors the behaviour
+        // in handleSparqlTokenSpacing but is specialised for structural
+        // curly-brace tokens which bypass that helper.
         if (ctx.needsNewline) {
-            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+            if (!ctx.lastWasNewline) this.addPart(ctx, le, le, true);
+            if (ctx.needsBlankLine) {
+                this.addPart(ctx, le, le, true);
+                ctx.needsBlankLine = false;
+            }
+            this.addPart(ctx, this.getIndent(ctx.indentLevel, ind), le);
+            ctx.lastWasNewline = false;
             ctx.needsNewline = false;
         } else if (ctx.needsSpace && ctx.parts.length > 0 && ctx.opts.sameBraceLine) {
             this.addPart(ctx, ' ', le);
@@ -316,6 +320,16 @@ export class SparqlFormatter
         ctx.inPrefix = false;
         ctx.triplePosition = 0;
         ctx.lastSubject = null;
+
+        // Track the VALUES block depth so we can clear inValuesClause
+        // when the matching close brace is encountered.
+        if (ctx.inValuesClause && ctx.valuesDepth === 0) {
+            ctx.valuesDepth = ctx.indentLevel;
+        }
+
+        // The source-originated newline/blank-line information has now been
+        // consumed for this brace, so it should not affect the next token.
+        ctx.sourceNewline = false;
     }
 
     private handleCloseBrace(ctx: SparqlFormatterContext): void {
@@ -338,8 +352,22 @@ export class SparqlFormatter
         ctx.lastWasNewline = false;
         ctx.needsNewline = ctx.opts.prettyPrint && !isInline;
         ctx.needsSpace = isInline;
-        ctx.inWhereBlock = false;
+        // Only clear inWhereBlock when exiting the outermost WHERE block
+        // (i.e. indent level returns to 0). Inner blocks like VALUES { }
+        // or FILTER NOT EXISTS { } should not clear this flag.
+        if (ctx.indentLevel === 0) {
+            ctx.inWhereBlock = false;
+        }
+        ctx.triplePosition = 0;
+        ctx.inlineStatement = false;
+        ctx.lastSubject = null;
         ctx.lastWasInlineBlock = isInline;
+
+        // Clear VALUES clause tracking when matching brace closes.
+        if (ctx.inValuesClause && ctx.indentLevel < ctx.valuesDepth) {
+            ctx.inValuesClause = false;
+            ctx.valuesDepth = 0;
+        }
     }
 
     private handleSparqlPeriod(ctx: SparqlFormatterContext, nextToken: IToken | undefined): void {
@@ -389,13 +417,13 @@ export class SparqlFormatter
         if (ctx.opts.predicateListStyle === 'single-line') {
             ctx.needsNewline = false;
             ctx.needsSpace = true;
-        } else if (shouldMultiLine && ctx.opts.prettyPrint && ctx.indentLevel > 0) {
+        } else if (shouldMultiLine && ctx.opts.prettyPrint) {
             const extra = this.inBracketScope(ctx) ? '' : ind;
             this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind) + extra, le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
             ctx.needsSpace = false;
-        } else if (ctx.opts.prettyPrint && ctx.indentLevel > 0) {
+        } else if (ctx.opts.prettyPrint) {
             const extra = this.inBracketScope(ctx) ? '' : ind;
             this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind) + extra, le, true);
             ctx.lastWasNewline = true;
@@ -588,6 +616,7 @@ export class SparqlFormatter
         if (token.tokenType === RdfToken.WHERE) ctx.inWhereBlock = true;
         if (token.tokenType === RdfToken.ASK) ctx.isAskQuery = true;
         if (token.tokenType === RdfToken.FROM) ctx.hasFromClause = true;
+        if (token.tokenType === RdfToken.VALUES) ctx.inValuesClause = true;
     }
 
     private handleClauseSeparation(ctx: SparqlFormatterContext, token: IToken): void {
@@ -627,7 +656,9 @@ export class SparqlFormatter
     }
 
     private handleTriplePosition(ctx: SparqlFormatterContext, token: IToken, tokens: IToken[], index: number, prevWasComment = false): void {
-        if (!ctx.inWhereBlock || ctx.indentLevel <= 0 || ctx.functionCallDepth > 0) return;
+        if (!ctx.inWhereBlock || ctx.indentLevel <= 0 || ctx.functionCallDepth > 0 || ctx.inValuesClause) {
+            return;
+        }
 
         if (this.isTermToken(token)) {
             if (ctx.triplePosition === 0) {
@@ -642,12 +673,17 @@ export class SparqlFormatter
                             ctx.needsBlankLine = true;
                         }
                     }
+
                     ctx.needsNewline = true;
                 }
+
                 ctx.lastSubject = token.image;
+
                 this.detectInlineStatement(ctx, tokens, index, ctx.opts.indent, ctx.opts.maxLineWidth);
             }
+
             ctx.triplePosition++;
+
             if (ctx.triplePosition > 2) ctx.triplePosition = 2;
         }
     }
@@ -659,11 +695,14 @@ export class SparqlFormatter
     private handleLineWrapping(ctx: SparqlFormatterContext, value: string): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
+
         if (ctx.opts.maxLineWidth > 0 && !ctx.needsNewline && ctx.needsSpace) {
             const spaceNeeded = ctx.parts.length > 0 && ctx.lastNonWsToken &&
                 !this.isOpeningBracket(ctx.lastNonWsToken) ? 1 : 0;
+
             if (this.shouldWrap(ctx, spaceNeeded + value.length, ctx.opts.maxLineWidth)) {
                 this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+
                 ctx.lastWasNewline = true;
                 ctx.needsNewline = false;
                 ctx.needsSpace = false;
@@ -682,22 +721,29 @@ export class SparqlFormatter
         const shouldAvoidNewline = isDatatypeContext || (inFunctionCall && !ctx.sourceNewline);
 
         if (ctx.needsNewline && !shouldAvoidNewline) {
-            if (!ctx.lastWasNewline) this.addPart(ctx, le, le, true);
+            if (!ctx.lastWasNewline) {
+                this.addPart(ctx, le, le, true);
+            }
+
             if (ctx.needsBlankLine) {
                 this.addPart(ctx, le, le, true);
                 ctx.needsBlankLine = false;
             }
+
             this.addPart(ctx, this.getIndent(ctx.indentLevel, ind), le);
+
             ctx.lastWasNewline = false;
             ctx.needsNewline = false;
         } else if (ctx.needsSpace && ctx.parts.length > 0) {
             if (ctx.lastNonWsToken && !this.isOpeningBracket(ctx.lastNonWsToken)) {
                 const isOpenParen = token.tokenType === RdfToken.LPARENT;
                 const lastWasFunction = ctx.lastNonWsToken && this.isFunctionKeyword(ctx.lastNonWsToken);
+
                 if (!(isOpenParen && lastWasFunction) && !isDatatypeContext) {
                     this.addPart(ctx, ' ', le);
                 }
             }
+
             ctx.lastWasNewline = false;
         } else {
             ctx.lastWasNewline = false;
@@ -707,12 +753,14 @@ export class SparqlFormatter
             ctx.needsNewline = false;
             ctx.needsBlankLine = false;
         }
+
         ctx.sourceNewline = false;
     }
 
     private detectBlankLines(ctx: SparqlFormatterContext, token: IToken): void {
         if (ctx.lastNonWsToken && token.startLine !== undefined && ctx.lastNonWsToken.endLine !== undefined) {
             const lineGap = token.startLine - ctx.lastNonWsToken.endLine;
+
             if (lineGap > 1) {
                 ctx.needsBlankLine = true;
                 ctx.needsNewline = true;
@@ -724,15 +772,13 @@ export class SparqlFormatter
         }
     }
 
-    // ========================================================================
-    // Prefix IRI handling
-    // ========================================================================
-
     private handleSparqlPrefixIri(ctx: SparqlFormatterContext, value: string): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
+
         if (ctx.needsNewline) {
             this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
         } else if (ctx.needsSpace && ctx.parts.length > 0) {
@@ -740,35 +786,22 @@ export class SparqlFormatter
                 this.addPart(ctx, ' ', le);
             }
         }
+
         this.addPart(ctx, value, le);
+
         ctx.needsSpace = false;
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.inPrefix = false;
         ctx.justEndedPrefix = true;
     }
 
-    // ========================================================================
-    // Main formatting loop
-    // ========================================================================
-
-    private formatTokenStream(tokens: IToken[], opts: Required<SparqlFormatterOptions>, comments: IToken[] = []): SerializationResult {
-        const ctx = this.createContext(opts);
-        const le = opts.lineEnd;
-        const sortedComments = [...comments].sort((a, b) => (a.startOffset ?? 0) - (b.startOffset ?? 0));
-        let commentIndex = 0;
+    private formatTokenStream(tokens: IToken[], options: Required<SparqlFormatterOptions>): SerializationResult {
+        const ctx = this.createContext(options);
+        const le = options.lineEnd;
 
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
             const nextToken = tokens[i + 1];
-
-            // Insert grouped comments that precede this token
-            while (commentIndex < sortedComments.length) {
-                const comment = sortedComments[commentIndex];
-                if ((comment.startOffset ?? 0) < (token.startOffset ?? 0)) {
-                    this.handleGroupComment(ctx, comment);
-                    commentIndex++;
-                } else break;
-            }
 
             // Skip whitespace
             if (token.tokenType === RdfToken.WS) {
@@ -782,17 +815,21 @@ export class SparqlFormatter
             // Handle inline comments
             if (token.tokenType === RdfToken.COMMENT) {
                 this.handleInlineComment(ctx, token);
+
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
+
                 continue;
             }
 
-            const value = this.formatTokenValue(token, opts);
+            const value = this.formatTokenValue(token, options);
 
             // State tracking
             this.updateClauseState(ctx, token);
             this.handleClauseSeparation(ctx, token);
+
             const prevWasComment = ctx.lastWasComment;
+
             ctx.lastWasComment = false;
             ctx.lastWasInlineBlock = false;
 
@@ -801,26 +838,32 @@ export class SparqlFormatter
                 this.handleOpenBrace(ctx, tokens, i + 1);
                 ctx.lastToken = token; ctx.lastNonWsToken = token; continue;
             }
+
             if (token.tokenType === RdfToken.RCURLY) {
                 this.handleCloseBrace(ctx);
                 ctx.lastToken = token; ctx.lastNonWsToken = token; continue;
             }
+
             if (token.tokenType === RdfToken.PERIOD) {
                 this.handleSparqlPeriod(ctx, nextToken);
                 ctx.lastToken = token; ctx.lastNonWsToken = token; continue;
             }
+
             if (token.tokenType === RdfToken.SEMICOLON) {
                 this.handleSparqlSemicolon(ctx);
                 ctx.lastToken = token; ctx.lastNonWsToken = token; continue;
             }
+
             if (token.tokenType === RdfToken.COMMA) {
                 this.handleSparqlComma(ctx, nextToken);
                 ctx.lastToken = token; ctx.lastNonWsToken = token; continue;
             }
+
             if (token.tokenType === RdfToken.LPARENT || token.tokenType === RdfToken.LBRACKET) {
                 this.handleSparqlOpenParen(ctx, token, tokens, i);
                 ctx.lastToken = token; ctx.lastNonWsToken = token; continue;
             }
+
             if (token.tokenType === RdfToken.RPARENT || token.tokenType === RdfToken.RBRACKET) {
                 this.handleSparqlCloseParen(ctx, token);
                 ctx.lastToken = token; ctx.lastNonWsToken = token; continue;
@@ -843,15 +886,10 @@ export class SparqlFormatter
 
             // Output the token
             this.addPart(ctx, value, le);
+
             ctx.needsSpace = true;
             ctx.lastToken = token;
             ctx.lastNonWsToken = token;
-        }
-
-        // Trailing comments
-        while (commentIndex < sortedComments.length) {
-            this.handleGroupComment(ctx, sortedComments[commentIndex]);
-            commentIndex++;
         }
 
         return { output: ctx.parts.join('').trim() };

@@ -347,17 +347,12 @@ export interface ISparqlFormatter {
     /**
      * Formats a SPARQL query string.
      */
-    formatQuery(query: string, options?: SerializerOptions): SerializationResult;
-
-    /**
-     * Formats a SPARQL update string.
-     */
-    formatUpdate(update: string, options?: SerializerOptions): SerializationResult;
+    formatFromText(query: string, options?: SerializerOptions): SerializationResult;
 
     /**
      * Formats SPARQL from parsed tokens.
      */
-    formatFromTokens(tokens: unknown[], options?: TokenSerializerOptions): SerializationResult;
+    formatFromTokens(tokens: unknown[], options?: SerializerOptions): SerializationResult;
 }
 
 /**
@@ -371,19 +366,11 @@ export interface IRdfFormatter {
 
     /**
      * Formats RDF text input.
-     * 
-     * @param input The raw RDF text to format.
-     * @param options Formatting options.
-     * @returns The formatted output with any warnings/errors.
      */
-    format(input: string, options?: SerializerOptions): SerializationResult;
+    formatFromText(input: string, options?: SerializerOptions): SerializationResult;
 
     /**
      * Formats from already-parsed tokens.
-     * 
-     * @param tokens The tokens from parsing the input.
-     * @param options Formatting options.
-     * @returns The formatted output.
      */
-    formatFromTokens(tokens: unknown[], options?: TokenSerializerOptions): SerializationResult;
+    formatFromTokens(tokens: unknown[], options?: SerializerOptions): SerializationResult;
 }

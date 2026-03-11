@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { SparqlLexer } from '@faubulous/mentor-rdf-parsers';
 import { SparqlFormatter } from './formatter.js';
 
 // NOTE: All IRIs, prefixes, and sample data in these tests are synthetic
@@ -11,11 +13,24 @@ describe('SparqlFormatter', () => {
         formatter = new SparqlFormatter();
     });
 
-    describe('formatQuery', () => {
+    describe('formatFromTokens', () => {
+        it('should produce the same indentation as formatFromText for lexer tokens', () => {
+            const query = readFileSync(new URL('../../input.rq', import.meta.url), 'utf8');
+            const lexer = new SparqlLexer();
+            const lexResult = lexer.tokenize(query);
+
+            const fromText = formatter.formatFromText(query, { indent: '    ', maxLineWidth: 120 });
+            const fromTokens = formatter.formatFromTokens(lexResult.tokens, { indent: '    ', maxLineWidth: 120 });
+
+            expect(fromTokens.output).toBe(fromText.output);
+        });
+    });
+
+    describe('formatFromText', () => {
         it('should format a simple SELECT query', () => {
             const query = 'select ?s ?p ?o where { ?s ?p ?o }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('SELECT');
             expect(result.output).toContain('WHERE');
@@ -24,7 +39,7 @@ describe('SparqlFormatter', () => {
         it('should uppercase keywords by default', () => {
             const query = 'select ?x where { ?x a <http://example.org/Class> }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('SELECT');
             expect(result.output).toContain('WHERE');
@@ -33,7 +48,7 @@ describe('SparqlFormatter', () => {
         it('should lowercase keywords when requested', () => {
             const query = 'SELECT ?x WHERE { ?x a <http://example.org/Class> }';
 
-            const result = formatter.formatQuery(query, { lowercaseKeywords: true });
+            const result = formatter.formatFromText(query, { lowercaseKeywords: true });
 
             expect(result.output).toContain('select');
             expect(result.output).toContain('where');
@@ -42,7 +57,7 @@ describe('SparqlFormatter', () => {
         it('should format PREFIX declarations', () => {
             const query = 'PREFIX ex: <http://example.org/> SELECT ?x WHERE { ?x a ex:Class }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('PREFIX ex:');
         });
@@ -50,7 +65,7 @@ describe('SparqlFormatter', () => {
         it('should handle FILTER expressions', () => {
             const query = 'SELECT ?x WHERE { ?x <http://example.org/value> ?v . FILTER(?v > 10) }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('FILTER');
         });
@@ -58,7 +73,7 @@ describe('SparqlFormatter', () => {
         it('should handle OPTIONAL patterns', () => {
             const query = 'SELECT ?x ?y WHERE { ?x a <http://example.org/Class> . OPTIONAL { ?x <http://example.org/prop> ?y } }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('OPTIONAL');
         });
@@ -66,7 +81,7 @@ describe('SparqlFormatter', () => {
         it('should preserve comments', () => {
             const query = '# This is a comment\nSELECT ?x WHERE { ?x ?p ?o }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('# This is a comment');
         });
@@ -78,7 +93,7 @@ describe('SparqlFormatter', () => {
     ?x <http://example.org/date> ?eventDate
 }`;
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+            const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
             // Should not have blank line between comment and VALUES
             expect(result.output).toContain('# VALUES ?itemCode { "3125416" }\n');
@@ -97,7 +112,7 @@ describe('SparqlFormatter', () => {
     ?s ?p ?o
 }`;
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+            const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
             // The output should not have a blank line between the two VALUES clauses
             // Check that VALUES ?y directly follows VALUES ?x (possibly on same or next line)
@@ -126,7 +141,7 @@ describe('SparqlFormatter', () => {
     ?x a ?code
 }`;
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+            const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
             // The multi-line VALUES block should be preserved
             const lines = result.output.split('\n');
@@ -155,7 +170,7 @@ describe('SparqlFormatter', () => {
     ?x a ?code
 }`;
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+            const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
             // There should be no blank line between VALUES and ?code
             // i.e., "VALUES" should NOT be followed by a blank line before ?code
@@ -169,6 +184,34 @@ describe('SparqlFormatter', () => {
             expect(result.output).not.toMatch(/WHERE \{\s*\n\s*\n\s*VALUES/);
         });
 
+        it('should not add blank line between VALUES keyword and variable when preceded by triple patterns', () => {
+            const query = `PREFIX ex: <http://example.org/>
+
+SELECT DISTINCT ?category ?resource ?resourceID
+WHERE {
+    BIND(ex:SomeCategory AS ?category)
+
+    ?resource a ex:SomeType ;
+        ex:identifiedBy / ex:id ?resourceID ;
+        ex:hasSomeCode ?code .
+
+    VALUES ?code {
+        ex:CodeA
+        ex:CodeB
+        ex:CodeC
+    }
+}
+ORDER BY ?resource
+LIMIT 200`;
+
+            const result = formatter.formatFromText(query, { maxLineWidth: 120, indent: '    ' });
+
+            // VALUES ?code should be on the same line
+            expect(result.output).toMatch(/VALUES \?code \{/);
+            // No blank line between VALUES and ?code
+            expect(result.output).not.toMatch(/VALUES\s*\n\s*\n\s*\?code/);
+        });
+
         it('should use consistent indentation for predicate-object lists after semicolon', () => {
             const query = `SELECT ?item ?itemID ?code WHERE {
         ?item a ex:Item ;
@@ -176,7 +219,7 @@ describe('SparqlFormatter', () => {
         ex:hasReplacementCode ?code .
     }`;
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 120, indent: '    ' });
+            const result = formatter.formatFromText(query, { maxLineWidth: 120, indent: '    ' });
 
             // Check the indentation of predicate continuations
             const lines = result.output.split('\n');
@@ -185,7 +228,8 @@ describe('SparqlFormatter', () => {
             
             // The continuation lines should have consistent indentation (one level more than the subject line)
             const partLine = lines[partLineIndex];
-            const partIndent = partLine.match(/^(\s*)/)?[1] || '';
+            const partMatch = partLine.match(/^(\s*)/);
+            const partIndent = partMatch ? partMatch[1] : '';
 
             // Get continuation lines
             const idLine = lines.find(l => l.includes('ex:identifiedBy'));
@@ -205,10 +249,84 @@ describe('SparqlFormatter', () => {
             expect(replacementLine?.startsWith(doubleIndent)).toBe(false);
         });
 
+        it('should preserve predicate continuation indent after VALUES inline block', () => {
+            const query = `SELECT ?s ?id ?o WHERE {
+    VALUES ?date { "2025-11-01T00:00:00"^^<http://www.w3.org/2001/XMLSchema#dateTime> }
+
+    ?s a <http://example.org/Subject> ;
+        <http://example.org/identifiedBy> / <http://example.org/id> ?id ;
+        <http://example.org/hasObject> ?o .
+}`;
+
+            const result = formatter.formatFromText(query, {
+                indent: '    ',
+                maxLineWidth: 120,
+                spaceBeforePunctuation: true,
+            });
+
+            const lines = result.output.split('\n');
+            const subjectLine = lines.find(l => l.includes('?s a <http://example.org/Subject>'));
+            expect(subjectLine).toBeDefined();
+
+            const subjectMatch = subjectLine!.match(/^(\s*)/);
+            const subjectIndent = subjectMatch ? subjectMatch[1] : '';
+            const expectedContinuation = subjectIndent + '    ';
+
+            const idLine = lines.find(l => l.includes('<http://example.org/identifiedBy>'));
+            const objectLine = lines.find(l => l.includes('<http://example.org/hasObject>'));
+
+            expect(idLine).toBeDefined();
+            expect(objectLine).toBeDefined();
+
+            // Continuation lines must have one extra indent level beyond the subject
+            expect(idLine!.startsWith(expectedContinuation)).toBe(true);
+            expect(objectLine!.startsWith(expectedContinuation)).toBe(true);
+        });
+
+        it('should not move blank line inside block before first statement', () => {
+            const query = `PREFIX ex: <http://example.org/>
+
+SELECT ?s ?id ?category
+WHERE {
+    VALUES ?id { "id1" "id2" }
+
+    ?s ex:id ?id .
+    ?s ex:name ?name .
+
+    {
+        BIND(ex:GroupA AS ?category)
+
+        ?s ex:hasStatus ex:StatusA .
+    }
+    UNION
+    {
+        BIND(ex:GroupB AS ?category)
+
+        ?s ex:hasStatus ex:StatusB .
+    }
+}`;
+
+            const result = formatter.formatFromText(query, { maxLineWidth: 120, indent: '    ' });
+
+            const lines = result.output.split('\n');
+
+            // Find the first block opening brace inside WHERE
+            const braceIndex = lines.findIndex(l => l.trim() === '{');
+            expect(braceIndex).toBeGreaterThan(-1);
+
+            // The first non-empty line after the brace should be the BIND line,
+            // i.e., there must be no extra blank line *inside* the block.
+            let nextNonEmpty = braceIndex + 1;
+            while (nextNonEmpty < lines.length && lines[nextNonEmpty].trim() === '') {
+                nextNonEmpty++;
+            }
+            expect(lines[nextNonEmpty].trim().startsWith('BIND(')).toBe(true);
+        });
+
         it('should format ORDER BY clause', () => {
             const query = 'SELECT ?x WHERE { ?x ?p ?o } ORDER BY ?x';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('ORDER BY');
         });
@@ -220,7 +338,7 @@ describe('SparqlFormatter', () => {
 ORDER BY ?part
 LIMIT 200`;
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+            const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
             // There should be no blank lines between } and ORDER BY
             expect(result.output).not.toMatch(/\}\s*\n\s*\n\s*ORDER BY/);
@@ -232,7 +350,7 @@ LIMIT 200`;
         it('should format LIMIT and OFFSET', () => {
             const query = 'SELECT ?x WHERE { ?x ?p ?o } LIMIT 10 OFFSET 5';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('LIMIT');
             expect(result.output).toContain('OFFSET');
@@ -241,7 +359,7 @@ LIMIT 200`;
         it('should handle GROUP BY and HAVING', () => {
             const query = 'SELECT ?x (COUNT(?y) as ?count) WHERE { ?x <http://example.org/prop> ?y } GROUP BY ?x HAVING (COUNT(?y) > 1)';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('GROUP BY');
             expect(result.output).toContain('HAVING');
@@ -250,7 +368,7 @@ LIMIT 200`;
         it('should NOT uppercase boolean literals (true/false)', () => {
             const query = 'SELECT ?x WHERE { ?x <http://example.org/active> true }';
 
-            const result = formatter.formatQuery(query, { uppercaseKeywords: true });
+            const result = formatter.formatFromText(query, { uppercaseKeywords: true });
 
             // Keywords should be uppercase
             expect(result.output).toContain('SELECT');
@@ -263,7 +381,7 @@ LIMIT 200`;
         it('should keep false literal lowercase even with uppercaseKeywords', () => {
             const query = 'SELECT ?x WHERE { ?x <http://example.org/active> false }';
 
-            const result = formatter.formatQuery(query, { uppercaseKeywords: true });
+            const result = formatter.formatFromText(query, { uppercaseKeywords: true });
 
             expect(result.output).toContain('false');
             expect(result.output).not.toContain('FALSE');
@@ -275,7 +393,7 @@ LIMIT 200`;
         it('should keep boolean literals lowercase when input is valid lowercase', () => {
             const query = 'SELECT ?x WHERE { ?x <http://example.org/active> true . ?x <http://example.org/hidden> false }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             expect(result.output).toContain('true');
             expect(result.output).toContain('false');
@@ -286,7 +404,7 @@ LIMIT 200`;
         it('should put PREFIX declarations on separate lines', () => {
             const query = 'PREFIX ex: <http://example.org/> PREFIX foaf: <http://xmlns.com/foaf/0.1/> SELECT ?x WHERE { ?x a ex:Class }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Each prefix should end with a newline (be on its own line)
             const lines = result.output.split('\n').filter(l => l.trim());
@@ -300,7 +418,7 @@ LIMIT 200`;
         it('should separate PREFIX declarations from the rest of the query', () => {
             const query = 'PREFIX ex: <http://example.org/> SELECT ?x WHERE { ?x a ex:Class }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // PREFIX and SELECT should be on different lines
             const prefixIndex = result.output.indexOf('PREFIX');
@@ -312,7 +430,7 @@ LIMIT 200`;
         it('should put FROM clause on a new line', () => {
             const query = 'SELECT ?x FROM <http://example.org/graph> WHERE { ?x ?p ?o }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // FROM should be on its own line (newline before it)
             const selectIndex = result.output.indexOf('SELECT');
@@ -324,7 +442,7 @@ LIMIT 200`;
         it('should NOT have blank line before WHERE when no FROM clause', () => {
             const query = 'SELECT ?x WHERE { ?x a <http://example.org/Class> }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // WHERE should be on its own line but without a blank line before it
             const selectIndex = result.output.indexOf('SELECT');
@@ -338,7 +456,7 @@ LIMIT 200`;
         it('should NOT have blank line before WHERE even when FROM clause present', () => {
             const query = 'SELECT ?x FROM <http://example.org/graph> WHERE { ?x a <http://example.org/Class> }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // WHERE should be on its own line but without a blank line before it
             const fromIndex = result.output.indexOf('FROM');
@@ -352,7 +470,7 @@ LIMIT 200`;
         it('should put OPTIONAL blocks on a new line', () => {
             const query = 'SELECT ?x ?y WHERE { ?x a <http://example.org/Class> . OPTIONAL { ?x <http://example.org/prop> ?y } }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // OPTIONAL should have a newline before it
             const lines = result.output.split('\n');
@@ -363,7 +481,7 @@ LIMIT 200`;
         it('should put multiple OPTIONAL blocks on separate lines', () => {
             const query = 'SELECT * WHERE { ?s ?p ?o . OPTIONAL { ?s <http://ex.org/a> ?a } OPTIONAL { ?s <http://ex.org/b> ?b } }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Each OPTIONAL should be on its own line
             const lines = result.output.split('\n');
@@ -374,7 +492,7 @@ LIMIT 200`;
         it('should keep "a" keyword lowercase (rdf:type shorthand)', () => {
             const query = 'SELECT ?x WHERE { ?x a <http://example.org/Class> }';
 
-            const result = formatter.formatQuery(query, { uppercaseKeywords: true });
+            const result = formatter.formatFromText(query, { uppercaseKeywords: true });
 
             // 'a' should remain lowercase even with uppercaseKeywords
             expect(result.output).toContain('?x a <');
@@ -384,7 +502,7 @@ LIMIT 200`;
         it('should NOT have space before parentheses in aggregate functions', () => {
             const query = 'SELECT (COUNT(?x) AS ?count) (SUM(?y) AS ?sum) WHERE { ?x ?p ?y }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Function calls should have no space before opening paren
             expect(result.output).toContain('COUNT(');
@@ -396,7 +514,7 @@ LIMIT 200`;
         it('should NOT have space before parentheses in FILTER', () => {
             const query = 'SELECT ?x WHERE { ?x a <http://ex.org/C> . FILTER(?x != <http://ex.org/a>) }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // FILTER should have no space before opening paren
             expect(result.output).toContain('FILTER(');
@@ -410,7 +528,7 @@ LIMIT 200`;
   ?x <http://ex.org/prop> ?y.
 }`;
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // There should be a blank line preserved between the triples
             const whereContent = result.output.split('{')[1]?.split('}')[0];
@@ -420,7 +538,7 @@ LIMIT 200`;
         it('should NOT have whitespace around datatype marker (^^)', () => {
             const query = 'SELECT ?x WHERE { ?x <http://ex.org/p> "hello"^^xsd:string }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Datatype annotation should have no whitespace around ^^
             expect(result.output).toContain('"hello"^^xsd:string');
@@ -431,7 +549,7 @@ LIMIT 200`;
         it('should keep datatype annotation on same line as literal', () => {
             const query = 'SELECT ?x WHERE { ?x <http://ex.org/p> "<http://www.opengis.net/def/crs/EPSG/0/4326> POINT(17.632864 59.183701)"^^geo:wktLiteral }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // The entire literal^^datatype should be on the same line
             const lines = result.output.split('\n');
@@ -448,7 +566,7 @@ LIMIT 200`;
   ?x <http://ex.org/prop> ?y.
 }`;
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Should not have 3 or more consecutive newlines (which would be 2+ blank lines)
             expect(result.output).not.toMatch(/\n\n\n/);
@@ -459,7 +577,7 @@ LIMIT 200`;
         it('should keep FILTER(ISURI(?s)) on a single line', () => {
             const query = 'SELECT ?s WHERE { ?s ?p ?o . FILTER(ISURI(?s)) }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // FILTER with simple expression should stay on single line
             const lines = result.output.split('\n');
@@ -470,7 +588,7 @@ LIMIT 200`;
         it('should keep FILTER with comparison on single line', () => {
             const query = 'SELECT ?s ?startDate ?endDate WHERE { ?s ?p ?o . FILTER(?startDate < ?endDate) }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // FILTER with comparison should stay on single line
             const lines = result.output.split('\n');
@@ -481,7 +599,7 @@ LIMIT 200`;
         it('should keep BIND on a single line', () => {
             const query = 'SELECT ?s ?type WHERE { ?s ?p ?o . BIND(ex:Category1 AS ?type) }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // BIND should stay on single line
             const lines = result.output.split('\n');
@@ -492,7 +610,7 @@ LIMIT 200`;
         it('should keep ASK WHERE on same line when no FROM clause', () => {
             const query = 'ASK WHERE { ?s ?p ?o }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // ASK and WHERE should be on same line when no FROM
             expect(result.output).toMatch(/ASK\s+WHERE/);
@@ -506,7 +624,7 @@ LIMIT 200`;
         it('should put WHERE on new line after FROM in ASK query', () => {
             const query = 'ASK FROM <http://example.org/graph> WHERE { ?s ?p ?o }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // WHERE should be on new line after FROM
             const fromIndex = result.output.indexOf('FROM');
@@ -523,7 +641,7 @@ LIMIT 200`;
                 '}',
             ].join('\n');
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // After semicolon, next predicate should be indented
             expect(result.output).toContain(';');
@@ -552,7 +670,7 @@ VALUES ?date {
 
 }`;
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Should not have 3+ consecutive newlines (duplicate blank lines)
             expect(result.output).not.toMatch(/\n\n\n/);
@@ -568,7 +686,7 @@ VALUES ?date {
     ?x <http://ex.org/prop> ?y.
 }`;
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // There should be a blank line before the comment
             expect(result.output).toContain('.\n\n');
@@ -578,7 +696,7 @@ VALUES ?date {
         it('should keep property paths on a single line', () => {
             const query = 'SELECT ?x WHERE { ?x <http://ex.org/a> / <http://ex.org/b> / <http://ex.org/c> ?y }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Property path should stay on one line
             const lines = result.output.split('\n');
@@ -589,7 +707,7 @@ VALUES ?date {
         it('should keep prefixed property paths on a single line', () => {
             const query = 'PREFIX ex: <http://ex.org/> SELECT ?x WHERE { ?x ex:hasSOP / ex:hasPDV / ex:hasEvent ?y }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Prefixed property path should stay on one line
             const lines = result.output.split('\n');
@@ -607,7 +725,7 @@ VALUES ?date {
     }
 }`;
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Should preserve blank line before FILTER NOT EXISTS
             expect(result.output).toContain('.\n\n');
@@ -625,7 +743,7 @@ VALUES ?date {
     }
 }`;
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // FILTER inside NOT EXISTS should stay on single line
             const lines = result.output.split('\n');
@@ -636,7 +754,7 @@ VALUES ?date {
         it('should keep BIND with dayTimeDuration on a single line', () => {
             const query = 'SELECT ?x ?adjusted WHERE { ?x <http://ex.org/date> ?d . BIND(?d - "P25D"^^xsd:dayTimeDuration AS ?adjusted) }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // BIND expression should stay on single line
             const lines = result.output.split('\n');
@@ -647,7 +765,7 @@ VALUES ?date {
         it('should keep BIND with arithmetic on a single line', () => {
             const query = 'SELECT ?x WHERE { ?x <http://ex.org/val> ?v . BIND(?v * 2 + 1 AS ?result) }';
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // BIND with arithmetic should stay on single line
             const lines = result.output.split('\n');
@@ -663,7 +781,7 @@ VALUES ?date {
         <http://ex.org/value> ?val.
 }`;
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Should contain both subjects
             expect(result.output).toContain('?x a');
@@ -702,7 +820,7 @@ WHERE {
 }
 LIMIT 100`;
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Property paths should stay on single lines
             expect(result.output).toMatch(/ex:hasConfig \/ ex:hasSchedule \/ ex:hasEvent/);
@@ -725,11 +843,11 @@ LIMIT 100`;
         });
     });
 
-    describe('formatUpdate', () => {
+    describe('formatFromText', () => {
         it('should format INSERT DATA', () => {
             const update = 'INSERT DATA { <http://example.org/s> <http://example.org/p> "o" }';
 
-            const result = formatter.formatUpdate(update);
+            const result = formatter.formatFromText(update);
 
             expect(result.output).toContain('INSERT DATA');
         });
@@ -737,7 +855,7 @@ LIMIT 100`;
         it('should format DELETE/INSERT', () => {
             const update = 'DELETE { ?s ?p ?o } INSERT { ?s <http://example.org/new> "value" } WHERE { ?s ?p ?o }';
 
-            const result = formatter.formatUpdate(update);
+            const result = formatter.formatFromText(update);
 
             expect(result.output).toContain('DELETE');
             expect(result.output).toContain('INSERT');
@@ -749,7 +867,7 @@ LIMIT 100`;
         it('should compact output when prettyPrint is false', () => {
             const query = 'SELECT ?x WHERE { ?x ?p ?o }';
 
-            const result = formatter.formatQuery(query, { prettyPrint: false });
+            const result = formatter.formatFromText(query, { prettyPrint: false });
 
             // Should not have extra newlines
             expect(result.output.split('\n').length).toBeLessThan(5);
@@ -758,7 +876,7 @@ LIMIT 100`;
         it('should indent inside braces', () => {
             const query = 'SELECT ?x WHERE { ?x ?p ?o }';
 
-            const result = formatter.formatQuery(query, { prettyPrint: true, indent: '    ' });
+            const result = formatter.formatFromText(query, { prettyPrint: true, indent: '    ' });
 
             expect(result.output).toContain('    ?x');
         });
@@ -769,7 +887,7 @@ LIMIT 100`;
             it('should put predicates on single line when predicateListStyle is single-line', () => {
                 const query = 'SELECT * WHERE { ?s <http://ex.org/p1> ?o1 ; <http://ex.org/p2> ?o2 }';
 
-                const result = formatter.formatQuery(query, { predicateListStyle: 'single-line' });
+                const result = formatter.formatFromText(query, { predicateListStyle: 'single-line' });
 
                 // Semicolon should not cause newline
                 const whereContent = result.output.split('{')[1]?.split('}')[0];
@@ -781,7 +899,7 @@ LIMIT 100`;
             it('should put predicates on multiple lines when predicateListStyle is multi-line', () => {
                 const query = 'SELECT * WHERE { ?s <http://ex.org/p1> ?o1 ; <http://ex.org/p2> ?o2 }';
 
-                const result = formatter.formatQuery(query, { predicateListStyle: 'multi-line' });
+                const result = formatter.formatFromText(query, { predicateListStyle: 'multi-line' });
 
                 // Should have newlines after semicolons
                 expect(result.output).toContain(';');
@@ -792,7 +910,7 @@ LIMIT 100`;
             it('should put objects on multiple lines when objectListStyle is multi-line', () => {
                 const query = 'SELECT * WHERE { ?s <http://ex.org/p> ?o1, ?o2, ?o3 }';
 
-                const result = formatter.formatQuery(query, { objectListStyle: 'multi-line' });
+                const result = formatter.formatFromText(query, { objectListStyle: 'multi-line' });
 
                 expect(result.output).toContain(',');
             });
@@ -800,7 +918,7 @@ LIMIT 100`;
             it('should keep objects on single line when objectListStyle is single-line', () => {
                 const query = 'SELECT * WHERE { ?s <http://ex.org/p> ?o1, ?o2, ?o3 }';
 
-                const result = formatter.formatQuery(query, { objectListStyle: 'single-line' });
+                const result = formatter.formatFromText(query, { objectListStyle: 'single-line' });
 
                 // All objects should be on same line (no newline after comma)
                 expect(result.output).toContain(',');
@@ -811,7 +929,7 @@ LIMIT 100`;
             it('should wrap long lines when maxLineWidth is set', () => {
                 const query = 'SELECT ?very_long_variable_name ?another_long_variable WHERE { ?very_long_variable_name <http://example.org/very/long/predicate/uri> ?another_long_variable }';
 
-                const result = formatter.formatQuery(query, { maxLineWidth: 60, prettyPrint: true });
+                const result = formatter.formatFromText(query, { maxLineWidth: 60, prettyPrint: true });
 
                 // Should have more lines due to wrapping
                 const lines = result.output.split('\n');
@@ -821,7 +939,7 @@ LIMIT 100`;
             it('should not wrap when maxLineWidth is 0', () => {
                 const query = 'SELECT ?x WHERE { ?x <http://example.org/p> ?o }';
 
-                const result = formatter.formatQuery(query, { maxLineWidth: 0 });
+                const result = formatter.formatFromText(query, { maxLineWidth: 0 });
 
                 // Output should maintain normal formatting
                 expect(result.output).toContain('SELECT');
@@ -831,7 +949,7 @@ LIMIT 100`;
             it('should keep short FILTER NOT EXISTS block on a single line', () => {
                 const query = 'SELECT ?item WHERE { ?item a <http://example.org/Item> . FILTER NOT EXISTS { ?item ex:hasDecision ex:No . } }';
 
-                const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+                const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
                 // The FILTER NOT EXISTS block should stay on one line
                 const lines = result.output.split('\n');
@@ -844,7 +962,7 @@ LIMIT 100`;
             it('should keep short VALUES block on a single line', () => {
                 const query = 'SELECT ?x WHERE { VALUES ?eventDate { "2025-11-01T00:00:00"^^xsd:dateTime } ?x <http://example.org/date> ?eventDate }';
 
-                const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+                const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
                 // The VALUES block should stay on one line
                 const lines = result.output.split('\n');
@@ -857,7 +975,7 @@ LIMIT 100`;
             it('should break FILTER NOT EXISTS block when it exceeds maxLineWidth', () => {
                 const query = 'SELECT ?part WHERE { FILTER NOT EXISTS { ?part <http://example.org/very/long/predicate/name> <http://example.org/very/long/object/name> . } }';
 
-                const result = formatter.formatQuery(query, { maxLineWidth: 60 });
+                const result = formatter.formatFromText(query, { maxLineWidth: 60 });
 
                 // The block should be broken into multiple lines
                 const lines = result.output.split('\n');
@@ -870,7 +988,7 @@ LIMIT 100`;
             it('should keep nested short blocks inline', () => {
                 const query = 'SELECT ?x WHERE { OPTIONAL { ?x <http://ex.org/p> ?y } }';
 
-                const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+                const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
                 // The OPTIONAL block should stay on one line
                 const lines = result.output.split('\n');
@@ -885,7 +1003,7 @@ LIMIT 100`;
             it('should add blank lines between different subjects when enabled', () => {
                 const query = 'SELECT * WHERE { ?s1 <http://ex.org/p> ?o1 . ?s2 <http://ex.org/p> ?o2 }';
 
-                const result = formatter.formatQuery(query, { blankLinesBetweenSubjects: true });
+                const result = formatter.formatFromText(query, { blankLinesBetweenSubjects: true });
 
                 // Should have the query formatted with blank line between subjects
                 expect(result.output).toContain('?s1');
@@ -895,7 +1013,7 @@ LIMIT 100`;
             it('should not add blank lines between subjects when disabled', () => {
                 const query = 'SELECT * WHERE { ?s1 <http://ex.org/p> ?o1 . ?s2 <http://ex.org/p> ?o2 }';
 
-                const result = formatter.formatQuery(query, { blankLinesBetweenSubjects: false });
+                const result = formatter.formatFromText(query, { blankLinesBetweenSubjects: false });
 
                 expect(result.output).toContain('?s1');
                 expect(result.output).toContain('?s2');
@@ -913,7 +1031,7 @@ LIMIT 100`;
         ex:hasStatus ?status ;
     ]
 }`;
-                const result = formatter.formatQuery(query, {
+                const result = formatter.formatFromText(query, {
                     indent: '    ',
                     maxLineWidth: 120,
                 });
@@ -956,7 +1074,7 @@ LIMIT 100`;
         EXISTS { ?item ex:isVerified true }
     )
 }`;
-                const result = formatter.formatQuery(query, {
+                const result = formatter.formatFromText(query, {
                     indent: '    ',
                     maxLineWidth: 120,
                 });
@@ -987,7 +1105,7 @@ LIMIT 100`;
     }
     ?item a ?type
 }`;
-                const result = formatter.formatQuery(query, {
+                const result = formatter.formatFromText(query, {
                     indent: '    ',
                     maxLineWidth: 120,
                 });
@@ -1007,7 +1125,7 @@ LIMIT 100`;
 }
 ORDER BY ?item
 LIMIT 100`;
-                const result = formatter.formatQuery(query, {
+                const result = formatter.formatFromText(query, {
                     indent: '    ',
                     maxLineWidth: 120,
                 });
@@ -1031,7 +1149,7 @@ LIMIT 100`;
 
     ?item ex:hasDate ?date .
 }`;
-                const result = formatter.formatQuery(query, {
+                const result = formatter.formatFromText(query, {
                     indent: '    ',
                     maxLineWidth: 120,
                 });
@@ -1047,7 +1165,7 @@ LIMIT 100`;
     ?event a ex:MilestoneEvent ;
         ex:eventDate ?eventDate .
 }`;
-                const result = formatter.formatQuery(query, {
+                const result = formatter.formatFromText(query, {
                     indent: '    ',
                     maxLineWidth: 120,
                 });
@@ -1074,7 +1192,7 @@ LIMIT 100`;
     ?event a ex:MilestoneEvent ;
         ex:eventDate ?eventDate .
 }`;
-                const result = formatter.formatQuery(query, {
+                const result = formatter.formatFromText(query, {
                     indent: '    ',
                     maxLineWidth: 120,
                     spaceBeforePunctuation: true,
@@ -1090,7 +1208,7 @@ LIMIT 100`;
         it('should keep a short triple pattern on one line when source has no line breaks', () => {
             const query = 'SELECT * WHERE { ?item a ex:Item; ex:hasIntro ?intro. }';
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+            const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
             // The triple pattern should stay on one line
             expect(result.output).toContain('?item a ex:Item; ex:hasIntro ?intro.');
@@ -1104,7 +1222,7 @@ LIMIT 100`;
                 '}',
             ].join('\n');
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+            const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
             // Should follow the source layout and break at the semicolon
             expect(result.output).toContain(';\n');
@@ -1113,7 +1231,7 @@ LIMIT 100`;
         it('should break a long triple pattern that exceeds maxLineWidth', () => {
             const query = 'SELECT * WHERE { ?veryLongSubject a veryLong:TypeName; veryLong:predicateName ?veryLongObject. }';
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 40 });
+            const result = formatter.formatFromText(query, { maxLineWidth: 40 });
 
             // Should break because total length exceeds 40
             expect(result.output).toContain(';\n');
@@ -1122,7 +1240,7 @@ LIMIT 100`;
         it('should keep multiple semicolons on one line when it fits', () => {
             const query = 'SELECT * WHERE { ?s a ex:T; ex:p1 ?o1; ex:p2 ?o2. }';
 
-            const result = formatter.formatQuery(query, { maxLineWidth: 120 });
+            const result = formatter.formatFromText(query, { maxLineWidth: 120 });
 
             expect(result.output).toContain('?s a ex:T; ex:p1 ?o1; ex:p2 ?o2.');
         });
@@ -1136,7 +1254,7 @@ LIMIT 100`;
                 '}',
             ].join('\n');
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Each continuation after semicolon should be indented more than the subject line
             const lines = result.output.split('\n');
@@ -1166,7 +1284,7 @@ LIMIT 100`;
                 '}',
             ].join('\n');
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
 
             // Comment should be present
             expect(result.output).toContain('# The second event occurs after the first event.');
@@ -1191,7 +1309,7 @@ LIMIT 100`;
                 '}',
             ].join('\n');
 
-            const result = formatter.formatQuery(query);
+            const result = formatter.formatFromText(query);
             const lines = result.output.split('\n');
 
             // Comment should be present
