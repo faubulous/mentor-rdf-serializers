@@ -104,6 +104,7 @@ export class TrigFormatter
         return {
             ...base,
             lowercaseDirectives: options?.lowercaseDirectives ?? true,
+            newlineAfterSubject: options?.newlineAfterSubject ?? false,
             spaceBeforePunctuation: options?.spaceBeforePunctuation ?? false,
             sameBraceLine: options?.sameBraceLine ?? true,
             useGraphKeyword: options?.useGraphKeyword ?? false,
