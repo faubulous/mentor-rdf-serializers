@@ -166,6 +166,44 @@ describe('TurtleFormatter', () => {
     });
 
     describe('blankLinesBetweenSubjects', () => {
+        it('inserts an empty line between the last prefix definition and the first subject when enabled', () => {
+            const input = [
+                '@prefix ex: <http://example.org/>.',
+                'ex:s a ex:T. ex:s2 a ex:T2.',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                blankLinesBetweenSubjects: true,
+                maxLineWidth: 120,
+            });
+
+            expect(result.output).toBe([
+                '@prefix ex: <http://example.org/>.',
+                '',
+                'ex:s a ex:T.',
+                '',
+                'ex:s2 a ex:T2.',
+            ].join('\n'));
+        });
+
+        it('does not insert an empty line between prefix definitions and the first subject when disabled', () => {
+            const input = [
+                '@prefix ex: <http://example.org/>.',
+                'ex:s a ex:T. ex:s2 a ex:T2.',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                blankLinesBetweenSubjects: false,
+                maxLineWidth: 120,
+            });
+
+            expect(result.output).toBe([
+                '@prefix ex: <http://example.org/>.',
+                'ex:s a ex:T.',
+                'ex:s2 a ex:T2.',
+            ].join('\n'));
+        });
+
         it('inserts an empty line between root-level subjects when enabled', () => {
             const input = 'ex:s a ex:T. ex:s2 a ex:T2.';
 

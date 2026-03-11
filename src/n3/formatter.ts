@@ -39,6 +39,10 @@ export interface N3FormatterOptions extends BaseFormatterOptions {
  */
 interface N3FormatterContext extends BaseFormatterContext {
     opts: Required<N3FormatterOptions>;
+    /** Whether at least one @prefix/PREFIX directive was seen in this document. */
+    sawPrefixDefinition: boolean;
+    /** Whether we still need to insert the prefix→first-subject blank line. */
+    pendingPrefixToSubjectBlankLine: boolean;
 }
 
 // ============================================================================
@@ -112,6 +116,8 @@ export class N3Formatter
         return {
             ...this.createBaseContext(),
             opts,
+            sawPrefixDefinition: false,
+            pendingPrefixToSubjectBlankLine: false,
         };
     }
 
@@ -435,6 +441,11 @@ export class N3Formatter
                 ctx.inPrefix = true;
             }
 
+            if (token.tokenType === RdfToken.TTL_PREFIX || token.tokenType === RdfToken.PREFIX) {
+                ctx.sawPrefixDefinition = true;
+                ctx.pendingPrefixToSubjectBlankLine = true;
+            }
+
             // Handle formula braces (must come before generic bracket handling)
             if (token.tokenType === RdfToken.LCURLY) {
                 this.handleN3OpenCurly(ctx);
@@ -511,6 +522,19 @@ export class N3Formatter
 
             // Handle triple position tracking
             if (this.isTermToken(token) && ctx.triplePosition === 0 && !ctx.inPrefix) {
+                if (
+                    ctx.opts.prettyPrint &&
+                    ctx.opts.blankLinesBetweenSubjects &&
+                    ctx.lastSubject === null &&
+                    ctx.sawPrefixDefinition &&
+                    ctx.pendingPrefixToSubjectBlankLine
+                ) {
+                    // Insert a blank line between the final prefix definition and the
+                    // first root-level term.
+                    this.addPart(ctx, le, le, true);
+                    ctx.pendingPrefixToSubjectBlankLine = false;
+                }
+
                 if (ctx.opts.blankLinesBetweenSubjects && ctx.lastSubject !== null && token.image !== ctx.lastSubject) {
                     if (!ctx.needsNewline && ctx.parts.length > 0) {
                         this.addPart(ctx, le, le, true);
