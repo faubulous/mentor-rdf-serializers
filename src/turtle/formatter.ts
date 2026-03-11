@@ -44,6 +44,10 @@ export interface TurtleFormatterOptions extends BaseFormatterOptions {
  */
 interface TurtleFormatterContext extends BaseFormatterContext {
     opts: Required<TurtleFormatterOptions>;
+    /** Whether at least one @prefix/PREFIX directive was seen in this document. */
+    sawPrefixDefinition: boolean;
+    /** Whether we still need to insert the prefix→first-subject blank line. */
+    pendingPrefixToSubjectBlankLine: boolean;
 }
 
 /**
@@ -111,6 +115,8 @@ export class TurtleFormatter
         return {
             ...this.createBaseContext(),
             opts,
+            sawPrefixDefinition: false,
+            pendingPrefixToSubjectBlankLine: false,
         };
     }
 
@@ -351,6 +357,13 @@ export class TurtleFormatter
                 ctx.inPrefix = true;
             }
 
+            // Track that we have seen at least one PREFIX/@prefix directive.
+            // Used to insert a blank line between the prefix block and the first subject.
+            if (token.tokenType === RdfToken.TTL_PREFIX || token.tokenType === RdfToken.PREFIX) {
+                ctx.sawPrefixDefinition = true;
+                ctx.pendingPrefixToSubjectBlankLine = true;
+            }
+
             // Handle structural tokens
             if (this.isOpeningBracket(token)) {
                 this.handleTurtleOpenBracket(ctx, token);
@@ -403,6 +416,22 @@ export class TurtleFormatter
 
             // Handle triple position tracking
             if (this.isTermToken(token) && ctx.triplePosition === 0 && !ctx.inPrefix) {
+                // If the document started with prefix declarations, optionally insert
+                // a blank line between the last prefix definition and the first statement subject.
+                if (
+                    isStatementSubjectToken &&
+                    ctx.opts.prettyPrint &&
+                    ctx.opts.blankLinesBetweenSubjects &&
+                    ctx.lastSubject === null &&
+                    ctx.sawPrefixDefinition &&
+                    ctx.pendingPrefixToSubjectBlankLine
+                ) {
+                    ctx.needsBlankLine = true;
+                    ctx.needsNewline = true;
+                    ctx.needsSpace = false;
+                    ctx.pendingPrefixToSubjectBlankLine = false;
+                }
+
                 // Root-level subject separation (before each new subject block)
                 if (isStatementSubjectToken &&
                     ctx.opts.prettyPrint &&
