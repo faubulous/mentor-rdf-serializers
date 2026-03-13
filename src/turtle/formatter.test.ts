@@ -4,6 +4,28 @@ import { TurtleFormatter } from './formatter.js';
 describe('TurtleFormatter', () => {
     const formatter = new TurtleFormatter();
 
+    describe('comments', () => {
+        it('should not insert a blank line between a leading comment and the first subject', () => {
+            const input = [
+                '@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .',
+                '@prefix skos: <http://www.w3.org/2004/02/skos/core#> .',
+                '@prefix : <file:error-missing-semicolon.ttl#> .',
+                '',
+                '# This is a test file with a comment.',
+                ':Test a rdfs:Class ;',
+                '    skos:prefLabel "Test"@en .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input);
+
+            expect(result.output).toContain('# This is a test file with a comment.');
+
+            // The comment should directly precede the first subject block.
+            expect(result.output).toMatch(/# This is a test file with a comment\.[^\S\n]*\n\s*:Test/);
+            expect(result.output).not.toMatch(/#[^\n]*\n\s*\n\s*:Test/);
+        });
+    });
+
     describe('newlineAfterSubject', () => {
         it('puts the subject on its own line and indents the predicate list', () => {
             const input = 'ex:s a ex:T; ex:p ex:o.';

@@ -147,19 +147,52 @@ export class TurtleFormatter
     protected handleTurtleComment(ctx: TurtleFormatterContext, comment: IToken): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
+        const isRootLevel = !ctx.inPrefix && !this.inBracketScope(ctx);
+        const shouldConsumePendingPrefixBlankLine =
+            isRootLevel &&
+            ctx.opts.prettyPrint &&
+            ctx.opts.blankLinesBetweenSubjects &&
+            ctx.lastSubject === null &&
+            ctx.sawPrefixDefinition &&
+            ctx.pendingPrefixToSubjectBlankLine;
+
         if (ctx.parts.length > 0) {
-            if (ctx.lastNonWsToken && comment.startLine !== undefined &&
+            if (
+                ctx.lastNonWsToken &&
+                comment.startLine !== undefined &&
                 ctx.lastNonWsToken.endLine !== undefined &&
-                comment.startLine > ctx.lastNonWsToken.endLine) {
-                this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+                comment.startLine > ctx.lastNonWsToken.endLine
+            ) {
+                const lineGap = comment.startLine - ctx.lastNonWsToken.endLine;
+                const needsBlankLineBeforeComment =
+                    lineGap > 1 || (shouldConsumePendingPrefixBlankLine && lineGap <= 1);
+
+                const indentText = this.getIndent(ctx.indentLevel, ind);
+                if (needsBlankLineBeforeComment) {
+                    this.addPart(ctx, le + le + indentText, le, true);
+                } else {
+                    this.addPart(ctx, le + indentText, le, true);
+                }
+
                 ctx.lastWasNewline = true;
             } else {
                 this.addPart(ctx, ' ', le);
             }
         }
+
         this.addPart(ctx, comment.image, le);
         ctx.needsNewline = true;
         ctx.needsSpace = false;
+        ctx.lastWasComment = true;
+        ctx.lastNonWsToken = comment;
+        ctx.lastToken = comment;
+
+        // If a leading comment appears between the prefix block and the first
+        // subject, treat the prefix→subject separator as belonging before the
+        // comment, not between the comment and the subject.
+        if (shouldConsumePendingPrefixBlankLine) {
+            ctx.pendingPrefixToSubjectBlankLine = false;
+        }
     }
 
     protected handleTurtleOpenBracket(ctx: TurtleFormatterContext, token: IToken): void {
