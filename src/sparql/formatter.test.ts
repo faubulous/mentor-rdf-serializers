@@ -88,6 +88,16 @@ describe('SparqlFormatter', () => {
             expect(result.output).toContain('OPTIONAL');
         });
 
+        it('should keep FROM NAMED on the same line', () => {
+            const query = 'SELECT ?s ?p ?o FROM NAMED <http://example.org/graph> WHERE { ?s ?p ?o }';
+
+            const result = formatter.formatFromText(query);
+
+            // FROM NAMED should stay on the same line
+            expect(result.output).toContain('FROM NAMED');
+            expect(result.output).not.toMatch(/FROM\s*\n\s*NAMED/);
+        });
+
         it('should preserve comments', () => {
             const query = '# This is a comment\nSELECT ?x WHERE { ?x ?p ?o }';
 

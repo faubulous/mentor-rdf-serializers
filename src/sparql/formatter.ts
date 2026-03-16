@@ -645,6 +645,10 @@ export class SparqlFormatter
             if (token.tokenType === RdfToken.WHERE && ctx.isAskQuery && !ctx.hasFromClause) {
                 ctx.needsNewline = false;
                 ctx.needsSpace = true;
+            } else if (token.tokenType === RdfToken.NAMED && ctx.lastNonWsToken?.tokenType === RdfToken.FROM) {
+                // FROM NAMED should stay on the same line
+                ctx.needsNewline = false;
+                ctx.needsSpace = true;
             } else {
                 ctx.needsNewline = true;
             }
