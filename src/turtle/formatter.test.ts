@@ -24,6 +24,18 @@ describe('TurtleFormatter', () => {
             expect(result.output).toMatch(/# This is a test file with a comment\.[^\S\n]*\n\s*:Test/);
             expect(result.output).not.toMatch(/#[^\n]*\n\s*\n\s*:Test/);
         });
+
+        it('should keep a trailing same-line comment attached to the triple', () => {
+            const input = [
+                '@prefix : <http://example.org/> .',
+                '',
+                ':Test :label "Example" . # trailing comment',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input);
+
+            expect(result.output).toMatch(/:Test\s+:label\s+"Example"\.\s+# trailing comment/);
+        });
     });
 
     describe('newlineAfterSubject', () => {
@@ -263,6 +275,51 @@ describe('TurtleFormatter', () => {
 
             // But we should still separate root-level subject blocks
             expect(result.output).toContain('\n\nex:s2 a ex:T2.');
+        });
+    });
+
+    describe('comment preservation during formatting', () => {
+        it('should preserve all comments when formatting a document with multiple subjects', () => {
+            const input = [
+                '@prefix ex: <http://example.org/> .',
+                '@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .',
+                '',
+                '# This class represents people',
+                'ex:Person a rdfs:Class ;',
+                '    rdfs:label "Person"@en . # the display name',
+                '',
+                '# This class represents organizations',
+                'ex:Organization a rdfs:Class ;',
+                '    rdfs:label "Organization"@en .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input);
+
+            // The token-based formatter preserves all comments from the source.
+            expect(result.output).toContain('# This class represents people');
+            expect(result.output).toContain('# the display name');
+            expect(result.output).toContain('# This class represents organizations');
+        });
+
+        it('should preserve comments even after reformatting with different options', () => {
+            const input = [
+                '@prefix ex: <http://example.org/> .',
+                '',
+                '# Section header',
+                'ex:A ex:p "value" . # inline note',
+                '# Another section',
+                'ex:B ex:q "other" .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            // All comments survive reformatting regardless of options.
+            expect(result.output).toContain('# Section header');
+            expect(result.output).toContain('# inline note');
+            expect(result.output).toContain('# Another section');
         });
     });
 });

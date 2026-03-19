@@ -348,4 +348,58 @@ describe('TurtleSerializer', () => {
             });
         });
     });
+
+    describe('comment preservation', () => {
+        it('does not retain source comments when serializing from quads', () => {
+            // Simulate reading a Turtle document that originally contained
+            // comments such as:
+            //
+            //   # This class represents people
+            //   ex:Person a rdfs:Class ;
+            //       rdfs:label "Person"@en . # the display name
+            //
+            //   # This class represents organizations
+            //   ex:Organization a rdfs:Class ;
+            //       rdfs:label "Organization"@en .
+            //
+            // After parsing, we only have quads — comments are not part of
+            // the RDF data model and are therefore lost.
+
+            const quads = [
+                DataFactory.quad(
+                    DataFactory.namedNode('http://example.org/Person'),
+                    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
+                ),
+                DataFactory.quad(
+                    DataFactory.namedNode('http://example.org/Person'),
+                    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+                    DataFactory.literal('Person', 'en')
+                ),
+                DataFactory.quad(
+                    DataFactory.namedNode('http://example.org/Organization'),
+                    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
+                ),
+                DataFactory.quad(
+                    DataFactory.namedNode('http://example.org/Organization'),
+                    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+                    DataFactory.literal('Organization', 'en')
+                ),
+            ];
+
+            const result = serializer.serialize(quads, {
+                prefixes: {
+                    ex: 'http://example.org/',
+                    rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+                },
+                sort: true,
+            });
+
+            // Quad-based serialization cannot preserve comments because
+            // RDF/JS Quad objects do not carry comment metadata.
+            // The '#' inside IRIs (e.g. rdfs:) is not a comment marker.
+            expect(result).not.toMatch(/^\s*#[^>]/m);
+        });
+    });
 });

@@ -148,3 +148,17 @@ export {
     createPriorityStrategy,
     applySortingStrategy
 } from './sorting/index.js';
+
+// Statement groups (comment-preserving quad serialization)
+export type {
+    StatementGroup,
+    StatementGroupSerializerOptions,
+    QuadInfo
+} from './statement-group.js';
+
+export {
+    groupCommentsWithQuads,
+    mergeStatementGroups,
+    sortStatementGroups,
+    serializeStatementGroups
+} from './statement-group.js';
