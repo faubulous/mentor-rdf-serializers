@@ -1,6 +1,4 @@
-<div align="center">
-
-# @faubulous/mentor-rdf-serializers
+# Mentor RDF Serializers
 
 [![npm version](https://img.shields.io/npm/v/@faubulous/mentor-rdf-serializers.svg)](https://www.npmjs.com/package/@faubulous/mentor-rdf-serializers)
 [![license](https://img.shields.io/npm/l/@faubulous/mentor-rdf-serializers.svg)](https://github.com/faubulous/mentor-rdf-serializers/blob/main/LICENSE)
@@ -8,10 +6,6 @@
 [![RDF 1.2](https://img.shields.io/badge/RDF-1.2-green.svg)](https://www.w3.org/TR/rdf12-concepts/)
 
 **A TypeScript library for serializing and formatting RDF and SPARQL, built for IDE integration.**
-
-</div>
-
----
 
 Designed as the counterpart to [@faubulous/mentor-rdf-parsers](https://github.com/faubulous/mentor-rdf-parsers), this library provides RDF serialization and SPARQL formatting with first-class support for editor workflows such as document formatting, range formatting, comment preservation, and configurable output styles.
 
