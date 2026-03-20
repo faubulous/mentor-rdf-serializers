@@ -388,4 +388,216 @@ describe('StatementSerializer', () => {
             expect(output).toContain('# Person definition');
         });
     });
+
+    // ====================================================================
+    // Pretty-printed subject grouping
+    // ====================================================================
+    describe('pretty-printed subject grouping', () => {
+        it('should group multiple predicates for the same subject using semicolons', () => {
+            const input = [
+                PREFIX,
+                'ex:Person a rdfs:Class .',
+                'ex:Person rdfs:label "Person" .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+            const output = ss.serialize(contexts, { prefixes });
+
+            // Should use predicate-object grouping with ";"
+            expect(output).toContain('ex:Person a rdfs:Class ;');
+            expect(output).toContain('rdfs:label "Person"');
+            // Should NOT repeat subject
+            const subjectMatches = output.match(/ex:Person/g);
+            // One occurrence in the PREFIX line, one in the subject block
+            const statementsBlock = output.slice(output.lastIndexOf('\n\n') + 2);
+            const subjectInBody = statementsBlock.match(/ex:Person/g);
+            expect(subjectInBody).toHaveLength(1);
+        });
+
+        it('should produce grouped output when sorting', () => {
+            const input = [
+                PREFIX,
+                'ex:B rdfs:label "B" .',
+                'ex:A a rdfs:Class .',
+                'ex:A rdfs:label "A" .',
+                'ex:B a rdfs:Class .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+            const output = ss.serialize(contexts, { prefixes, sort: true });
+
+            // After sorting, ex:A should come before ex:B
+            const aIdx = output.indexOf('ex:A a rdfs:Class');
+            const bIdx = output.indexOf('ex:B a rdfs:Class');
+            expect(aIdx).toBeLessThan(bIdx);
+
+            // Each subject should be grouped (semicolons, not repeated subjects)
+            expect(output).toContain('ex:A a rdfs:Class ;');
+            expect(output).toContain('ex:B a rdfs:Class ;');
+        });
+
+        it('should preserve comments with grouped subjects', () => {
+            const input = [
+                PREFIX,
+                '# Comment for class A',
+                'ex:A a rdfs:Class .',
+                'ex:A rdfs:label "A" .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+            const output = ss.serialize(contexts, { prefixes });
+
+            // Comment should precede the grouped subject block
+            const commentIdx = output.indexOf('# Comment for class A');
+            const subjectIdx = output.indexOf('ex:A a rdfs:Class');
+            expect(commentIdx).toBeLessThan(subjectIdx);
+
+            // Output should still be grouped
+            expect(output).toContain('ex:A a rdfs:Class ;');
+        });
+
+        it('should preserve trailing comment on last quad of a group', () => {
+            const input = [
+                PREFIX,
+                'ex:A a rdfs:Class .',
+                'ex:A rdfs:label "A" . # end comment',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+            const output = ss.serialize(contexts, { prefixes });
+
+            // Trailing comment should appear on the last line of the block
+            expect(output).toContain('# end comment');
+        });
+
+        it('should separate subject blocks with blank lines', () => {
+            const input = [
+                PREFIX,
+                'ex:A a rdfs:Class .',
+                'ex:A rdfs:label "A" .',
+                'ex:B a rdfs:Class .',
+                'ex:B rdfs:label "B" .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+            const output = ss.serialize(contexts, {
+                prefixes,
+                blankLinesBetweenSubjects: true,
+            });
+
+            // There should be a blank line between the A and B subject blocks.
+            // Find the end of the A block (". ")  and verify a blank line follows.
+            const aBlockEnd = output.indexOf('rdfs:label "A"');
+            const bBlockStart = output.indexOf('ex:B');
+            expect(aBlockEnd).toBeGreaterThan(-1);
+            expect(bBlockStart).toBeGreaterThan(aBlockEnd);
+
+            // The text between the two blocks should contain a blank line
+            const between = output.slice(aBlockEnd, bBlockStart);
+            expect(between).toContain('\n\n');
+        });
+
+        it('should handle single quad per subject (no semicolons)', () => {
+            const input = [
+                PREFIX,
+                'ex:A a rdfs:Class .',
+                'ex:B a rdfs:Class .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+            const output = ss.serialize(contexts, { prefixes });
+
+            // Each subject has only one quad — no semicolons
+            expect(output).toContain('ex:A a rdfs:Class .');
+            expect(output).toContain('ex:B a rdfs:Class .');
+        });
+
+        it('should sort and group an ontology-like document', () => {
+            const input = [
+                PREFIX,
+                '# An object property',
+                'ex:hasName rdfs:label "has name" .',
+                'ex:hasName a <http://www.w3.org/2002/07/owl#ObjectProperty> .',
+                '',
+                '# A class',
+                'ex:Person rdfs:label "Person" .',
+                'ex:Person a rdfs:Class .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+            const output = ss.serialize(contexts, { prefixes, sort: true });
+
+            // After alphabetical sorting: ex:Person before ex:hasName
+            // (P < h in default locale — let's just verify grouping)
+            expect(output).toMatch(/ex:Person .+;/);
+            expect(output).toMatch(/ex:hasName .+;/);
+
+            // Comments should still be present
+            expect(output).toContain('# A class');
+            expect(output).toContain('# An object property');
+
+            // After sorting, comments should precede their subject blocks
+            const classComment = output.indexOf('# A class');
+            const personSubject = output.indexOf('ex:Person');
+            expect(classComment).toBeLessThan(personSubject);
+        });
+
+        it('should handle sorting with multiple predicates and comments', () => {
+            const input = [
+                PREFIX,
+                '# Z is second after sorting',
+                'ex:Z a rdfs:Class .',
+                'ex:Z rdfs:label "Z" .',
+                '',
+                '# A is first after sorting',
+                'ex:A a rdfs:Class .',
+                'ex:A rdfs:label "A" .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+            const output = ss.serialize(contexts, { prefixes, sort: true });
+
+            // After sorting: A before Z
+            const aIdx = output.indexOf('ex:A');
+            const zIdx = output.indexOf('ex:Z');
+            expect(aIdx).toBeLessThan(zIdx);
+
+            // Both should be grouped
+            expect(output).toContain('ex:A a rdfs:Class ;');
+            expect(output).toContain('ex:Z a rdfs:Class ;');
+
+            // Comments should travel with their quads
+            const commentA = output.indexOf('# A is first after sorting');
+            const commentZ = output.indexOf('# Z is second after sorting');
+            expect(commentA).toBeLessThan(aIdx);
+            expect(commentZ).toBeLessThan(zIdx);
+        });
+
+        it('should handle added quads merged with existing grouped contexts', () => {
+            const input = [
+                PREFIX,
+                '# Existing class',
+                'ex:Person a rdfs:Class .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+
+            // Add a predicate for the same subject
+            const newQuad = DataFactory.quad(
+                DataFactory.namedNode('http://example.org/Person'),
+                DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+                DataFactory.literal('Person')
+            );
+
+            const merged = ss.addStatements(contexts, [newQuad]);
+            const output = ss.serialize(merged, { prefixes });
+
+            // Both predicates should be grouped under the same subject
+            expect(output).toContain('ex:Person a rdfs:Class ;');
+            expect(output).toContain('rdfs:label "Person"');
+
+            // Comment should still be present
+            expect(output).toContain('# Existing class');
+        });
+    });
 });

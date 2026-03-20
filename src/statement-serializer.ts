@@ -223,6 +223,7 @@ export class StatementSerializer {
      * - `BASE` / `@base` declaration (when `baseIri` is set)
      * - `PREFIX` / `@prefix` declarations (when `prefixes` is provided)
      * - A blank line separating declarations from statements
+     * - Pretty-printed subject blocks with predicate-object grouping
      * - Sorted and comment-decorated statements
      *
      * @param contexts The (optionally pre-sorted / pre-merged) statement contexts.
@@ -272,36 +273,91 @@ export class StatementSerializer {
             lowercaseDirectives,
         };
 
+        // Group contexts by subject for pretty-printed output with
+        // predicate-object lists (e.g. Turtle's ";" syntax).
+        const subjectGroups = new Map<string, QuadContext[]>();
+        for (const ctx of sortedContexts) {
+            const key = ctx.subject.term.value;
+            if (!subjectGroups.has(key)) {
+                subjectGroups.set(key, []);
+            }
+            subjectGroups.get(key)!.push(ctx);
+        }
+
         let lastSubjectValue: string | null = null;
 
-        for (const quadContext of sortedContexts) {
-            const subjectValue = quadContext.subject.term.value;
-            const isNewSubject = subjectValue !== lastSubjectValue;
-
+        for (const [subjectKey, groupContexts] of subjectGroups) {
             // Blank line between subject blocks.
-            if (isNewSubject && lastSubjectValue !== null && blankLines) {
+            if (lastSubjectValue !== null && blankLines) {
                 parts.push('');
             }
 
-            // Leading comments.
-            for (const comment of quadContext.leadingComments) {
-                parts.push(comment.image);
+            // Collect comments from all contexts in this subject group.
+            // Leading comments are emitted before the subject block.
+            // Trailing comments on non-last quads are also emitted as
+            // leading comments since they cannot be placed inline within
+            // a grouped subject block.
+            for (let i = 0; i < groupContexts.length; i++) {
+                const ctx = groupContexts[i];
+                for (const comment of ctx.leadingComments) {
+                    parts.push(comment.image);
+                }
+                if (i < groupContexts.length - 1 && ctx.trailingComment) {
+                    parts.push(ctx.trailingComment.image);
+                }
             }
 
-            // The quad itself.
-            const quad = this.getQuad(quadContext);
+            // Serialize the subject block using the underlying serializer,
+            // which handles predicate-object grouping and pretty-printing.
+            const quads = groupContexts.map(ctx => this.getQuad(ctx));
+            const groupOutput = this.serializer.serialize(quads, serializerOpts);
+            const body = this.stripDeclarations(groupOutput, lineEnd);
 
-            let line = this.serializer.serializeQuad(quad, serializerOpts);
-
-            // Trailing comment on the same line.
-            if (quadContext.trailingComment) {
-                line += ' ' + quadContext.trailingComment.image;
+            // Append trailing comment from the last context in the group.
+            const lastCtx = groupContexts[groupContexts.length - 1];
+            if (lastCtx.trailingComment) {
+                const bodyLines = body.split(lineEnd);
+                bodyLines[bodyLines.length - 1] += ' ' + lastCtx.trailingComment.image;
+                parts.push(bodyLines.join(lineEnd));
+            } else {
+                parts.push(body);
             }
 
-            parts.push(line);
-            lastSubjectValue = subjectValue;
+            lastSubjectValue = subjectKey;
         }
 
         return parts.join(lineEnd);
+    }
+
+    /**
+     * Strips prefix/base declarations from serializer output.
+     *
+     * The underlying serializer emits its own declarations when
+     * `serialize()` is called, but the `StatementSerializer` handles
+     * declarations separately.  This helper removes those duplicate
+     * declaration lines and the blank line that follows them.
+     */
+    private stripDeclarations(output: string, lineEnd: string): string {
+        const lines = output.split(lineEnd);
+        let start = 0;
+
+        for (let i = 0; i < lines.length; i++) {
+            if (/^(@?(prefix|base)|PREFIX|BASE)\s/i.test(lines[i])) {
+                start = i + 1;
+            } else if (lines[i].trim() === '' && start > 0) {
+                start = i + 1;
+                break;
+            } else {
+                break;
+            }
+        }
+
+        // Remove trailing empty lines left over from the serializer.
+        let end = lines.length;
+        while (end > start && lines[end - 1].trim() === '') {
+            end--;
+        }
+
+        return lines.slice(start, end).join(lineEnd);
     }
 }
