@@ -1,7 +1,8 @@
 # Mentor RDF Serializers
 
 [![npm version](https://img.shields.io/npm/v/@faubulous/mentor-rdf-serializers.svg)](https://www.npmjs.com/package/@faubulous/mentor-rdf-serializers)
-[![license](https://img.shields.io/npm/l/@faubulous/mentor-rdf-serializers.svg)](https://github.com/faubulous/mentor-rdf-serializers/blob/main/LICENSE)
+[![npm downloads](https://img.shields.io/npm/dm/@faubulous/mentor-rdf-parsers.svg)](https://www.npmjs.com/package/@faubulous/mentor-rdf-parsers)
+[![License: LGPL-2.1](https://img.shields.io/badge/License-LGPL--2.1-blue.svg)](https://opensource.org/licenses/LGPL-2.1)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://www.typescriptlang.org/)
 [![RDF 1.2](https://img.shields.io/badge/RDF-1.2-green.svg)](https://www.w3.org/TR/rdf12-concepts/)
 
@@ -55,8 +56,8 @@ console.log(serializer.serialize(quads, {
 ```
 
 ```turtle
-@prefix ex: <http://example.org/> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+PREFIX ex: <http://example.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 ex:subject a ex:Class ;
     ex:name "Example"@en .

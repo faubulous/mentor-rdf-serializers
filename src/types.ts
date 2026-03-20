@@ -228,6 +228,13 @@ export interface SerializerOptions {
     blankLinesBetweenSubjects?: boolean;
 
     /**
+     * Whether to use lowercase `@prefix` and `@base` (Turtle style).
+     * When false, uses uppercase `PREFIX` and `BASE` (SPARQL style).
+     * Default: false (SPARQL style)
+     */
+    lowercaseDirectives?: boolean;
+
+    /**
      * Custom blank node ID generator.
      * If provided, this function will be called to generate IDs for new blank nodes.
      */

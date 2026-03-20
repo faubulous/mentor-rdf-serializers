@@ -116,6 +116,119 @@ This preserves cases such as:
 If you only sort raw quads, comments can be preserved in the output stream but
 they will not automatically move with the matching triple.
 
+### Example: Sorting quads while preserving comments
+
+The `StatementSerializer` class handles the complete workflow — merging,
+sorting, prefix emission, and serialization — so you do not need to
+orchestrate multiple functions manually.
+
+```typescript
+import { TurtleLexer, TurtleParser, TurtleReader, StatementInfo } from '@faubulous/mentor-rdf-parsers';
+import {
+    StatementSerializer,
+    TurtleSerializer,
+} from '@faubulous/mentor-rdf-serializers';
+import DataFactory from '@rdfjs/data-model';
+
+// 1. Parse the source document (keeping tokens for comment recovery)
+const source = `
+@prefix ex: <http://example.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# This class represents people
+ex:Person a rdfs:Class .
+
+# This class represents organizations
+ex:Organization a rdfs:Class . # core concept
+`;
+
+const lexResult = new TurtleLexer().tokenize(source);
+const cst = new TurtleParser().parse(lexResult.tokens);
+const reader = new TurtleReader();
+
+// 2. Get statement contexts with comments directly from the parser
+const contexts = reader.readStatementInfos(cst, lexResult.tokens);
+
+// 3. Create a StatementSerializer backed by a TurtleSerializer
+const serializer = new StatementSerializer(new TurtleSerializer());
+
+// 4. Optionally add new quads (they will have no comments)
+const newQuad = DataFactory.quad(
+    DataFactory.namedNode('http://example.org/Animal'),
+    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
+);
+
+const merged = serializer.addStatements(contexts, [newQuad]);
+
+// 5. Serialize to a complete document — prefixes, sorting, and comments
+//    are all handled automatically
+const output = serializer.serialize(merged, {
+    prefixes: {
+        ex: 'http://example.org/',
+        rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+    },
+    lowercaseDirectives: true,   // match the original @prefix style
+    sort: true,
+    blankLinesBetweenSubjects: true,
+});
+
+console.log(output);
+```
+
+Output (sorted alphabetically with comments preserved):
+
+```turtle
+@prefix ex: <http://example.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+ex:Animal a rdfs:Class .
+
+# This class represents organizations
+ex:Organization a rdfs:Class . # core concept
+
+# This class represents people
+ex:Person a rdfs:Class .
+```
+
+Notice that:
+- Prefix declarations are emitted automatically by `serialize()` — no manual
+  construction needed
+- Set `lowercaseDirectives: true` to match the original Turtle `@prefix` style,
+  or leave it `false` (the default) for SPARQL-style `PREFIX`
+- The new `ex:Animal` triple appears first (alphabetically before Organization)
+- Each original comment stays attached to its statement
+- The trailing comment `# core concept` moves with `ex:Organization`
+
+### Using custom sorting strategies
+
+You can pass any sorting strategy to `StatementSerializer.serialize()` via the
+`sort` option, or call `sort()` separately:
+
+```typescript
+import {
+    StatementSerializer,
+    TurtleSerializer,
+    createPriorityStrategy,
+} from '@faubulous/mentor-rdf-serializers';
+
+const ss = new StatementSerializer(new TurtleSerializer());
+
+const strategy = createPriorityStrategy({
+    typeOrder: [
+        'http://www.w3.org/2002/07/owl#Class',
+        'http://www.w3.org/2000/01/rdf-schema#Class'
+    ]
+});
+
+// Option A: pass the strategy to serialize()
+const output = ss.serialize(contexts, { prefixes, sort: strategy });
+
+// Option B: sort explicitly, then serialize without re-sorting
+const sorted = ss.sort(contexts, strategy);
+const output2 = ss.serialize(sorted, { prefixes });
+```
+
 ## Configuration summary
 
 | Strategy | Purpose | Key options |

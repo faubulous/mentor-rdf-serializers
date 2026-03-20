@@ -43,12 +43,16 @@ export class TrigSerializer extends TurtleSerializer {
 
         // Add base declaration if provided
         if (opts.baseIri) {
-            parts.push(`@base <${opts.baseIri}> .`);
+            const baseKeyword = opts.lowercaseDirectives ? '@base' : 'BASE';
+            const terminator = opts.lowercaseDirectives ? ' .' : '';
+            parts.push(`${baseKeyword} <${opts.baseIri}>${terminator}`);
         }
 
         // Add prefix declarations
         for (const [prefix, namespace] of Object.entries(opts.prefixes)) {
-            parts.push(`@prefix ${prefix}: <${namespace}> .`);
+            const prefixKeyword = opts.lowercaseDirectives ? '@prefix' : 'PREFIX';
+            const terminator = opts.lowercaseDirectives ? ' .' : '';
+            parts.push(`${prefixKeyword} ${prefix}: <${namespace}>${terminator}`);
         }
 
         // Add blank line after declarations

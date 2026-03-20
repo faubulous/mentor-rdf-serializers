@@ -60,6 +60,7 @@ export const DEFAULT_OPTIONS: Required<SerializerOptions> = {
     objectListStyle: 'auto',
     predicateListStyle: 'first-same-line',
     blankLinesBetweenSubjects: true,
+    lowercaseDirectives: false,
     blankNodeIdGenerator: (counter: number) => `b${counter}`
 };
 

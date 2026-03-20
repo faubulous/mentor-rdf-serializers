@@ -49,8 +49,8 @@ console.log(turtle);
 Output:
 
 ```turtle
-@prefix ex: <http://example.org/> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+PREFIX ex: <http://example.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 ex:subject a ex:Class ;
     ex:name "Example"@en .

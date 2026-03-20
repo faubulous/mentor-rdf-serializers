@@ -95,7 +95,7 @@ describe('TurtleSerializer', () => {
                 prefixes: { 'ex': 'http://example.org/' }
             });
 
-            expect(result).toContain('@prefix ex: <http://example.org/> .');
+            expect(result).toContain('PREFIX ex: <http://example.org/>');
         });
 
         it('should include base declaration', () => {
@@ -107,7 +107,7 @@ describe('TurtleSerializer', () => {
                 baseIri: 'http://example.org/'
             });
 
-            expect(result).toContain('@base <http://example.org/> .');
+            expect(result).toContain('BASE <http://example.org/>');
         });
 
         it('should group triples by subject', () => {
