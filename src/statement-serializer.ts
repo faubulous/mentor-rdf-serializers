@@ -36,7 +36,7 @@ import { applySortingStrategy } from './sorting/strategies.js';
 // When mentor-rdf-parsers renames StatementInfo → QuadContext,
 // update the import below and remove the type alias.
 import type { QuadTokens, QuadContext } from '@faubulous/mentor-rdf-parsers';
-export type { QuadTokens };
+export type { QuadTokens, QuadContext };
 
 // ---------------------------------------------------------------------------
 // Options

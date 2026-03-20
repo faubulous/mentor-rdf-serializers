@@ -108,6 +108,6 @@ export {
 export { StatementSerializer } from './statement-serializer.js';
 export type {
     StatementSerializerOptions,
-    StatementContext,
-    QuadInfo,
+    QuadTokens,
+    QuadContext
 } from './statement-serializer.js';
