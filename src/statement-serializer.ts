@@ -112,6 +112,26 @@ export interface StatementSerializerOptions {
  */
 export class StatementSerializer {
     /**
+     * Cache of materialized quads by context to avoid repeated DataFactory allocations.
+     */
+    private readonly quadCache = new WeakMap<QuadContext, Quad>();
+
+    /**
+     * Shared synthetic token for contexts created from external quads.
+     */
+    private readonly syntheticToken = {
+        image: '',
+        startOffset: Infinity,
+        endOffset: Infinity,
+        startLine: Infinity,
+        endLine: Infinity,
+        startColumn: Infinity,
+        endColumn: Infinity,
+        tokenType: { name: 'SYNTHETIC' },
+        tokenTypeIdx: -1,
+    } as unknown as IToken;
+
+    /**
      * Creates a new `StatementSerializer`.
      *
      * @param serializer The underlying format-specific serializer used to
@@ -123,14 +143,22 @@ export class StatementSerializer {
      * Materializes an RDF/JS-compatible `Quad` from a {@link QuadContext}.
      */
     getQuad(quadContext: QuadContext): Quad {
+        const cached = this.quadCache.get(quadContext);
+        if (cached) {
+            return cached;
+        }
+
         const graph = quadContext.graph?.term ?? DataFactory.defaultGraph();
 
-        return DataFactory.quad(
+        const quad = DataFactory.quad(
             quadContext.subject.term,
             quadContext.predicate.term,
             quadContext.object.term,
             graph,
         ) as unknown as Quad;
+
+        this.quadCache.set(quadContext, quad);
+        return quad;
     }
 
     /**
@@ -141,26 +169,14 @@ export class StatementSerializer {
      * don't have source positions.
      */
     private _getQuadTokens(quad: Quad | Rdf12Quad): QuadTokens {
-        const syntheticToken = {
-            image: '',
-            startOffset: Infinity,
-            endOffset: Infinity,
-            startLine: Infinity,
-            endLine: Infinity,
-            startColumn: Infinity,
-            endColumn: Infinity,
-            tokenType: { name: 'SYNTHETIC' },
-            tokenTypeIdx: -1,
-        } as unknown as IToken;
-
         const result: QuadTokens = {
-            subject: { term: quad.subject as any, token: syntheticToken },
-            predicate: { term: quad.predicate as any, token: syntheticToken },
-            object: { term: quad.object as any, token: syntheticToken },
+            subject: { term: quad.subject as any, token: this.syntheticToken },
+            predicate: { term: quad.predicate as any, token: this.syntheticToken },
+            object: { term: quad.object as any, token: this.syntheticToken },
         };
 
         if (quad.graph && quad.graph.termType !== 'DefaultGraph') {
-            result.graph = { term: quad.graph as any, token: syntheticToken };
+            result.graph = { term: quad.graph as any, token: this.syntheticToken };
         }
 
         return result;
@@ -200,18 +216,17 @@ export class StatementSerializer {
      * @returns A new sorted array.
      */
     sort(contexts: QuadContext[], sort: SortOption): QuadContext[] {
-        const quadsWithCtx = contexts.map(ctx => ({
-            quad: this.getQuad(ctx),
-            ctx,
-        }));
-
-        const quads = quadsWithCtx.map(x => x.quad);
-        const sorted: Array<Quad | Rdf12Quad> = applySortingStrategy(quads, sort);
-
+        const quads = new Array<Quad | Rdf12Quad>(contexts.length);
         const quadToCtx = new Map<Quad | Rdf12Quad, QuadContext>();
-        for (const { quad, ctx } of quadsWithCtx) {
+
+        for (let i = 0; i < contexts.length; i++) {
+            const ctx = contexts[i];
+            const quad = this.getQuad(ctx);
+            quads[i] = quad;
             quadToCtx.set(quad, ctx);
         }
+
+        const sorted: Array<Quad | Rdf12Quad> = applySortingStrategy(quads, sort);
 
         return sorted.map(q => quadToCtx.get(q)!);
     }
@@ -271,6 +286,7 @@ export class StatementSerializer {
             prefixes,
             baseIri: baseIri || undefined,
             lowercaseDirectives,
+            lineEnd,
         };
 
         // Group contexts by subject for pretty-printed output with
@@ -316,9 +332,7 @@ export class StatementSerializer {
             // Append trailing comment from the last context in the group.
             const lastCtx = groupContexts[groupContexts.length - 1];
             if (lastCtx.trailingComment) {
-                const bodyLines = body.split(lineEnd);
-                bodyLines[bodyLines.length - 1] += ' ' + lastCtx.trailingComment.image;
-                parts.push(bodyLines.join(lineEnd));
+                parts.push(this.appendTrailingComment(body, lineEnd, lastCtx.trailingComment.image));
             } else {
                 parts.push(body);
             }
@@ -330,6 +344,19 @@ export class StatementSerializer {
     }
 
     /**
+     * Appends a trailing comment to the final logical line of a block.
+     */
+    private appendTrailingComment(body: string, lineEnd: string, commentImage: string): string {
+        const lastBreak = body.lastIndexOf(lineEnd);
+        if (lastBreak === -1) {
+            return `${body} ${commentImage}`;
+        }
+
+        const lineStart = lastBreak + lineEnd.length;
+        return body.slice(0, lineStart) + body.slice(lineStart) + ' ' + commentImage;
+    }
+
+    /**
      * Strips prefix/base declarations from serializer output.
      *
      * The underlying serializer emits its own declarations when
@@ -338,26 +365,41 @@ export class StatementSerializer {
      * declaration lines and the blank line that follows them.
      */
     private stripDeclarations(output: string, lineEnd: string): string {
-        const lines = output.split(lineEnd);
-        let start = 0;
+        const isDeclarationLine = (line: string): boolean => {
+            return /^(@?(prefix|base)|PREFIX|BASE)\s/i.test(line);
+        };
 
-        for (let i = 0; i < lines.length; i++) {
-            if (/^(@?(prefix|base)|PREFIX|BASE)\s/i.test(lines[i])) {
-                start = i + 1;
-            } else if (lines[i].trim() === '' && start > 0) {
-                start = i + 1;
-                break;
-            } else {
+        let cursor = 0;
+        let sawDeclaration = false;
+
+        while (cursor <= output.length) {
+            const nextBreak = output.indexOf(lineEnd, cursor);
+            const lineEndIndex = nextBreak === -1 ? output.length : nextBreak;
+            const line = output.slice(cursor, lineEndIndex);
+
+            if (isDeclarationLine(line)) {
+                sawDeclaration = true;
+                cursor = nextBreak === -1 ? output.length : nextBreak + lineEnd.length;
+                continue;
+            }
+
+            if (sawDeclaration && line.trim() === '') {
+                cursor = nextBreak === -1 ? output.length : nextBreak + lineEnd.length;
+            }
+            break;
+        }
+
+        let end = output.length;
+        while (end > cursor) {
+            const prevBreak = output.lastIndexOf(lineEnd, end - lineEnd.length);
+            const lineStart = prevBreak === -1 ? 0 : prevBreak + lineEnd.length;
+            const line = output.slice(lineStart, end);
+            if (line.trim() !== '') {
                 break;
             }
+            end = prevBreak === -1 ? 0 : prevBreak;
         }
 
-        // Remove trailing empty lines left over from the serializer.
-        let end = lines.length;
-        while (end > start && lines[end - 1].trim() === '') {
-            end--;
-        }
-
-        return lines.slice(start, end).join(lineEnd);
+        return output.slice(cursor, end);
     }
 }

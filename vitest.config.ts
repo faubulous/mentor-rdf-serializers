@@ -14,5 +14,8 @@ export default defineConfig({
     deps: {
       interopDefault: true
     }
+  },
+  benchmark: {
+    include: ['src/**/*.bench.ts']
   }
 });

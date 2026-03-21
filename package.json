@@ -44,6 +44,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "bench": "vitest bench --run",
+    "bench:stable": "vitest bench --run",
+    "bench:baseline": "node scripts/run-bench-baseline.mjs",
+    "bench:watch": "vitest bench",
     "build": "tsc",
     "prepublishOnly": "npm run build"
   },
