@@ -3,7 +3,7 @@ import DataFactory from '@rdfjs/data-model';
 import { bench, describe } from 'vitest';
 import type { QuadContext } from '@faubulous/mentor-rdf-parsers';
 import { StatementSerializer } from './statement-serializer.js';
-import { TurtleSerializer } from './turtle/serializer.js';
+import { TurtleSerializer } from './turtle/turtle-serializer.js';
 
 const prefixes = {
   ex: 'http://example.org/',

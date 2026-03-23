@@ -11,7 +11,7 @@ import {
     BaseTokenFormatter,
     type BaseFormatterContext,
 } from '../base-token-formatter.js';
-import type { TurtleFormatterOptions } from '../turtle/formatter.js';
+import type { TurtleFormatterOptions } from '../turtle/turtle-formatter.js';
 
 // ============================================================================
 // Options & Context

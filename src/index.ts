@@ -65,19 +65,19 @@ export {
     type BaseFormatterOptions,
 } from './base-token-formatter.js';
 
-export { NTriplesSerializer } from './ntriples/serializer.js';
-export { NQuadsSerializer } from './nquads/serializer.js';
-export { TurtleSerializer } from './turtle/serializer.js';
-export { TrigSerializer } from './trig/serializer.js';
-export { N3Serializer, type N3SerializerOptions } from './n3/serializer.js';
-export { JsonLdSerializer, type JsonLdSerializerOptions } from './jsonld/serializer.js';
+export { NTriplesSerializer } from './ntriples/ntriples-serializer.js';
+export { NQuadsSerializer } from './nquads/nquads-serializer.js';
+export { TurtleSerializer } from './turtle/turtle-serializer.js';
+export { TrigSerializer } from './trig/trig-serializer.js';
+export { N3Serializer, type N3SerializerOptions } from './n3/n3-serializer.js';
+export { JsonLdSerializer, type JsonLdSerializerOptions } from './jsonld/jsonld-serializer.js';
 
-export { SparqlFormatter, type SparqlFormatterOptions } from './sparql/formatter.js';
-export { TurtleFormatter, type TurtleFormatterOptions } from './turtle/formatter.js';
-export { NTriplesFormatter } from './ntriples/formatter.js';
-export { NQuadsFormatter } from './nquads/formatter.js';
-export { TrigFormatter, type TrigFormatterOptions } from './trig/formatter.js';
-export { N3Formatter, type N3FormatterOptions } from './n3/formatter.js';
+export { SparqlFormatter, type SparqlFormatterOptions } from './sparql/sparql-formatter.js';
+export { TurtleFormatter, type TurtleFormatterOptions } from './turtle/turtle-formatter.js';
+export { NTriplesFormatter } from './ntriples/ntriples-formatter.js';
+export { NQuadsFormatter } from './nquads/nquads-formatter.js';
+export { TrigFormatter, type TrigFormatterOptions } from './trig/trig-formatter.js';
+export { N3Formatter, type N3FormatterOptions } from './n3/n3-formatter.js';
 
 export {
     TokenSerializer,

@@ -6,7 +6,7 @@ import type {
     RdfSyntax as RdfSyntaxType
 } from '../types.js';
 import { RdfSyntax } from '../types.js';
-import { TurtleSerializer } from '../turtle/serializer.js';
+import { TurtleSerializer } from '../turtle/turtle-serializer.js';
 import {
     groupQuadsByGraph,
     groupQuadsBySubjectPredicate,

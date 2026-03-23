@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
 import { TurtleLexer, TurtleParser, TurtleReader } from '@faubulous/mentor-rdf-parsers';
 import { StatementSerializer } from './statement-serializer.js';
-import { TurtleSerializer } from './turtle/serializer.js';
+import { TurtleSerializer } from './turtle/turtle-serializer.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,6 +1,6 @@
 import type { Quad, Term, Variable } from '@rdfjs/types';
 import { SerializerOptions, SerializationResult, RdfSyntax, Rdf12Quad, TripleTerm, Formula, QuickVariable } from '../types.js';
-import { TurtleSerializer } from '../turtle/serializer.js';
+import { TurtleSerializer } from '../turtle/turtle-serializer.js';
 
 export type N3Term = Term | TripleTerm | Formula | QuickVariable;
 
