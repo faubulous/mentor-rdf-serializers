@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
-import { JsonLdSerializer } from './serializer.js';
+import { JsonLdSerializer } from './jsonld-serializer.js';
 
 describe('JsonLdSerializer', () => {
     let serializer: JsonLdSerializer;

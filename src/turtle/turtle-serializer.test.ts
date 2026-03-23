@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
-import { TurtleSerializer } from './serializer.js';
+import { TurtleSerializer } from './turtle-serializer.js';
 
 describe('TurtleSerializer', () => {
     let serializer: TurtleSerializer;
