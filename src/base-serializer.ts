@@ -1,4 +1,11 @@
-import type { BlankNode, Literal, NamedNode, Quad, Term, Variable, DefaultGraph } from '@rdfjs/types';
+import type {
+    BlankNode,
+    Literal,
+    NamedNode,
+    Quad,
+    Term,
+    Variable
+} from '@rdfjs/types';
 import type {
     ISerializer,
     Rdf12Quad,
@@ -9,7 +16,6 @@ import type {
     TripleTerm
 } from './types.js';
 import {
-    DEFAULT_OPTIONS,
     escapeIri,
     escapeLocalName,
     escapeString,
@@ -17,7 +23,6 @@ import {
     isDecimal,
     isDouble,
     isInteger,
-    isTripleTerm,
     mergeOptions,
     needsLongString,
     RDF_TYPE,
@@ -29,8 +34,8 @@ import {
 } from './utils.js';
 
 /**
- * Abstract base class for RDF serializers.
- * Provides common functionality for serializing terms and literals.
+ * Abstract base class for RDF serializers. Provides common functionality 
+ * for serializing terms and literals.
  */
 export abstract class BaseSerializer implements ISerializer {
     abstract readonly syntax: RdfSyntax;
@@ -72,56 +77,46 @@ export abstract class BaseSerializer implements ISerializer {
     /**
      * Serializes a named node (IRI).
      */
-    protected serializeNamedNode(
-        node: NamedNode,
-        options: Required<SerializerOptions>
-    ): string {
+    protected serializeNamedNode(node: NamedNode, options: Required<SerializerOptions>): string {
         // Check for rdf:type shorthand
         if (this.supportsRdfTypeShorthand && options.useRdfTypeShorthand && node.value === RDF_TYPE) {
             return 'a';
         }
 
-        // Try to use a prefix
         if (this.supportsPrefixes && Object.keys(options.prefixes).length > 0) {
             const prefixMatch = findPrefix(node.value, options.prefixes);
+
             if (prefixMatch) {
                 const escapedLocalName = escapeLocalName(prefixMatch.localName);
+
                 return `${prefixMatch.prefix}:${escapedLocalName}`;
             }
         }
 
-        // Fall back to full IRI
         return `<${escapeIri(node.value)}>`;
     }
 
     /**
      * Serializes a blank node.
      */
-    protected serializeBlankNode(
-        node: BlankNode,
-        _options: Required<SerializerOptions>
-    ): string {
+    protected serializeBlankNode(node: BlankNode, _options: Required<SerializerOptions>): string {
         return `_:${node.value}`;
     }
 
     /**
      * Serializes a literal value.
      */
-    protected serializeLiteral(
-        literal: Literal,
-        options: Required<SerializerOptions>
-    ): string {
+    protected serializeLiteral(literal: Literal, options: Required<SerializerOptions>): string {
         const value = literal.value;
         const datatype = literal.datatype?.value;
         const language = literal.language;
 
-        // Handle language-tagged literals
         if (language) {
             const escapedValue = escapeString(value);
+
             return `"${escapedValue}"@${language}`;
         }
 
-        // Handle boolean shortcuts (for Turtle-family formats)
         if (this.supportsPrefixes && datatype === XSD_BOOLEAN) {
             if (value === 'true' || value === '1') {
                 return 'true';
@@ -131,7 +126,6 @@ export abstract class BaseSerializer implements ISerializer {
             }
         }
 
-        // Handle numeric shortcuts (for Turtle-family formats)
         if (this.supportsPrefixes) {
             if (datatype === XSD_INTEGER && isInteger(value)) {
                 return value;
@@ -156,30 +150,28 @@ export abstract class BaseSerializer implements ISerializer {
 
         // Serialize with datatype
         const datatypeStr = this.serializeNamedNode(
-            { termType: 'NamedNode', value: datatype, equals: () => false } as NamedNode,
+            {
+                termType: 'NamedNode',
+                value: datatype,
+                equals: () => false
+            } as NamedNode,
             options
         );
+
         return `${quote}${escapedValue}${quote}^^${datatypeStr}`;
     }
 
     /**
-     * Serializes a variable (SPARQL).
+     * Serializes a SPARQL variable.
      */
-    protected serializeVariable(
-        variable: Variable,
-        _options: Required<SerializerOptions>
-    ): string {
+    protected serializeVariable(variable: Variable, _options: Required<SerializerOptions>): string {
         return `?${variable.value}`;
     }
 
     /**
      * Serializes an RDF 1.2 Triple Term.
-     * Syntax: <<( subject predicate object )>>
      */
-    protected serializeTripleTerm(
-        tripleTerm: TripleTerm,
-        options: Required<SerializerOptions>
-    ): string {
+    protected serializeTripleTerm(tripleTerm: TripleTerm, options: Required<SerializerOptions>): string {
         if (!this.supportsRdf12) {
             throw new Error('Triple terms are not supported in this format');
         }
@@ -194,11 +186,10 @@ export abstract class BaseSerializer implements ISerializer {
     /**
      * Serializes any RDF term.
      */
-    protected serializeTerm(
-        term: Term | Rdf12Term,
-        options: Required<SerializerOptions>
-    ): string {
+    protected serializeTerm(term: Term | Rdf12Term, options: Required<SerializerOptions>): string {
         switch (term.termType) {
+            case 'DefaultGraph':
+                return '';
             case 'NamedNode':
                 return this.serializeNamedNode(term as NamedNode, options);
             case 'BlankNode':
@@ -207,12 +198,10 @@ export abstract class BaseSerializer implements ISerializer {
                 return this.serializeLiteral(term as Literal, options);
             case 'Variable':
                 return this.serializeVariable(term as Variable, options);
-            case 'DefaultGraph':
-                return '';
             case 'TripleTerm':
                 return this.serializeTripleTerm(term as TripleTerm, options);
             default:
-                throw new Error(`Unknown term type: ${(term as Term).termType}`);
+                throw new Error(`Unknown term type: ${term.termType}`);
         }
     }
 

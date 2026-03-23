@@ -61,6 +61,7 @@ export const DEFAULT_OPTIONS: Required<SerializerOptions> = {
     predicateListStyle: 'first-same-line',
     blankLinesBetweenSubjects: true,
     lowercaseDirectives: false,
+    emitDirectives: true,
     blankNodeIdGenerator: (counter: number) => `b${counter}`
 };
 
@@ -424,24 +425,6 @@ export function termToString(term: Term | Rdf12Term): string {
             // For unknown term types, try to access value property safely
             return (term as { value?: string }).value || '';
     }
-}
-
-/**
- * Sorts quads alphabetically by subject, predicate, object.
- * 
- * @deprecated Use `applySortingStrategy` from sorting module for more control.
- * This function is kept for backward compatibility.
- */
-export function sortQuads(quads: Array<Quad | Rdf12Quad>): Array<Quad | Rdf12Quad> {
-    return [...quads].sort((a, b) => {
-        const subjectCompare = termToString(a.subject).localeCompare(termToString(b.subject));
-        if (subjectCompare !== 0) return subjectCompare;
-        
-        const predicateCompare = termToString(a.predicate).localeCompare(termToString(b.predicate));
-        if (predicateCompare !== 0) return predicateCompare;
-        
-        return termToString(a.object).localeCompare(termToString(b.object));
-    });
 }
 
 /**

@@ -9,9 +9,7 @@ import {
     parseLanguageTag,
     formatLanguageTag,
     groupQuadsBySubject,
-    groupQuadsByGraph,
-    sortQuads,
-    resetBlankNodeCounter
+    groupQuadsByGraph
 } from './utils.js';
 
 // Helper to get value from a term (safe cast since all test quads use NamedNode)
@@ -166,19 +164,5 @@ describe('groupQuadsByGraph', () => {
         expect(groups.size).toBe(2);
         expect(groups.get('')!.length).toBe(1); // Default graph
         expect(groups.get('<http://example.org/g1>')!.length).toBe(1);
-    });
-});
-
-describe('sortQuads', () => {
-    it('should sort quads alphabetically', () => {
-        const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/b'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/a'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o'))
-        ];
-
-        const sorted = sortQuads(quads);
-
-        expect(termValue(sorted[0].subject)).toBe('http://example.org/a');
-        expect(termValue(sorted[1].subject)).toBe('http://example.org/b');
     });
 });

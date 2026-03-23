@@ -18,7 +18,6 @@ import {
     parseLanguageTag,
     RDF_NAMESPACE,
     RDF_TYPE,
-    sortQuads,
     XSD_BOOLEAN,
     XSD_DECIMAL,
     XSD_DOUBLE,
@@ -108,11 +107,8 @@ export class JsonLdSerializer implements ISerializer {
             return '{}';
         }
 
-        // Sort if requested  
-        const sortedQuads = opts.sort ? sortQuads(quadArray) : quadArray;
-
         // Group by graph first
-        const graphGroups = groupQuadsByGraph(sortedQuads);
+        const graphGroups = groupQuadsByGraph(quadArray);
 
         // Build JSON-LD structure
         const result: Record<string, unknown> = {};

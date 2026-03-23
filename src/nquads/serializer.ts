@@ -2,7 +2,7 @@ import type { Quad } from '@rdfjs/types';
 import type { Rdf12Quad, SerializerOptions, SerializationResult, RdfSyntax as RdfSyntaxType } from '../types.js';
 import { RdfSyntax } from '../types.js';
 import { BaseSerializer } from '../base-serializer.js';
-import { sortQuads } from '../utils.js';
+
 
 /**
  * Serializer for N-Quads format (RDF 1.2 compatible).
@@ -60,11 +60,8 @@ export class NQuadsSerializer extends BaseSerializer {
         const opts = this.getOptions(options);
         const quadArray = Array.from(quads);
         
-        // Sort if requested
-        const sortedQuads = opts.sort ? sortQuads(quadArray) : quadArray;
-        
         const lines: string[] = [];
-        for (const quad of sortedQuads) {
+        for (const quad of quadArray) {
             lines.push(this.serializeQuad(quad, opts));
         }
 

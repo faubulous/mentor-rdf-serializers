@@ -1,4 +1,4 @@
-import type { IToken, TokenType } from 'chevrotain';
+import type { TokenType } from 'chevrotain';
 import type { TokenMetadata } from '@faubulous/mentor-rdf-parsers';
 import { RdfToken } from '@faubulous/mentor-rdf-parsers';
 import type {
@@ -6,7 +6,7 @@ import type {
     SourceMapEntry,
     TokenSerializerOptions
 } from './types.js';
-import { escapeIri, escapeString, mergeOptions } from './utils.js';
+import { mergeOptions } from './utils.js';
 
 /**
  * Chevrotain token interface (subset of IToken).
@@ -32,8 +32,8 @@ export interface Token {
 function isWhitespaceToken(token: Token): boolean {
     const name = token.tokenType.name;
     return token.tokenType.isWhitespace === true ||
-           token.tokenType === RdfToken.WS ||
-           name === 'WS' || name === 'NL' || name === 'NEWLINE';
+        token.tokenType === RdfToken.WS ||
+        name === 'WS' || name === 'NL' || name === 'NEWLINE';
 }
 
 /**
@@ -41,8 +41,8 @@ function isWhitespaceToken(token: Token): boolean {
  */
 function isCommentToken(token: Token): boolean {
     return token.tokenType.isComment === true ||
-           token.tokenType === RdfToken.COMMENT ||
-           token.tokenType.name === 'COMMENT';
+        token.tokenType === RdfToken.COMMENT ||
+        token.tokenType.name === 'COMMENT';
 }
 
 /**
@@ -51,16 +51,16 @@ function isCommentToken(token: Token): boolean {
 function isBlankNodeType(token: Token): boolean {
     const name = token.tokenType.name;
     return token.tokenType.isBlankNodeScope === true ||
-           token.tokenType === RdfToken.BLANK_NODE_LABEL ||
-           token.tokenType === RdfToken.LBRACKET ||
-           token.tokenType === RdfToken.LPARENT ||
-           token.tokenType === RdfToken.OPEN_ANNOTATION ||
-           token.tokenType === RdfToken.TILDE ||
-           token.tokenType === RdfToken.OPEN_REIFIED_TRIPLE ||
-           token.tokenType === RdfToken.LCURLY ||
-           name === 'BLANK_NODE_LABEL' || name === 'LBRACKET' || name === 'LPARENT' ||
-           name === 'OPEN_ANNOTATION' || name === 'TILDE' || name === 'OPEN_REIFIED_TRIPLE' ||
-           name === 'LCURLY';
+        token.tokenType === RdfToken.BLANK_NODE_LABEL ||
+        token.tokenType === RdfToken.LBRACKET ||
+        token.tokenType === RdfToken.LPARENT ||
+        token.tokenType === RdfToken.OPEN_ANNOTATION ||
+        token.tokenType === RdfToken.TILDE ||
+        token.tokenType === RdfToken.OPEN_REIFIED_TRIPLE ||
+        token.tokenType === RdfToken.LCURLY ||
+        name === 'BLANK_NODE_LABEL' || name === 'LBRACKET' || name === 'LPARENT' ||
+        name === 'OPEN_ANNOTATION' || name === 'TILDE' || name === 'OPEN_REIFIED_TRIPLE' ||
+        name === 'LCURLY';
 }
 
 /**
@@ -69,14 +69,14 @@ function isBlankNodeType(token: Token): boolean {
 function isOpeningBracket(token: Token): boolean {
     const name = token.tokenType.name;
     return token.tokenType.isOpeningBracket === true ||
-           token.tokenType === RdfToken.LBRACKET ||
-           token.tokenType === RdfToken.LPARENT ||
-           token.tokenType === RdfToken.LCURLY ||
-           token.tokenType === RdfToken.OPEN_TRIPLE_TERM ||
-           token.tokenType === RdfToken.OPEN_REIFIED_TRIPLE ||
-           token.tokenType === RdfToken.OPEN_ANNOTATION ||
-           name === 'LBRACKET' || name === 'LPARENT' || name === 'LCURLY' ||
-           name === 'OPEN_TRIPLE_TERM' || name === 'OPEN_REIFIED_TRIPLE' || name === 'OPEN_ANNOTATION';
+        token.tokenType === RdfToken.LBRACKET ||
+        token.tokenType === RdfToken.LPARENT ||
+        token.tokenType === RdfToken.LCURLY ||
+        token.tokenType === RdfToken.OPEN_TRIPLE_TERM ||
+        token.tokenType === RdfToken.OPEN_REIFIED_TRIPLE ||
+        token.tokenType === RdfToken.OPEN_ANNOTATION ||
+        name === 'LBRACKET' || name === 'LPARENT' || name === 'LCURLY' ||
+        name === 'OPEN_TRIPLE_TERM' || name === 'OPEN_REIFIED_TRIPLE' || name === 'OPEN_ANNOTATION';
 }
 
 /**
@@ -85,14 +85,14 @@ function isOpeningBracket(token: Token): boolean {
 function isClosingBracket(token: Token): boolean {
     const name = token.tokenType.name;
     return token.tokenType.isClosingBracket === true ||
-           token.tokenType === RdfToken.RBRACKET ||
-           token.tokenType === RdfToken.RPARENT ||
-           token.tokenType === RdfToken.RCURLY ||
-           token.tokenType === RdfToken.CLOSE_TRIPLE_TERM ||
-           token.tokenType === RdfToken.CLOSE_REIFIED_TRIPLE ||
-           token.tokenType === RdfToken.CLOSE_ANNOTATION ||
-           name === 'RBRACKET' || name === 'RPARENT' || name === 'RCURLY' ||
-           name === 'CLOSE_TRIPLE_TERM' || name === 'CLOSE_REIFIED_TRIPLE' || name === 'CLOSE_ANNOTATION';
+        token.tokenType === RdfToken.RBRACKET ||
+        token.tokenType === RdfToken.RPARENT ||
+        token.tokenType === RdfToken.RCURLY ||
+        token.tokenType === RdfToken.CLOSE_TRIPLE_TERM ||
+        token.tokenType === RdfToken.CLOSE_REIFIED_TRIPLE ||
+        token.tokenType === RdfToken.CLOSE_ANNOTATION ||
+        name === 'RBRACKET' || name === 'RPARENT' || name === 'RCURLY' ||
+        name === 'CLOSE_TRIPLE_TERM' || name === 'CLOSE_REIFIED_TRIPLE' || name === 'CLOSE_ANNOTATION';
 }
 
 /**
@@ -101,10 +101,10 @@ function isClosingBracket(token: Token): boolean {
 function isPunctuationToken(token: Token): boolean {
     const name = token.tokenType.name;
     return token.tokenType.isPunctuation === true ||
-           token.tokenType === RdfToken.PERIOD ||
-           token.tokenType === RdfToken.SEMICOLON ||
-           token.tokenType === RdfToken.COMMA ||
-           name === 'PERIOD' || name === 'SEMICOLON' || name === 'COMMA';
+        token.tokenType === RdfToken.PERIOD ||
+        token.tokenType === RdfToken.SEMICOLON ||
+        token.tokenType === RdfToken.COMMA ||
+        name === 'PERIOD' || name === 'SEMICOLON' || name === 'COMMA';
 }
 
 /**
@@ -113,12 +113,12 @@ function isPunctuationToken(token: Token): boolean {
 function isIriToken(token: Token): boolean {
     const name = token.tokenType.name;
     return token.tokenType.isIri === true ||
-           token.tokenType === RdfToken.IRIREF ||
-           token.tokenType === RdfToken.IRIREF_ABS ||
-           token.tokenType === RdfToken.PNAME_LN ||
-           token.tokenType === RdfToken.PNAME_NS ||
-           name === 'IRIREF' || name === 'IRIREF_ABS' || name === 'IRIREF_REL' ||
-           name === 'PNAME_LN' || name === 'PNAME_NS';
+        token.tokenType === RdfToken.IRIREF ||
+        token.tokenType === RdfToken.IRIREF_ABS ||
+        token.tokenType === RdfToken.PNAME_LN ||
+        token.tokenType === RdfToken.PNAME_NS ||
+        name === 'IRIREF' || name === 'IRIREF_ABS' || name === 'IRIREF_REL' ||
+        name === 'PNAME_LN' || name === 'PNAME_NS';
 }
 
 /**
@@ -127,16 +127,16 @@ function isIriToken(token: Token): boolean {
 function isLiteralToken(token: Token): boolean {
     const name = token.tokenType.name;
     return token.tokenType.isLiteral === true ||
-           token.tokenType === RdfToken.STRING_LITERAL_QUOTE ||
-           token.tokenType === RdfToken.STRING_LITERAL_SINGLE_QUOTE ||
-           token.tokenType === RdfToken.STRING_LITERAL_LONG_QUOTE ||
-           token.tokenType === RdfToken.STRING_LITERAL_LONG_SINGLE_QUOTE ||
-           token.tokenType === RdfToken.INTEGER ||
-           token.tokenType === RdfToken.DECIMAL ||
-           token.tokenType === RdfToken.DOUBLE ||
-           name === 'STRING_LITERAL_QUOTE' || name === 'STRING_LITERAL_SINGLE_QUOTE' ||
-           name === 'STRING_LITERAL_LONG_QUOTE' || name === 'STRING_LITERAL_LONG_SINGLE_QUOTE' ||
-           name === 'INTEGER' || name === 'DECIMAL' || name === 'DOUBLE';
+        token.tokenType === RdfToken.STRING_LITERAL_QUOTE ||
+        token.tokenType === RdfToken.STRING_LITERAL_SINGLE_QUOTE ||
+        token.tokenType === RdfToken.STRING_LITERAL_LONG_QUOTE ||
+        token.tokenType === RdfToken.STRING_LITERAL_LONG_SINGLE_QUOTE ||
+        token.tokenType === RdfToken.INTEGER ||
+        token.tokenType === RdfToken.DECIMAL ||
+        token.tokenType === RdfToken.DOUBLE ||
+        name === 'STRING_LITERAL_QUOTE' || name === 'STRING_LITERAL_SINGLE_QUOTE' ||
+        name === 'STRING_LITERAL_LONG_QUOTE' || name === 'STRING_LITERAL_LONG_SINGLE_QUOTE' ||
+        name === 'INTEGER' || name === 'DECIMAL' || name === 'DOUBLE';
 }
 
 /**
@@ -145,9 +145,9 @@ function isLiteralToken(token: Token): boolean {
 function noSpaceBefore(token: Token): boolean {
     const name = token.tokenType.name;
     return token.tokenType.noSpaceBefore === true ||
-           token.tokenType === RdfToken.DCARET ||
-           token.tokenType === RdfToken.LANGTAG ||
-           name === 'DCARET' || name === 'LANGTAG';
+        token.tokenType === RdfToken.DCARET ||
+        token.tokenType === RdfToken.LANGTAG ||
+        name === 'DCARET' || name === 'LANGTAG';
 }
 
 /**
@@ -200,16 +200,16 @@ export class TokenSerializer {
                     parts.push(spacing);
                     currentOffset += spacing.length;
                 }
-                
+
                 // Add the comment
                 parts.push(pendingComment.image);
                 currentOffset += pendingComment.image.length;
-                
+
                 // Add newline after comment
                 const afterNewline = opts.lineEnd + this.getCurrentIndent(lastNonCommentToken, opts);
                 parts.push(afterNewline);
                 currentOffset += afterNewline.length;
-                
+
                 pendingComment = null;
             } else {
                 // Add spacing between tokens
@@ -230,8 +230,8 @@ export class TokenSerializer {
                 outputOffset: startOffset,
                 outputLength: serialized.length,
                 inputOffset: token.startOffset,
-                inputLength: token.endOffset !== undefined 
-                    ? token.endOffset - token.startOffset + 1 
+                inputLength: token.endOffset !== undefined
+                    ? token.endOffset - token.startOffset + 1
                     : token.image.length,
                 type: this.getTokenType(token)
             });
@@ -279,8 +279,8 @@ export class TokenSerializer {
         options?: TokenSerializerOptions
     ): SerializationResult {
         // Filter tokens that fall within the range
-        const rangeTokens = tokens.filter(t => 
-            t.startOffset >= startOffset && 
+        const rangeTokens = tokens.filter(t =>
+            t.startOffset >= startOffset &&
             (t.endOffset ?? t.startOffset + t.image.length - 1) <= endOffset
         );
 
@@ -464,7 +464,7 @@ export class TokenSerializer {
 
         if (isIriToken(token)) {
             const isPrefixed = tokenType === RdfToken.PNAME_LN || tokenType === RdfToken.PNAME_NS ||
-                               name === 'PNAME_LN' || name === 'PNAME_NS';
+                name === 'PNAME_LN' || name === 'PNAME_NS';
             return isPrefixed ? 'prefixedName' : 'iri';
         }
 

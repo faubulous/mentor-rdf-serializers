@@ -110,6 +110,24 @@ describe('TurtleSerializer', () => {
             expect(result).toContain('BASE <http://example.org/>');
         });
 
+        it('should skip prefix/base directives when emitDirectives is false', () => {
+            const quads = [
+                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.namedNode('http://example.org/o'))
+            ];
+
+            const result = serializer.serialize(quads, {
+                baseIri: 'http://example.org/',
+                prefixes: { ex: 'http://example.org/' },
+                emitDirectives: false
+            });
+
+            expect(result).not.toContain('BASE <http://example.org/>');
+            expect(result).not.toContain('@base <http://example.org/>');
+            expect(result).not.toContain('PREFIX ex: <http://example.org/>');
+            expect(result).not.toContain('@prefix ex: <http://example.org/>');
+            expect(result).toContain('ex:s ex:p ex:o .');
+        });
+
         it('should group triples by subject', () => {
             const quads = [
                 DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p1'), DataFactory.literal('o1')),
@@ -308,7 +326,7 @@ describe('TurtleSerializer', () => {
                     DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/longPredicate'), DataFactory.literal('v2'))
                 ];
 
-                const result = serializer.serialize(quads, { 
+                const result = serializer.serialize(quads, {
                     alignPredicates: true,
                     prefixes: { 'ex': 'http://example.org/' }
                 });

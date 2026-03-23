@@ -10,8 +10,7 @@ import { TurtleSerializer } from '../turtle/serializer.js';
 import {
     groupQuadsByGraph,
     groupQuadsBySubjectPredicate,
-    hasAnnotations,
-    sortQuads
+    hasAnnotations
 } from '../utils.js';
 
 /**
@@ -36,32 +35,31 @@ export class TrigSerializer extends TurtleSerializer {
             return '';
         }
 
-        // Sort if requested
-        const sortedQuads = opts.sort ? sortQuads(quadArray) : quadArray;
-
         const parts: string[] = [];
 
-        // Add base declaration if provided
-        if (opts.baseIri) {
-            const baseKeyword = opts.lowercaseDirectives ? '@base' : 'BASE';
-            const terminator = opts.lowercaseDirectives ? ' .' : '';
-            parts.push(`${baseKeyword} <${opts.baseIri}>${terminator}`);
-        }
+        if (opts.emitDirectives) {
+            // Add base declaration if provided
+            if (opts.baseIri) {
+                const baseKeyword = opts.lowercaseDirectives ? '@base' : 'BASE';
+                const terminator = opts.lowercaseDirectives ? ' .' : '';
+                parts.push(`${baseKeyword} <${opts.baseIri}>${terminator}`);
+            }
 
-        // Add prefix declarations
-        for (const [prefix, namespace] of Object.entries(opts.prefixes)) {
-            const prefixKeyword = opts.lowercaseDirectives ? '@prefix' : 'PREFIX';
-            const terminator = opts.lowercaseDirectives ? ' .' : '';
-            parts.push(`${prefixKeyword} ${prefix}: <${namespace}>${terminator}`);
-        }
+            // Add prefix declarations
+            for (const [prefix, namespace] of Object.entries(opts.prefixes)) {
+                const prefixKeyword = opts.lowercaseDirectives ? '@prefix' : 'PREFIX';
+                const terminator = opts.lowercaseDirectives ? ' .' : '';
+                parts.push(`${prefixKeyword} ${prefix}: <${namespace}>${terminator}`);
+            }
 
-        // Add blank line after declarations
-        if (parts.length > 0) {
-            parts.push('');
+            // Add blank line after declarations
+            if (parts.length > 0) {
+                parts.push('');
+            }
         }
 
         // Group quads by graph
-        const graphGroups = groupQuadsByGraph(sortedQuads);
+        const graphGroups = groupQuadsByGraph(quadArray);
 
         // Serialize each graph
         for (const [graphKey, graphQuads] of graphGroups) {

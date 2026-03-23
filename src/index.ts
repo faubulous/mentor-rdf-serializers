@@ -39,7 +39,6 @@ export {
     groupQuadsBySubjectPredicate,
     groupQuadsByGraph,
     termToString,
-    sortQuads,
     parseLanguageTag,
     formatLanguageTag,
     resetBlankNodeCounter,
@@ -59,7 +58,6 @@ export {
 export { BaseSerializer } from './base-serializer.js';
 export {
     BaseTokenFormatter,
-    annotateTokens,
     type TokenAnnotation,
     type AnnotatedToken,
     type Scope,
@@ -71,17 +69,9 @@ export { NTriplesSerializer } from './ntriples/serializer.js';
 export { NQuadsSerializer } from './nquads/serializer.js';
 export { TurtleSerializer } from './turtle/serializer.js';
 export { TrigSerializer } from './trig/serializer.js';
-
-export {
-    N3Serializer,
-    type N3SerializerOptions,
-    type N3Formula,
-    type N3QuickVariable,
-    isN3Formula,
-    isN3QuickVariable
-} from './n3/serializer.js';
-
+export { N3Serializer, type N3SerializerOptions } from './n3/serializer.js';
 export { JsonLdSerializer, type JsonLdSerializerOptions } from './jsonld/serializer.js';
+
 export { SparqlFormatter, type SparqlFormatterOptions } from './sparql/formatter.js';
 export { TurtleFormatter, type TurtleFormatterOptions } from './turtle/formatter.js';
 export { NTriplesFormatter } from './ntriples/formatter.js';
@@ -108,6 +98,5 @@ export {
 export { StatementSerializer } from './statement-serializer.js';
 export type {
     StatementSerializerOptions,
-    QuadTokens,
     QuadContext
 } from './statement-serializer.js';

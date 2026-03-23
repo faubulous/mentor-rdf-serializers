@@ -1,46 +1,8 @@
-import type { Quad, Variable } from '@rdfjs/types';
-import type {
-    Rdf12Quad,
-    SerializerOptions,
-    SerializationResult,
-    RdfSyntax as RdfSyntaxType
-} from '../types.js';
-import { RdfSyntax } from '../types.js';
+import type { Quad, Term, Variable } from '@rdfjs/types';
+import { SerializerOptions, SerializationResult, RdfSyntax, Rdf12Quad, TripleTerm, Formula, QuickVariable } from '../types.js';
 import { TurtleSerializer } from '../turtle/serializer.js';
 
-/**
- * N3-specific term representing a formula (graph literal).
- */
-export interface N3Formula {
-    termType: 'Formula';
-    value: string;
-    /** Quads contained within this formula */
-    quads: Array<Quad | Rdf12Quad>;
-    equals(other: unknown): boolean;
-}
-
-/**
- * N3-specific term representing a quick variable (~var).
- */
-export interface N3QuickVariable {
-    termType: 'QuickVariable';
-    value: string;
-    equals(other: unknown): boolean;
-}
-
-/**
- * Checks if a term is an N3 formula.
- */
-export function isN3Formula(term: unknown): term is N3Formula {
-    return term !== null && typeof term === 'object' && (term as N3Formula).termType === 'Formula';
-}
-
-/**
- * Checks if a term is an N3 quick variable.
- */
-export function isN3QuickVariable(term: unknown): term is N3QuickVariable {
-    return term !== null && typeof term === 'object' && (term as N3QuickVariable).termType === 'QuickVariable';
-}
+export type N3Term = Term | TripleTerm | Formula | QuickVariable;
 
 /**
  * N3-specific options extending standard serializer options.
@@ -68,20 +30,10 @@ export interface N3SerializerOptions extends SerializerOptions {
 /**
  * Serializer for N3 (Notation3) format.
  * 
- * N3 extends Turtle with additional features:
- * - Formulas (graph literals): { ... }
- * - Implications: { antecedent } => { consequent }
- * - Universal quantification: @forAll :x .
- * - Existential quantification: @forSome :x .
- * - Quick variables: ~x
- * - Built-in predicates for logic and computation
- * 
  * @see https://w3c.github.io/N3/spec/
  */
 export class N3Serializer extends TurtleSerializer {
-    override readonly syntax: RdfSyntaxType = RdfSyntax.N3;
-
-    private n3Options: N3SerializerOptions = {};
+    override readonly syntax: RdfSyntax = RdfSyntax.N3;
 
     /**
      * The log: namespace IRI for N3 built-ins.
@@ -99,55 +51,66 @@ export class N3Serializer extends TurtleSerializer {
     static readonly OWL_SAMEAS = 'http://www.w3.org/2002/07/owl#sameAs';
 
     /**
+     * Gets merged N3 options with defaults.
+     */
+    private _getN3Options(options?: N3SerializerOptions): Required<N3SerializerOptions> {
+        const baseOpts = this.getOptions(options);
+
+        return {
+            ...baseOpts,
+            useImpliesShorthand: options?.useImpliesShorthand ?? true,
+            useSameAsShorthand: options?.useSameAsShorthand ?? true,
+            useQuantifiers: options?.useQuantifiers ?? true
+        };
+    }
+
+    /**
      * Serializes a single quad to N3 format.
      */
     override serializeQuad(quad: Quad | Rdf12Quad, options?: N3SerializerOptions): string {
-        const opts = this.getN3Options(options);
+        const opts = this._getN3Options(options);
 
-        // Check for implications shorthand
-        if (opts.useImpliesShorthand !== false && 
-            quad.predicate.termType === 'NamedNode' && 
+        if (opts.useImpliesShorthand !== false &&
+            quad.predicate.termType === 'NamedNode' &&
             quad.predicate.value === N3Serializer.LOG_IMPLIES) {
-            const subject = this.serializeN3Term(quad.subject, opts);
-            const object = this.serializeN3Term(quad.object, opts);
+            const subject = this._serializeN3Term(quad.subject, opts);
+            const object = this._serializeN3Term(quad.object, opts);
+
             return `${subject} => ${object} .`;
-        }
-
-        // Check for sameAs shorthand
-        if (opts.useSameAsShorthand !== false && 
-            quad.predicate.termType === 'NamedNode' && 
+        } else if (opts.useSameAsShorthand !== false &&
+            quad.predicate.termType === 'NamedNode' &&
             quad.predicate.value === N3Serializer.OWL_SAMEAS) {
-            const subject = this.serializeN3Term(quad.subject, opts);
-            const object = this.serializeN3Term(quad.object, opts);
+            const subject = this._serializeN3Term(quad.subject, opts);
+            const object = this._serializeN3Term(quad.object, opts);
+
             return `${subject} = ${object} .`;
+        } else {
+            const subject = this._serializeN3Term(quad.subject, opts);
+            const predicate = this._serializeN3Term(quad.predicate, opts);
+            const object = this._serializeN3Term(quad.object, opts);
+
+            return `${subject} ${predicate} ${object} .`;
         }
-
-        const subject = this.serializeN3Term(quad.subject, opts);
-        const predicate = this.serializeN3Term(quad.predicate, opts);
-        const object = this.serializeN3Term(quad.object, opts);
-
-        return `${subject} ${predicate} ${object} .`;
     }
 
     /**
      * Serializes a term with N3-specific handling.
      */
-    private serializeN3Term(term: unknown, opts: Required<N3SerializerOptions>): string {
-        if (isN3Formula(term)) {
-            return this.serializeFormula(term, opts);
+    private _serializeN3Term(term: N3Term, opts: Required<N3SerializerOptions>): string {
+        switch (term.termType) {
+            case 'Formula':
+                return this._serializeFormula(term, opts);
+            case 'QuickVariable':
+                return this._serializeQuickVariable(term, opts);
+            default:
+                return this.serializeTerm(term, opts);
         }
-
-        if (isN3QuickVariable(term)) {
-            return `~${term.value}`;
-        }
-
-        return this.serializeTerm(term as Quad['subject'], opts);
     }
 
     /**
      * Serializes an N3 formula (graph literal).
      */
-    private serializeFormula(formula: N3Formula, opts: Required<N3SerializerOptions>): string {
+    private _serializeFormula(formula: Formula, opts: Required<N3SerializerOptions>): string {
         if (formula.quads.length === 0) {
             return '{}';
         }
@@ -157,18 +120,20 @@ export class N3Serializer extends TurtleSerializer {
 
         if (opts.prettyPrint && formula.quads.length > 1) {
             const lines = formula.quads.map(q => {
-                const s = this.serializeN3Term(q.subject, opts);
-                const p = this.serializeN3Term(q.predicate, opts);
-                const o = this.serializeN3Term(q.object, opts);
+                const s = this._serializeN3Term(q.subject, opts);
+                const p = this._serializeN3Term(q.predicate, opts);
+                const o = this._serializeN3Term(q.object, opts);
                 return `${indent}${s} ${p} ${o} .`;
             });
+
             return `{${lineEnd}${lines.join(lineEnd)}${lineEnd}}`;
         }
 
         const triples = formula.quads.map(q => {
-            const s = this.serializeN3Term(q.subject, opts);
-            const p = this.serializeN3Term(q.predicate, opts);
-            const o = this.serializeN3Term(q.object, opts);
+            const s = this._serializeN3Term(q.subject, opts);
+            const p = this._serializeN3Term(q.predicate, opts);
+            const o = this._serializeN3Term(q.object, opts);
+
             return `${s} ${p} ${o} .`;
         }).join(' ');
 
@@ -176,23 +141,23 @@ export class N3Serializer extends TurtleSerializer {
     }
 
     /**
-     * Serializes a variable (N3 supports both ?var and $var syntax).
+     * Serializes a quick variable (~var).
+     * @param variable The quick variable to serialize.
+     * @param _options The N3 serialization options.
+     * @returns The serialized quick variable.
      */
-    protected override serializeVariable(variable: Variable, _opts: Required<SerializerOptions>): string {
-        return `?${variable.value}`;
+    private _serializeQuickVariable(variable: QuickVariable, _options: Required<N3SerializerOptions>): string {
+        return `~${variable.value}`;
     }
 
     /**
-     * Gets merged N3 options with defaults.
+     * Serializes a variable (N3 supports both ?var and $var syntax).
+     * @param variable The variable to serialize.
+     * @param _opts The N3 serialization options.
+     * @returns The serialized variable.
      */
-    private getN3Options(options?: N3SerializerOptions): Required<N3SerializerOptions> {
-        const baseOpts = this.getOptions(options);
-        return {
-            ...baseOpts,
-            useImpliesShorthand: options?.useImpliesShorthand ?? true,
-            useSameAsShorthand: options?.useSameAsShorthand ?? true,
-            useQuantifiers: options?.useQuantifiers ?? true
-        };
+    protected override serializeVariable(variable: Variable, _opts: Required<SerializerOptions>): string {
+        return `?${variable.value}`;
     }
 
     /**

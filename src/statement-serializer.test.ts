@@ -36,18 +36,17 @@ const ss = new StatementSerializer(new TurtleSerializer());
 
 describe('StatementSerializer', () => {
     // ====================================================================
-    // getQuad
+    // QuadContext shape
     // ====================================================================
-    describe('getQuad', () => {
-        it('should materialize a quad from a StatementContext', () => {
+    describe('QuadContext shape', () => {
+        it('should expose RDF/JS quad fields directly', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
             expect(contexts).toHaveLength(1);
-            const quad = ss.getQuad(contexts[0]);
-            expect(quad.subject.value).toBe('http://example.org/A');
-            expect(quad.predicate.value).toBe('http://example.org/p');
-            expect(quad.object.value).toBe('http://example.org/B');
+            expect(contexts[0].subject.value).toBe('http://example.org/A');
+            expect(contexts[0].predicate.value).toBe('http://example.org/p');
+            expect(contexts[0].object.value).toBe('http://example.org/B');
         });
 
         it('should handle multiple quads', () => {
@@ -55,10 +54,8 @@ describe('StatementSerializer', () => {
             const { contexts } = parseWithComments(input);
 
             expect(contexts).toHaveLength(2);
-            const quad1 = ss.getQuad(contexts[0]);
-            const quad2 = ss.getQuad(contexts[1]);
-            expect(quad1.subject.value).toBe('http://example.org/A');
-            expect(quad2.subject.value).toBe('http://example.org/C');
+            expect(contexts[0].subject.value).toBe('http://example.org/A');
+            expect(contexts[1].subject.value).toBe('http://example.org/C');
         });
     });
 
@@ -99,8 +96,8 @@ describe('StatementSerializer', () => {
 
             // Order preserved: original first, then new
             expect(merged).toHaveLength(2);
-            expect(merged[0].subject.term.value).toBe('http://example.org/Z');
-            expect(merged[1].subject.term.value).toBe('http://example.org/A');
+            expect(merged[0].subject.value).toBe('http://example.org/Z');
+            expect(merged[1].subject.value).toBe('http://example.org/A');
         });
     });
 
@@ -114,8 +111,8 @@ describe('StatementSerializer', () => {
 
             const sorted = ss.sort(contexts, true);
 
-            expect(sorted[0].subject.term.value).toBe('http://example.org/A');
-            expect(sorted[1].subject.term.value).toBe('http://example.org/Z');
+            expect(sorted[0].subject.value).toBe('http://example.org/A');
+            expect(sorted[1].subject.value).toBe('http://example.org/Z');
         });
 
         it('should preserve comments when sorting', () => {
@@ -131,8 +128,8 @@ describe('StatementSerializer', () => {
             const sorted = ss.sort(contexts, true);
 
             // Comments should travel with their quads
-            expect(sorted[0].leadingComments[0].image).toBe('# Comment for A');
-            expect(sorted[1].leadingComments[0].image).toBe('# Comment for Z');
+            expect(sorted[0].leadingComments?.[0]?.image).toBe('# Comment for A');
+            expect(sorted[1].leadingComments?.[0]?.image).toBe('# Comment for Z');
         });
     });
 

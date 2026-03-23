@@ -9,12 +9,9 @@ import type {
 import { RdfSyntax } from '../types.js';
 import { BaseSerializer } from '../base-serializer.js';
 import {
-    groupQuadsBySubject,
     groupQuadsBySubjectPredicate,
     hasAnnotations,
-    hasReifier,
-    RDF_TYPE,
-    sortQuads
+    hasReifier
 } from '../utils.js';
 
 /**
@@ -84,36 +81,35 @@ export class TurtleSerializer extends BaseSerializer {
             return '';
         }
 
-        // Sort if requested
-        const sortedQuads = opts.sort ? sortQuads(quadArray) : quadArray;
-
         const parts: string[] = [];
 
-        // Add base declaration if provided
-        if (opts.baseIri) {
-            const baseKeyword = opts.lowercaseDirectives ? '@base' : 'BASE';
-            const terminator = opts.lowercaseDirectives ? ' .' : '';
-            parts.push(`${baseKeyword} <${opts.baseIri}>${terminator}`);
-        }
+        if (opts.emitDirectives) {
+            // Add base declaration if provided
+            if (opts.baseIri) {
+                const baseKeyword = opts.lowercaseDirectives ? '@base' : 'BASE';
+                const terminator = opts.lowercaseDirectives ? ' .' : '';
+                parts.push(`${baseKeyword} <${opts.baseIri}>${terminator}`);
+            }
 
-        // Add prefix declarations
-        for (const [prefix, namespace] of Object.entries(opts.prefixes)) {
-            const prefixKeyword = opts.lowercaseDirectives ? '@prefix' : 'PREFIX';
-            const terminator = opts.lowercaseDirectives ? ' .' : '';
-            parts.push(`${prefixKeyword} ${prefix}: <${namespace}>${terminator}`);
-        }
+            // Add prefix declarations
+            for (const [prefix, namespace] of Object.entries(opts.prefixes)) {
+                const prefixKeyword = opts.lowercaseDirectives ? '@prefix' : 'PREFIX';
+                const terminator = opts.lowercaseDirectives ? ' .' : '';
+                parts.push(`${prefixKeyword} ${prefix}: <${namespace}>${terminator}`);
+            }
 
-        // Add blank line after declarations
-        if (parts.length > 0) {
-            parts.push('');
+            // Add blank line after declarations
+            if (parts.length > 0) {
+                parts.push('');
+            }
         }
 
         // Serialize quads grouped by subject
         if (opts.groupBySubject) {
-            const grouped = groupQuadsBySubjectPredicate(sortedQuads);
+            const grouped = groupQuadsBySubjectPredicate(quadArray);
             parts.push(this.serializeGrouped(grouped, opts));
         } else {
-            for (const quad of sortedQuads) {
+            for (const quad of quadArray) {
                 // Skip quads with named graphs in Turtle
                 if (quad.graph && quad.graph.termType !== 'DefaultGraph') {
                     continue;
@@ -146,7 +142,7 @@ export class TurtleSerializer extends BaseSerializer {
         for (const [_subjectKey, predicateMap] of grouped) {
             // Get the first quad to access the subject term
             const firstQuad = predicateMap.values().next().value![0];
-            
+
             // Skip quads with named graphs in Turtle
             if (firstQuad.graph && firstQuad.graph.termType !== 'DefaultGraph') {
                 continue;
@@ -194,7 +190,7 @@ export class TurtleSerializer extends BaseSerializer {
         // Count references to blank nodes as objects and collect their definitions
         for (const [subjectKey, predicateMap] of grouped) {
             const firstQuad = predicateMap.values().next().value![0];
-            
+
             // Track blank node definitions
             if (firstQuad.subject.termType === 'BlankNode') {
                 blankNodeDefs.set(firstQuad.subject.value, predicateMap);
@@ -255,19 +251,19 @@ export class TurtleSerializer extends BaseSerializer {
         const subjectStr = this.serializeTerm(subject, opts);
         const predicateParts: string[] = [];
         const predicateEntries = Array.from(predicateMap.entries());
-        
+
         for (let i = 0; i < predicateEntries.length; i++) {
             const [_predicateKey, quads] = predicateEntries[i];
             const isFirst = i === 0;
             const isLast = i === predicateEntries.length - 1;
-            
+
             let predicateStr = this.serializeTerm(quads[0].predicate, opts);
-            
+
             // Pad predicate for alignment
             if (alignWidth > 0) {
                 predicateStr = predicateStr.padEnd(alignWidth);
             }
-            
+
             // Serialize objects
             const objectStrs = quads.map(q => this.serializeObjectWithInlineBlankNode(q, opts, inlineBlankNodes, indent));
             const objectList = this.formatObjectList(objectStrs, opts, indent, subjectStr.length + predicateStr.length + 2);
@@ -323,7 +319,7 @@ export class TurtleSerializer extends BaseSerializer {
     ): string {
         const innerIndent = baseIndent + opts.indent;
         const predicateEntries = Array.from(predicateMap.entries());
-        
+
         // For single predicate with single object, use compact form
         if (predicateEntries.length === 1 && predicateEntries[0][1].length === 1) {
             const quad = predicateEntries[0][1][0];
@@ -342,7 +338,7 @@ export class TurtleSerializer extends BaseSerializer {
             parts.push(`${innerIndent}${predicate} ${objects.join(' , ')}${suffix}`);
         }
         parts.push(`${baseIndent}]`);
-        
+
         return parts.join(opts.lineEnd);
     }
 
@@ -360,16 +356,16 @@ export class TurtleSerializer extends BaseSerializer {
         }
 
         const singleLine = objects.join(' , ');
-        
+
         // Check which style to use
         if (opts.objectListStyle === 'single-line') {
             return singleLine;
         }
-        
+
         if (opts.objectListStyle === 'multi-line') {
             return this.formatMultiLineObjects(objects, opts, indent);
         }
-        
+
         // Auto mode: check line width
         if (opts.maxLineWidth > 0) {
             const totalWidth = lineOffset + singleLine.length;
@@ -377,7 +373,7 @@ export class TurtleSerializer extends BaseSerializer {
                 return this.formatMultiLineObjects(objects, opts, indent);
             }
         }
-        
+
         return singleLine;
     }
 

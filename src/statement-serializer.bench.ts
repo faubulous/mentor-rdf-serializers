@@ -48,15 +48,15 @@ function createContext(subjectIndex: number, predicateIndex: number, objectIndex
   const subject = DataFactory.namedNode(`http://example.org/S${subjectIndex}`);
   const predicate = DataFactory.namedNode(`http://example.org/p${predicateIndex}`);
   const object = DataFactory.namedNode(`http://example.org/O${objectIndex}`);
+  const quad = DataFactory.quad(subject, predicate, object);
 
   return {
-    subject: { term: subject as any, token: syntheticToken },
-    predicate: { term: predicate as any, token: syntheticToken },
-    object: { term: object as any, token: syntheticToken },
+    ...quad,
+    subjectToken: syntheticToken,
+    predicateToken: syntheticToken,
+    objectToken: syntheticToken,
     leadingComments: [],
-    trailingComment: undefined,
-    endOffset: Infinity,
-    endLine: Infinity
+    trailingComment: undefined
   } as QuadContext;
 }
 
@@ -132,6 +132,15 @@ describe('StatementSerializer benchmark', () => {
     serializer.serialize(commentHeavyDataset, {
       prefixes,
       sort: true,
+      blankLinesBetweenSubjects: true
+    });
+  }, stableBenchOptions);
+
+  bench('serialize large dataset (12k statements, assumeSorted)', () => {
+    serializer.serialize(largeDataset, {
+      prefixes,
+      sort: true,
+      assumeSorted: true,
       blankLinesBetweenSubjects: true
     });
   }, stableBenchOptions);

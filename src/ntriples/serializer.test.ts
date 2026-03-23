@@ -121,19 +121,6 @@ describe('NTriplesSerializer', () => {
             expect(result).not.toContain('<http://example.org/s2>');
         });
 
-        it('should sort triples when requested', () => {
-            const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/b'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o')),
-                DataFactory.quad(DataFactory.namedNode('http://example.org/a'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o'))
-            ];
-
-            const result = serializer.serialize(quads, { sort: true });
-            const lines = result.trim().split('\n');
-
-            expect(lines[0]).toContain('<http://example.org/a>');
-            expect(lines[1]).toContain('<http://example.org/b>');
-        });
-
         it('should handle empty input', () => {
             const result = serializer.serialize([]);
             expect(result).toBe('');

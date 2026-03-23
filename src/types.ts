@@ -12,13 +12,13 @@ export type QuadComparator = (a: Quad | Rdf12Quad, b: Quad | Rdf12Quad) => numbe
 export interface SortingStrategy {
     /** Strategy name for identification */
     name: string;
-    
+
     /** Compare two quads for sorting. Returns negative if a < b, positive if a > b, 0 if equal. */
     compare: QuadComparator;
-    
+
     /** Optional: pre-process quads to build indexes for efficient sorting */
     prepare?(quads: Array<Quad | Rdf12Quad>): void;
-    
+
     /** Internal state storage (strategies should use _-prefixed properties) */
     [key: `_${string}`]: unknown;
 }
@@ -29,13 +29,13 @@ export interface SortingStrategy {
 export interface PriorityStrategyConfig {
     /** Type IRIs in priority order (earliest = highest priority) */
     typeOrder?: string[];
-    
+
     /** Predicate IRIs in priority order for secondary sorting */
     predicateOrder?: string[];
-    
+
     /** Where to place resources without a matching type */
     unmatchedPosition?: 'start' | 'end';
-    
+
     /** How to sort unmatched resources */
     unmatchedSort?: 'alphabetical' | 'none';
 }
@@ -235,6 +235,12 @@ export interface SerializerOptions {
     lowercaseDirectives?: boolean;
 
     /**
+     * Whether to emit `PREFIX`/`BASE` directives in serializer output.
+     * Default: true.
+     */
+    emitDirectives?: boolean;
+
+    /**
      * Custom blank node ID generator.
      * If provided, this function will be called to generate IDs for new blank nodes.
      */
@@ -380,4 +386,36 @@ export interface IRdfFormatter {
      * Formats from already-parsed tokens.
      */
     formatFromTokens(tokens: unknown[], options?: SerializerOptions): SerializationResult;
+}
+
+/**
+ * N3-specific term representing a formula (graph literal).
+ */
+export interface Formula {
+    termType: 'Formula';
+    value: string;
+    /** Quads contained within this formula */
+    quads: Array<Quad | Rdf12Quad>;
+    equals(other: unknown): boolean;
+}
+
+/**
+ * N3-specific term representing a quick variable (~var).
+ */
+export interface QuickVariable {
+    /**
+     * Contains the constant "QuickVariable".
+     */
+    termType: 'QuickVariable';
+
+    /**
+     * The name of the variable *without* leading ? (example: a).
+     */
+    value: string;
+
+    /**
+     * @param other The term to compare with.
+     * @return True if and only if other has termType "QuickVariable" and the same `value`.
+     */
+    equals(other: unknown): boolean;
 }
