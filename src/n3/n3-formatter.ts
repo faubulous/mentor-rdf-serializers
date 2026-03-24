@@ -8,10 +8,10 @@ import type {
 } from '../types.js';
 import { RdfSyntax } from '../types.js';
 import {
-    BaseTokenFormatter,
+    TokenFormatterBase,
     type BaseFormatterContext,
     type BaseFormatterOptions,
-} from '../base-token-formatter.js';
+} from '../token-formatter-base.js';
 
 // ============================================================================
 // Options & Context
@@ -60,7 +60,7 @@ interface N3FormatterContext extends BaseFormatterContext {
  * @see https://www.w3.org/TeamSubmission/n3/
  */
 export class N3Formatter
-    extends BaseTokenFormatter<N3FormatterContext, N3FormatterOptions>
+    extends TokenFormatterBase<N3FormatterContext, N3FormatterOptions>
     implements IRdfFormatter
 {
     readonly syntax: RdfSyntaxType = RdfSyntax.N3;

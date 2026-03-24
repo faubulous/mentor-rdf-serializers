@@ -6,10 +6,10 @@ import type {
     TokenSerializerOptions
 } from '../types.js';
 import {
-    BaseTokenFormatter,
+    TokenFormatterBase,
     type BaseFormatterContext,
     type BaseFormatterOptions,
-} from '../base-token-formatter.js';
+} from '../token-formatter-base.js';
 
 /**
  * SPARQL-specific formatting options.
@@ -85,7 +85,7 @@ interface SparqlFormatterContext extends BaseFormatterContext {
  * @see https://www.w3.org/TR/sparql12-query/
  */
 export class SparqlFormatter
-    extends BaseTokenFormatter<SparqlFormatterContext, SparqlFormatterOptions>
+    extends TokenFormatterBase<SparqlFormatterContext, SparqlFormatterOptions>
     implements ISparqlFormatter {
     private lexer = new SparqlLexer();
 

@@ -1,4 +1,4 @@
-import type { BlankNode, Literal, NamedNode, Quad, Term, Variable } from '@rdfjs/types';
+import type { Literal, Quad, Term } from '@rdfjs/types';
 import type { Rdf12Quad, Rdf12Term, SerializerOptions, TripleTerm, Reifier } from './types.js';
 
 /**
@@ -72,7 +72,10 @@ export function mergeOptions(options?: SerializerOptions): Required<SerializerOp
     return {
         ...DEFAULT_OPTIONS,
         ...options,
-        prefixes: { ...DEFAULT_OPTIONS.prefixes, ...options?.prefixes }
+        prefixes: {
+            ...DEFAULT_OPTIONS.prefixes,
+            ...options?.prefixes
+        }
     };
 }
 
@@ -83,6 +86,7 @@ export function mergeOptions(options?: SerializerOptions): Required<SerializerOp
  */
 export function escapeIri(iri: string): string {
     let result = '';
+
     for (let i = 0; i < iri.length; i++) {
         const char = iri[i];
         const code = char.charCodeAt(0);
@@ -100,6 +104,7 @@ export function escapeIri(iri: string): string {
             result += char;
         }
     }
+
     return result;
 }
 
@@ -111,6 +116,7 @@ export function escapeIri(iri: string): string {
  */
 export function escapeString(str: string, longString: boolean = false): string {
     let result = '';
+
     for (let i = 0; i < str.length; i++) {
         const char = str[i];
         const code = char.charCodeAt(0);
@@ -167,8 +173,12 @@ export function escapeString(str: string, longString: boolean = false): string {
                 }
         }
     }
+
     return result;
 }
+
+// Characters that need escaping in local names: _~.-!$&'()*+,;=/?#@%
+const escapeChars = new Set(['_', '~', '.', '-', '!', '$', '&', "'", '(', ')', '*', '+', ',', ';', '=', '/', '?', '#', '@', '%']);
 
 /**
  * Escapes a local name for use in prefixed names.
@@ -176,18 +186,18 @@ export function escapeString(str: string, longString: boolean = false): string {
  * @returns The escaped local name.
  */
 export function escapeLocalName(localName: string): string {
-    // Characters that need escaping in local names: _~.-!$&'()*+,;=/?#@%
-    const escapeChars = new Set(['_', '~', '.', '-', '!', '$', '&', "'", '(', ')', '*', '+', ',', ';', '=', '/', '?', '#', '@', '%']);
-    
     let result = '';
+
     for (let i = 0; i < localName.length; i++) {
         const char = localName[i];
+
         if (escapeChars.has(char)) {
             result += '\\' + char;
         } else {
             result += char;
         }
     }
+
     return result;
 }
 
@@ -201,12 +211,14 @@ export function findPrefix(iri: string, prefixes: Record<string, string>): { pre
     for (const [prefix, namespace] of Object.entries(prefixes)) {
         if (iri.startsWith(namespace)) {
             const localName = iri.slice(namespace.length);
+
             // Check if local name is valid for prefixed names
             if (isValidLocalName(localName)) {
                 return { prefix, localName };
             }
         }
     }
+
     return undefined;
 }
 
@@ -222,6 +234,7 @@ export function isValidLocalName(localName: string): boolean {
 
     // First character must be PN_CHARS_U or digit or certain escaped chars
     const firstChar = localName[0];
+
     if (!isValidLocalNameStart(firstChar)) {
         return false;
     }
@@ -229,6 +242,7 @@ export function isValidLocalName(localName: string): boolean {
     // Rest of characters must be PN_CHARS or . or : or escaped chars
     for (let i = 1; i < localName.length; i++) {
         const char = localName[i];
+
         if (!isValidLocalNameChar(char)) {
             return false;
         }
@@ -247,6 +261,7 @@ export function isValidLocalName(localName: string): boolean {
  */
 function isValidLocalNameStart(char: string): boolean {
     const code = char.charCodeAt(0);
+
     return (
         (code >= 0x41 && code <= 0x5A) || // A-Z
         (code >= 0x61 && code <= 0x7A) || // a-z
@@ -273,37 +288,39 @@ function isValidLocalNameStart(char: string): boolean {
 function isValidLocalNameChar(char: string): boolean {
     if (isValidLocalNameStart(char)) {
         return true;
+    } else {
+        const code = char.charCodeAt(0);
+
+        return (
+            code === 0x2D || // -
+            code === 0x2E || // .
+            code === 0xB7 || // ·
+            (code >= 0x0300 && code <= 0x036F) ||
+            (code >= 0x203F && code <= 0x2040)
+        );
     }
-    const code = char.charCodeAt(0);
-    return (
-        code === 0x2D || // -
-        code === 0x2E || // .
-        code === 0xB7 || // ·
-        (code >= 0x0300 && code <= 0x036F) ||
-        (code >= 0x203F && code <= 0x2040)
-    );
 }
 
 /**
  * Checks if a term is an RDF 1.2 Triple Term.
  */
 export function isTripleTerm(term: Term | Rdf12Term): term is TripleTerm {
-    return term && (term as TripleTerm).termType === 'TripleTerm';
+    return term && term.termType === 'TripleTerm';
 }
 
 /**
  * Checks if a term is an RDF 1.2 Reifier.
  */
 export function isReifier(term: Term | Rdf12Term): term is Reifier {
-    return term && (term as Reifier).termType === 'Reifier';
+    return term && term.termType === 'Reifier';
 }
 
 /**
  * Checks if a quad has annotations (RDF 1.2 feature).
  */
 export function hasAnnotations(quad: Quad | Rdf12Quad): quad is Rdf12Quad {
-    return (quad as Rdf12Quad).annotations !== undefined && 
-           (quad as Rdf12Quad).annotations!.length > 0;
+    return (quad as Rdf12Quad).annotations !== undefined &&
+        (quad as Rdf12Quad).annotations!.length > 0;
 }
 
 /**
@@ -317,8 +334,10 @@ export function hasReifier(quad: Quad | Rdf12Quad): quad is Rdf12Quad {
  * Checks if a literal needs long string quoting (contains newlines or quotes).
  */
 export function needsLongString(value: string): boolean {
-    return value.includes('\n') || value.includes('\r') || 
-           value.includes('"""') || (value.includes('"') && value.length > 60);
+    return value.includes('\n') ||
+        value.includes('\r') ||
+        value.includes('"""') ||
+        (value.includes('"') && value.length > 60);
 }
 
 /**
@@ -347,15 +366,17 @@ export function isDouble(value: string): boolean {
  */
 export function groupQuadsBySubject(quads: Iterable<Quad | Rdf12Quad>): Map<string, Array<Quad | Rdf12Quad>> {
     const groups = new Map<string, Array<Quad | Rdf12Quad>>();
-    
+
     for (const quad of quads) {
         const key = termToString(quad.subject);
+
         if (!groups.has(key)) {
             groups.set(key, []);
         }
+
         groups.get(key)!.push(quad);
     }
-    
+
     return groups;
 }
 
@@ -364,21 +385,24 @@ export function groupQuadsBySubject(quads: Iterable<Quad | Rdf12Quad>): Map<stri
  */
 export function groupQuadsBySubjectPredicate(quads: Iterable<Quad | Rdf12Quad>): Map<string, Map<string, Array<Quad | Rdf12Quad>>> {
     const groups = new Map<string, Map<string, Array<Quad | Rdf12Quad>>>();
-    
+
     for (const quad of quads) {
         const subjectKey = termToString(quad.subject);
+
         if (!groups.has(subjectKey)) {
             groups.set(subjectKey, new Map());
         }
-        
+
         const predicateMap = groups.get(subjectKey)!;
         const predicateKey = termToString(quad.predicate);
+
         if (!predicateMap.has(predicateKey)) {
             predicateMap.set(predicateKey, []);
         }
+
         predicateMap.get(predicateKey)!.push(quad);
     }
-    
+
     return groups;
 }
 
@@ -387,15 +411,17 @@ export function groupQuadsBySubjectPredicate(quads: Iterable<Quad | Rdf12Quad>):
  */
 export function groupQuadsByGraph(quads: Iterable<Quad | Rdf12Quad>): Map<string, Array<Quad | Rdf12Quad>> {
     const groups = new Map<string, Array<Quad | Rdf12Quad>>();
-    
+
     for (const quad of quads) {
         const key = quad.graph ? termToString(quad.graph) : '';
+
         if (!groups.has(key)) {
             groups.set(key, []);
         }
+
         groups.get(key)!.push(quad);
     }
-    
+
     return groups;
 }
 
@@ -406,7 +432,7 @@ export function termToString(term: Term | Rdf12Term): string {
     if (!term) {
         return '';
     }
-    
+
     switch (term.termType) {
         case 'NamedNode':
             return `<${term.value}>`;
@@ -434,13 +460,15 @@ export function termToString(term: Term | Rdf12Term): string {
  */
 export function parseLanguageTag(languageTag: string): { language: string; direction?: 'ltr' | 'rtl' } {
     const directionMatch = languageTag.match(/^(.+?)--(ltr|rtl)$/);
+
     if (directionMatch) {
         return {
             language: directionMatch[1],
             direction: directionMatch[2] as 'ltr' | 'rtl'
         };
+    } else {
+        return { language: languageTag };
     }
-    return { language: languageTag };
 }
 
 /**
@@ -452,8 +480,9 @@ export function parseLanguageTag(languageTag: string): { language: string; direc
 export function formatLanguageTag(language: string, direction?: 'ltr' | 'rtl'): string {
     if (direction) {
         return `${language}--${direction}`;
+    } else {
+        return language;
     }
-    return language;
 }
 
 /**
@@ -472,6 +501,7 @@ export function resetBlankNodeCounter(): void {
  * Generates a unique blank node ID.
  */
 export function generateBlankNodeId(generator?: (counter: number) => string): string {
-    const gen = generator || ((n: number) => `b${n}`);
-    return gen(blankNodeCounter++);
+    const g = generator || ((n: number) => `b${n}`);
+
+    return g(blankNodeCounter++);
 }

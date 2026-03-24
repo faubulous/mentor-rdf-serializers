@@ -55,15 +55,15 @@ export {
     DEFAULT_OPTIONS
 } from './utils.js';
 
-export { BaseSerializer } from './base-serializer.js';
+export { SerializerBase as BaseSerializer } from './serializer-base.js';
 export {
-    BaseTokenFormatter,
+    TokenFormatterBase as BaseTokenFormatter,
     type TokenAnnotation,
     type AnnotatedToken,
     type Scope,
     type BaseFormatterContext,
     type BaseFormatterOptions,
-} from './base-token-formatter.js';
+} from './token-formatter-base.js';
 
 export { NTriplesSerializer } from './ntriples/ntriples-serializer.js';
 export { NQuadsSerializer } from './nquads/nquads-serializer.js';
@@ -83,7 +83,6 @@ export {
     TokenSerializer,
     type Token,
     getBlankNodeIdFromToken,
-    isBlankNodeToken,
     getTokenPosition
 } from './token-serializer.js';
 

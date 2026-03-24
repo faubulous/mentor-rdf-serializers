@@ -8,9 +8,9 @@ import type {
 } from '../types.js';
 import { RdfSyntax } from '../types.js';
 import {
-    BaseTokenFormatter,
+    TokenFormatterBase,
     type BaseFormatterContext,
-} from '../base-token-formatter.js';
+} from '../token-formatter-base.js';
 import type { TurtleFormatterOptions } from '../turtle/turtle-formatter.js';
 
 // ============================================================================
@@ -61,7 +61,7 @@ interface TrigFormatterContext extends BaseFormatterContext {
  * @see https://www.w3.org/TR/rdf12-trig/
  */
 export class TrigFormatter
-    extends BaseTokenFormatter<TrigFormatterContext, TrigFormatterOptions>
+    extends TokenFormatterBase<TrigFormatterContext, TrigFormatterOptions>
     implements IRdfFormatter
 {
     readonly syntax: RdfSyntaxType = RdfSyntax.TriG;

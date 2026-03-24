@@ -80,7 +80,7 @@ export class StatementSerializer {
     /**
      * Shared synthetic token for contexts created from external quads.
      */
-    private readonly syntheticToken = {
+    private readonly syntheticToken: IToken = {
         image: '',
         startOffset: Infinity,
         endOffset: Infinity,
@@ -90,7 +90,7 @@ export class StatementSerializer {
         endColumn: Infinity,
         tokenType: { name: 'SYNTHETIC' },
         tokenTypeIdx: -1,
-    } as unknown as IToken;
+    };
 
     /**
      * Creates a new `StatementSerializer`.
@@ -125,7 +125,10 @@ export class StatementSerializer {
             equals: q.equals
         }));
 
-        return [...contexts, ...result];
+        return [
+            ...contexts,
+            ...result
+        ];
     }
 
     /**

@@ -164,7 +164,7 @@ export interface BaseFormatterOptions extends SerializerOptions {
 /**
  * Abstract base class for all token-based RDF/SPARQL formatters.
  */
-export abstract class BaseTokenFormatter<
+export abstract class TokenFormatterBase<
     TContext extends BaseFormatterContext = BaseFormatterContext,
     TOptions extends BaseFormatterOptions = BaseFormatterOptions,
 > {

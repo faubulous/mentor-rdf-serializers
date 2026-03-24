@@ -392,10 +392,25 @@ export interface IRdfFormatter {
  * N3-specific term representing a formula (graph literal).
  */
 export interface Formula {
+    /**
+     * Contains the constant "Formula".
+     */
     termType: 'Formula';
+
+    /**
+     * The quads contained within this formula.
+     */
     value: string;
-    /** Quads contained within this formula */
+
+    /**
+     * Quads contained within this formula.
+     */
     quads: Array<Quad | Rdf12Quad>;
+
+    /**
+     * @param other The term to compare with.
+     * @return True if and only if other has termType "Formula" and the same `value`.
+     */
     equals(other: unknown): boolean;
 }
 

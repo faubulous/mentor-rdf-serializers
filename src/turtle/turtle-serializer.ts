@@ -7,7 +7,7 @@ import type {
     TripleTerm
 } from '../types.js';
 import { RdfSyntax } from '../types.js';
-import { BaseSerializer } from '../base-serializer.js';
+import { SerializerBase } from '../serializer-base.js';
 import {
     groupQuadsBySubjectPredicate,
     hasAnnotations,
@@ -34,7 +34,7 @@ import {
  * 
  * @see https://www.w3.org/TR/rdf12-turtle/
  */
-export class TurtleSerializer extends BaseSerializer {
+export class TurtleSerializer extends SerializerBase {
     readonly syntax: RdfSyntaxType = RdfSyntax.Turtle;
 
     constructor() {

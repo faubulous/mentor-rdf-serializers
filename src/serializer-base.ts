@@ -37,7 +37,7 @@ import {
  * Abstract base class for RDF serializers. Provides common functionality 
  * for serializing terms and literals.
  */
-export abstract class BaseSerializer implements ISerializer {
+export abstract class SerializerBase implements ISerializer {
     abstract readonly syntax: RdfSyntax;
 
     /**

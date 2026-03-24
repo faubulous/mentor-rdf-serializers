@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TokenSerializer, Token } from './token-serializer.js';
+import { RdfToken } from '@faubulous/mentor-rdf-parsers';
 
 describe('TokenSerializer', () => {
     let serializer: TokenSerializer;
@@ -108,11 +109,11 @@ describe('TokenSerializer', () => {
 
         it('should skip comments when preserveComments is false', () => {
             const tokens: Token[] = [
-                { image: '# This comment should be removed', startOffset: 0, tokenType: { name: 'COMMENT' } },
-                { image: 'ex:s', startOffset: 34, tokenType: { name: 'PNAME_LN' } },
-                { image: 'ex:p', startOffset: 39, tokenType: { name: 'PNAME_LN' } },
-                { image: 'ex:o', startOffset: 44, tokenType: { name: 'PNAME_LN' } },
-                { image: '.', startOffset: 49, tokenType: { name: 'PERIOD' } }
+                { image: '# This comment should be removed', startOffset: 0, tokenType: RdfToken.COMMENT },
+                { image: 'ex:s', startOffset: 34, tokenType: RdfToken.PNAME_LN },
+                { image: 'ex:p', startOffset: 39, tokenType: RdfToken.PNAME_LN },
+                { image: 'ex:o', startOffset: 44, tokenType: RdfToken.PNAME_LN },
+                { image: '.', startOffset: 49, tokenType: RdfToken.PERIOD }
             ];
 
             const result = serializer.serialize(tokens, { preserveComments: false });
@@ -194,17 +195,17 @@ describe('TokenSerializer', () => {
     describe('source map generation', () => {
         it('should generate source map when prettyPrint is enabled', () => {
             const tokens: Token[] = [
-                { image: 'ex:s', startOffset: 0, endOffset: 3, tokenType: { name: 'PNAME_LN' } },
-                { image: 'ex:p', startOffset: 5, endOffset: 8, tokenType: { name: 'PNAME_LN' } },
-                { image: 'ex:o', startOffset: 10, endOffset: 13, tokenType: { name: 'PNAME_LN' } },
-                { image: '.', startOffset: 15, endOffset: 15, tokenType: { name: 'PERIOD' } }
+                { image: 'ex:s', startOffset: 0, endOffset: 3, tokenType: RdfToken.PNAME_LN },
+                { image: 'ex:p', startOffset: 5, endOffset: 8, tokenType: RdfToken.PNAME_LN },
+                { image: 'ex:o', startOffset: 10, endOffset: 13, tokenType: RdfToken.PNAME_LN },
+                { image: '.', startOffset: 15, endOffset: 15, tokenType: RdfToken.PERIOD }
             ];
 
             const result = serializer.serialize(tokens, { prettyPrint: true });
 
             expect(result.sourceMap).toBeDefined();
             expect(result.sourceMap!.length).toBe(4);
-            
+
             // Check first token mapping
             expect(result.sourceMap![0].inputOffset).toBe(0);
             expect(result.sourceMap![0].type).toBe('prefixedName');

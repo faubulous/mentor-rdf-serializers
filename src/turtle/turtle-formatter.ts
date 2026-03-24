@@ -9,10 +9,10 @@ import type {
 } from '../types.js';
 import { RdfSyntax } from '../types.js';
 import {
-    BaseTokenFormatter,
+    TokenFormatterBase,
     type BaseFormatterContext,
     type BaseFormatterOptions,
-} from '../base-token-formatter.js';
+} from '../token-formatter-base.js';
 
 /**
  * Turtle-specific formatting options.
@@ -65,7 +65,7 @@ interface TurtleFormatterContext extends BaseFormatterContext {
  * @see https://www.w3.org/TR/rdf12-turtle/
  */
 export class TurtleFormatter
-    extends BaseTokenFormatter<TurtleFormatterContext, TurtleFormatterOptions>
+    extends TokenFormatterBase<TurtleFormatterContext, TurtleFormatterOptions>
     implements IRdfFormatter
 {
     readonly syntax: RdfSyntaxType = RdfSyntax.Turtle;
