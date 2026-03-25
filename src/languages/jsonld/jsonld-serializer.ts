@@ -1,15 +1,11 @@
+import { RdfSyntax } from '@faubulous/mentor-rdf-parsers';
 import type { BlankNode, Literal, NamedNode, Quad, Term } from '@rdfjs/types';
+import { Rdf12Quad, Rdf12Term, TripleTerm } from '@src/types.js';
 import { RDF, XSD } from '@src/ontologies';
 import { SerializationResult } from '@src/serialization-result';
-import { mergeOptions } from '@src/serializer-base';
 import { SerializerOptions } from '@src/serializer-options';
 import { ISerializer } from '@src/serializer.interface';
-import {
-    Rdf12Quad,
-    Rdf12Term,
-    TripleTerm,
-    RdfSyntax
-} from '@src/types.js';
+import { mergeOptions } from '@src/serializer-base';
 import {
     findPrefix,
     groupQuadsByGraph,

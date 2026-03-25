@@ -1,6 +1,6 @@
+import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
 import { SerializationResult } from "./serialization-result";
 import { SerializerOptions } from "./serializer-options";
-import { RdfSyntax } from "./types";
 
 /**
  * Interface for RDF text formatters (Turtle, N-Triples, etc.).

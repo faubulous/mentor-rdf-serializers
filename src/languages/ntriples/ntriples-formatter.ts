@@ -1,11 +1,9 @@
-import type { IToken } from 'chevrotain';
-import { RdfToken, NTriplesLexer } from '@faubulous/mentor-rdf-parsers';
-import { RdfSyntax } from '@src/types.js';
+import { IToken, RdfSyntax, RdfToken, NTriplesLexer } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from '@src/serialization-result';
-import { mergeOptions } from '@src/serializer-base';
 import { SerializerOptions } from '@src/serializer-options';
 import { ITokenFormatter } from '@src/token-formatter.interface';
 import { TokenSerializerOptions } from '@src/token-serializer';
+import { mergeOptions } from '@src/serializer-base';
 
 /**
  * N-Triples-specific formatting options.

@@ -1,5 +1,4 @@
-import { TokenType } from 'chevrotain';
-import { TokenMetadata } from '@faubulous/mentor-rdf-parsers';
+import { TokenType, TokenMetadata } from '@faubulous/mentor-rdf-parsers';
 import { RdfToken } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from './serialization-result.js';
 import { SerializerOptions } from './serializer-options.js';

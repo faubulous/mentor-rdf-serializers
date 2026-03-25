@@ -1,10 +1,8 @@
-import type { IToken } from 'chevrotain';
-import { RdfToken, N3Lexer } from '@faubulous/mentor-rdf-parsers';
-import { RdfSyntax } from '@src/types.js';
-import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from '@src/token-formatter-base.js';
+import { IToken, RdfSyntax, RdfToken, N3Lexer } from '@faubulous/mentor-rdf-parsers';
 import { ITokenFormatter } from '@src/token-formatter.interface';
-import { SerializationResult } from '@src/serialization-result';
+import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from '@src/token-formatter-base.js';
 import { TokenSerializerOptions } from '@src/token-serializer';
+import { SerializationResult } from '@src/serialization-result';
 
 /**
  * N3-specific formatting options.

@@ -1,7 +1,6 @@
-import { IToken } from 'chevrotain';
 import { Quad } from '@rdfjs/types';
 import { QuadSorter } from './quad-sorter.js';
-import { QuadContext } from '@faubulous/mentor-rdf-parsers';
+import { QuadContext, IToken } from '@faubulous/mentor-rdf-parsers';
 import { SerializerOptions, SortOption } from './serializer-options.js';
 import { ISerializer } from './serializer.interface.js';
 

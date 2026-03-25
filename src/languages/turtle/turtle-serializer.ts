@@ -1,5 +1,6 @@
 import type { BlankNode, NamedNode, Quad } from '@rdfjs/types';
-import { Rdf12Quad, RdfSyntax, TripleTerm } from '@src/types.js';
+import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
+import { Rdf12Quad, TripleTerm } from '@src/types.js';
 import { SerializerBase } from '@src/serializer-base.js';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';

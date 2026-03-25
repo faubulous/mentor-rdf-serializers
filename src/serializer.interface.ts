@@ -1,5 +1,6 @@
 import { Quad } from "@rdfjs/types";
-import { Rdf12Quad, RdfSyntax } from "./types";
+import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
+import { Rdf12Quad } from "./types";
 import { SerializerOptions } from "./serializer-options";
 import { SerializationResult } from "./serialization-result";
 

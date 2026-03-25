@@ -1,19 +1,6 @@
 import type { BlankNode, DefaultGraph, Literal, NamedNode, Quad, Term, Variable } from '@rdfjs/types';
 
 /**
- * Enumerates the RDF syntaxes supported by the Mentor RDF Serializers library.
- */
-export enum RdfSyntax {
-    N3 = 'n3',
-    NTriples = 'ntriples',
-    NQuads = 'nquads',
-    Turtle = 'turtle',
-    TriG = 'trig',
-    JsonLd = 'jsonld',
-    Sparql = 'sparql'
-}
-
-/**
  * RDF 1.2 Triple Term - a quoted triple that can be used as subject or object.
  * Syntax: <<( subject predicate object )>>
  */

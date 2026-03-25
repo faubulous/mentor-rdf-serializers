@@ -1,17 +1,10 @@
-import type {
-    BlankNode,
-    Literal,
-    NamedNode,
-    Quad,
-    Term,
-    Variable
-} from '@rdfjs/types';
-import type {
-    Rdf12Quad,
-    Rdf12Term,
-    RdfSyntax,
-    TripleTerm
-} from './types.js';
+import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
+import { BlankNode, Literal, NamedNode, Quad, Term, Variable } from '@rdfjs/types';
+import { Rdf12Quad, Rdf12Term, TripleTerm } from './types.js';
+import { RDF, XSD } from '@src/ontologies';
+import { ISerializer } from './serializer.interface.js';
+import { SerializationResult } from './serialization-result.js';
+import { SerializerOptions, DEFAULT_OPTIONS } from './serializer-options.js';
 import {
     escapeIri,
     escapeLocalName,
@@ -22,10 +15,6 @@ import {
     isInteger,
     needsLongString
 } from './utilities/utils.js';
-import { RDF, XSD } from '@src/ontologies';
-import { ISerializer } from './serializer.interface.js';
-import { SerializationResult } from './serialization-result.js';
-import { SerializerOptions, DEFAULT_OPTIONS } from './serializer-options.js';
 
 /**
  * Abstract base class for RDF serializers. Provides common functionality 

@@ -1,5 +1,4 @@
-import { IToken, RdfToken, NQuadsLexer } from '@faubulous/mentor-rdf-parsers';
-import { RdfSyntax } from '@src/types.js';
+import { IToken, RdfSyntax, RdfToken, NQuadsLexer } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';
 import { mergeOptions } from '@src/serializer-base';

@@ -1,6 +1,4 @@
-import { IToken } from 'chevrotain';
-import { RdfToken, TrigLexer } from '@faubulous/mentor-rdf-parsers';
-import { RdfSyntax } from '@src/types.js';
+import { IToken, RdfSyntax, RdfToken, TrigLexer } from '@faubulous/mentor-rdf-parsers';
 import { TokenFormatterBase, type BaseFormatterContext } from '@src/token-formatter-base.js';
 import { TurtleFormatterOptions } from '../turtle/turtle-formatter.js';
 import { ITokenFormatter } from '@src/token-formatter.interface.js';
