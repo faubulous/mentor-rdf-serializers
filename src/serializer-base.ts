@@ -7,12 +7,9 @@ import type {
     Variable
 } from '@rdfjs/types';
 import type {
-    ISerializer,
     Rdf12Quad,
     Rdf12Term,
     RdfSyntax,
-    SerializationResult,
-    SerializerOptions,
     TripleTerm
 } from './types.js';
 import {
@@ -23,21 +20,21 @@ import {
     isDecimal,
     isDouble,
     isInteger,
-    mergeOptions,
-    needsLongString,
-    RDF_TYPE,
-    XSD_BOOLEAN,
-    XSD_DECIMAL,
-    XSD_DOUBLE,
-    XSD_INTEGER,
-    XSD_STRING
-} from './utils.js';
+    needsLongString
+} from './utilities/utils.js';
+import { RDF, XSD } from '@src/ontologies';
+import { ISerializer } from './serializer.interface.js';
+import { SerializationResult } from './serialization-result.js';
+import { SerializerOptions, DEFAULT_OPTIONS } from './serializer-options.js';
 
 /**
  * Abstract base class for RDF serializers. Provides common functionality 
  * for serializing terms and literals.
  */
 export abstract class SerializerBase implements ISerializer {
+    /**
+     * The RDF syntax supported by this serializer.
+     */
     abstract readonly syntax: RdfSyntax;
 
     /**
@@ -79,7 +76,7 @@ export abstract class SerializerBase implements ISerializer {
      */
     protected serializeNamedNode(node: NamedNode, options: Required<SerializerOptions>): string {
         // Check for rdf:type shorthand
-        if (this.supportsRdfTypeShorthand && options.useRdfTypeShorthand && node.value === RDF_TYPE) {
+        if (this.supportsRdfTypeShorthand && options.useRdfTypeShorthand && node.value === RDF.type) {
             return 'a';
         }
 
@@ -117,7 +114,7 @@ export abstract class SerializerBase implements ISerializer {
             return `"${escapedValue}"@${language}`;
         }
 
-        if (this.supportsPrefixes && datatype === XSD_BOOLEAN) {
+        if (this.supportsPrefixes && datatype === XSD.boolean) {
             if (value === 'true' || value === '1') {
                 return 'true';
             }
@@ -127,13 +124,13 @@ export abstract class SerializerBase implements ISerializer {
         }
 
         if (this.supportsPrefixes) {
-            if (datatype === XSD_INTEGER && isInteger(value)) {
+            if (datatype === XSD.integer && isInteger(value)) {
                 return value;
             }
-            if (datatype === XSD_DECIMAL && isDecimal(value)) {
+            if (datatype === XSD.decimal && isDecimal(value)) {
                 return value;
             }
-            if (datatype === XSD_DOUBLE && isDouble(value)) {
+            if (datatype === XSD.double && isDouble(value)) {
                 return value;
             }
         }
@@ -144,7 +141,7 @@ export abstract class SerializerBase implements ISerializer {
         const escapedValue = escapeString(value, useLongString);
 
         // xsd:string is the default, no need to serialize it
-        if (!datatype || datatype === XSD_STRING) {
+        if (!datatype || datatype === XSD.string) {
             return `${quote}${escapedValue}${quote}`;
         }
 
@@ -174,13 +171,13 @@ export abstract class SerializerBase implements ISerializer {
     protected serializeTripleTerm(tripleTerm: TripleTerm, options: Required<SerializerOptions>): string {
         if (!this.supportsRdf12) {
             throw new Error('Triple terms are not supported in this format');
+        } else {
+            const subject = this.serializeTerm(tripleTerm.subject, options);
+            const predicate = this.serializeTerm(tripleTerm.predicate, options);
+            const object = this.serializeTerm(tripleTerm.object, options);
+
+            return `<<( ${subject} ${predicate} ${object} )>>`;
         }
-
-        const subject = this.serializeTerm(tripleTerm.subject, options);
-        const predicate = this.serializeTerm(tripleTerm.predicate, options);
-        const object = this.serializeTerm(tripleTerm.object, options);
-
-        return `<<( ${subject} ${predicate} ${object} )>>`;
     }
 
     /**
@@ -211,4 +208,18 @@ export abstract class SerializerBase implements ISerializer {
     protected getOptions(options?: SerializerOptions): Required<SerializerOptions> {
         return mergeOptions(options);
     }
+}
+
+/**
+ * Merges user options with defaults.
+ */
+export function mergeOptions(options?: SerializerOptions): Required<SerializerOptions> {
+    return {
+        ...DEFAULT_OPTIONS,
+        ...options,
+        prefixes: {
+            ...DEFAULT_OPTIONS.prefixes,
+            ...options?.prefixes
+        }
+    };
 }

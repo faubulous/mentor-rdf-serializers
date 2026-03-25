@@ -1,8 +1,8 @@
 import type { IToken, TokenType } from 'chevrotain';
 import type { TokenMetadata } from '@faubulous/mentor-rdf-parsers';
 import { RdfToken } from '@faubulous/mentor-rdf-parsers';
-import type { SerializerOptions } from './types.js';
-import { mergeOptions } from './utils.js';
+import { SerializerOptions } from './serializer-options.js';
+import { mergeOptions } from './serializer-base.js';
 
 /**
  * Metadata attached to each token during the analysis pass. This captures 
@@ -162,7 +162,7 @@ export interface BaseFormatterOptions extends SerializerOptions {
 }
 
 /**
- * Abstract base class for all token-based RDF/SPARQL formatters.
+ * Abstract base class for all token-based RDF formatters.
  */
 export abstract class TokenFormatterBase<
     TContext extends BaseFormatterContext = BaseFormatterContext,

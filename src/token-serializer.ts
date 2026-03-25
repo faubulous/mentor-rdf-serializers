@@ -1,12 +1,10 @@
-import type { TokenType } from 'chevrotain';
-import type { TokenMetadata } from '@faubulous/mentor-rdf-parsers';
+import { TokenType } from 'chevrotain';
+import { TokenMetadata } from '@faubulous/mentor-rdf-parsers';
 import { RdfToken } from '@faubulous/mentor-rdf-parsers';
-import type {
-    SerializationResult,
-    SourceMapEntry,
-    TokenSerializerOptions
-} from './types.js';
-import { mergeOptions } from './utils.js';
+import { SerializationResult } from './serialization-result.js';
+import { SerializerOptions } from './serializer-options.js';
+import { mergeOptions } from './serializer-base.js';
+import { SourceMapEntry } from './source-map-entry.js';
 
 /**
  * Chevrotain token interface (subset of IToken).
@@ -24,6 +22,25 @@ export interface Token {
         blankNodeId?: string;
         [key: string]: unknown;
     };
+}
+
+/**
+ * Options for token-based serialization.
+ */
+export interface TokenSerializerOptions extends SerializerOptions {
+    /**
+     * Whether to preserve the original blank node IDs from tokens.
+     * When true, uses the blankNodeId from token payloads.
+     * Default: true
+     */
+    preserveBlankNodeIds?: boolean;
+
+    /**
+     * Whether to preserve comments from the source.
+     * When true, comments are included in the output.
+     * Default: true
+     */
+    preserveComments?: boolean;
 }
 
 /**

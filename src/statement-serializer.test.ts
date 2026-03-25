@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
 import { TurtleLexer, TurtleParser, TurtleReader } from '@faubulous/mentor-rdf-parsers';
 import { StatementSerializer } from './statement-serializer.js';
-import { TurtleSerializer } from './turtle/turtle-serializer.js';
+import { TurtleSerializer } from './languages/turtle/turtle-serializer.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,8 +14,10 @@ const PREFIX = '@prefix ex: <http://example.org/> .\n@prefix rdfs: <http://www.w
 function parseWithComments(input: string) {
     const lexer = new TurtleLexer();
     const lexResult = lexer.tokenize(input);
+    
     const parser = new TurtleParser();
     parser.input = lexResult.tokens;
+
     const cst = parser.turtleDoc();
     const reader = new TurtleReader();
     const contexts = reader.readQuadContexts(cst, lexResult.tokens);

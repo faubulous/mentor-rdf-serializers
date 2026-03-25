@@ -1,8 +1,10 @@
-import type { IToken } from 'chevrotain';
-import type { Quad } from '@rdfjs/types';
-import type { ISerializer, SerializerOptions, SortOption } from './types.js';
-import { applySortingStrategy } from './sorting/strategies.js';
-import type { QuadContext } from '@faubulous/mentor-rdf-parsers';
+import { IToken } from 'chevrotain';
+import { Quad } from '@rdfjs/types';
+import { QuadSorter } from './quad-sorter.js';
+import { QuadContext } from '@faubulous/mentor-rdf-parsers';
+import { SerializerOptions, SortOption } from './serializer-options.js';
+import { ISerializer } from './serializer.interface.js';
+
 export type { QuadContext };
 
 /**
@@ -54,27 +56,6 @@ export interface StatementSerializerOptions {
  * Serializes {@link QuadContext | statement contexts} to a complete
  * document string, preserving source comments and emitting prefix/base
  * declarations automatically.
- *
- * This class encapsulates the full workflow — merging new quads, sorting,
- * and serialization — so that callers do not need to orchestrate multiple
- * standalone functions.
- *
- * @example
- * ```typescript
- * import { StatementSerializer, TurtleSerializer } from '@faubulous/mentor-rdf-serializers';
- *
- * const ss = new StatementSerializer(new TurtleSerializer());
- *
- * // Optionally add new quads
- * const contexts = ss.addStatements(existingContexts, [newQuad]);
- *
- * // Serialize to a complete document (including prefix declarations)
- * const output = ss.serialize(contexts, {
- *     prefixes: parseResult.prefixes,
- *     lowercaseDirectives: true,
- *     sort: true,
- * });
- * ```
  */
 export class StatementSerializer {
     /**
@@ -141,7 +122,7 @@ export class StatementSerializer {
      * @returns A new sorted array.
      */
     sort(contexts: QuadContext[], sort: SortOption): QuadContext[] {
-        return applySortingStrategy(contexts as Quad[], sort) as QuadContext[];
+        return QuadSorter.apply(contexts as Quad[], sort) as QuadContext[];
     }
 
     /**
