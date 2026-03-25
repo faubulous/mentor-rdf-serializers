@@ -1,8 +1,8 @@
 import DataFactory from '@rdfjs/data-model';
 import { bench, describe } from 'vitest';
 import { IToken, QuadContext } from '@faubulous/mentor-rdf-parsers';
-import { StatementSerializer } from './statement-serializer.js';
-import { TurtleSerializer } from './languages/turtle/turtle-serializer.js';
+import { StatementSerializer } from './statement-serializer';
+import { TurtleSerializer } from './languages/turtle/turtle-serializer';
 
 const prefixes = {
   ex: 'http://example.org/',

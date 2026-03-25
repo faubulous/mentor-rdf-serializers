@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { IToken, TokenType, RdfToken } from '@faubulous/mentor-rdf-parsers';
-import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from './token-formatter-base.js';
+import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from './token-formatter-base';
 
 // Minimal concrete subclass that exposes protected methods for unit testing.
 class TestFormatter extends TokenFormatterBase<BaseFormatterContext, BaseFormatterOptions> {

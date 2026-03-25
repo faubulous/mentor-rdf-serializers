@@ -1,8 +1,8 @@
 import type { Quad } from '@rdfjs/types';
-import type { Rdf12Quad } from '@src/types.js';
-import { RDF } from '@src/ontologies/index.js';
-import { SortingStrategy } from '@src/sorting-strategy.js';
-import { termToString } from '@src/utilities/utils.js';
+import type { Rdf12Quad } from '@src/types';
+import { RDF } from '@src/ontologies/index';
+import { SortingStrategy } from '@src/sorting-strategy';
+import { termToString } from '@src/utilities/utils';
 
 export interface TypeSortingStrategyConfig {
     /**

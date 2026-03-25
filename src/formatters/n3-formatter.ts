@@ -1,71 +1,60 @@
-import { IToken, RdfSyntax, RdfToken, TrigLexer } from '@faubulous/mentor-rdf-parsers';
-import { TokenFormatterBase, type BaseFormatterContext } from '@src/token-formatter-base.js';
-import { TurtleFormatterOptions } from '../turtle/turtle-formatter.js';
-import { ITokenFormatter } from '@src/token-formatter.interface.js';
-import { SerializationResult } from '@src/serialization-result.js';
-import { TokenSerializerOptions } from '@src/token-serializer.js';
-
-// ============================================================================
-// Options & Context
-// ============================================================================
+import { IToken, RdfSyntax, RdfToken, N3Lexer } from '@faubulous/mentor-rdf-parsers';
+import { ITokenFormatter } from '@src/token-formatter.interface';
+import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from '@src/token-formatter-base';
+import { TokenSerializerOptions } from '@src/token-serializer';
+import { SerializationResult } from '@src/serialization-result';
 
 /**
- * TriG-specific formatting options.
+ * N3-specific formatting options.
  */
-export interface TrigFormatterOptions extends TurtleFormatterOptions {
+export interface N3FormatterOptions extends BaseFormatterOptions {
     /**
-     * Whether to put opening graph braces on the same line as the graph IRI.
+     * Use lowercase for @prefix and @base.
+     * Default: true
+     */
+    lowercaseDirectives?: boolean;
+
+    /**
+     * Put opening braces on the same line.
      * Default: true
      */
     sameBraceLine?: boolean;
-
-    /**
-     * Whether to include the GRAPH keyword before named graphs.
-     * Default: false
-     */
-    useGraphKeyword?: boolean;
 }
 
 /**
- * Internal formatting context for TriG.
+ * Internal formatting context for N3.
  */
-interface TrigFormatterContext extends BaseFormatterContext {
-    opts: Required<TrigFormatterOptions>;
-    /** Whether we are currently inside a graph block. */
-    inGraph: boolean;
+interface N3FormatterContext extends BaseFormatterContext {
+    opts: Required<N3FormatterOptions>;
     /** Whether at least one @prefix/PREFIX directive was seen in this document. */
     sawPrefixDefinition: boolean;
     /** Whether we still need to insert the prefix→first-subject blank line. */
     pendingPrefixToSubjectBlankLine: boolean;
 }
 
-// ============================================================================
-// TrigFormatter
-// ============================================================================
-
 /**
- * Formatter for TriG (RDF datasets with named graphs).
+ * Formatter for Notation3 (N3).
  *
- * TriG extends Turtle to support named graphs with `{ }` graph blocks.
- * Uses the scope stack for both graph braces (curly) and blank node
- * brackets, replacing the manual `graphDepth` / `blankNodeDepth` counters.
+ * N3 extends Turtle with formulas (graph literals), implications (`=>`),
+ * reverse implications (`<=`), quick variables, and other features.
+ * Uses the scope stack for both formula braces (curly) and blank node
+ * brackets, replacing the manual `formulaDepth` / `blankNodeDepth` counters.
  *
- * @see https://www.w3.org/TR/rdf12-trig/
+ * @see https://www.w3.org/TeamSubmission/n3/
  */
-export class TrigFormatter
-    extends TokenFormatterBase<TrigFormatterContext, TrigFormatterOptions>
-    implements ITokenFormatter {
-    readonly syntax: RdfSyntax = RdfSyntax.TriG;
-    private lexer = new TrigLexer();
+export class N3Formatter extends TokenFormatterBase<N3FormatterContext, N3FormatterOptions> implements ITokenFormatter {
+    readonly syntax: RdfSyntax = RdfSyntax.N3;
+
+    private lexer = new N3Lexer();
 
     // ========================================================================
     // Public API
     // ========================================================================
 
     /**
-     * Formats a TriG document.
+     * Formats an N3 document.
      */
-    formatFromText(input: string, options?: TrigFormatterOptions): SerializationResult {
+    formatFromText(input: string, options?: N3FormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
         const result = this.lexer.tokenize(input);
 
@@ -74,19 +63,20 @@ export class TrigFormatter
         }
 
         const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
+
         return this.formatTokens(result.tokens, opts, comments);
     }
 
     /**
      * Formats from already-parsed tokens.
      */
-    formatFromTokens(tokens: IToken[], options?: TrigFormatterOptions & TokenSerializerOptions): SerializationResult {
+    formatFromTokens(tokens: IToken[], options?: N3FormatterOptions & TokenSerializerOptions): SerializationResult {
         const opts = this.getOptions(options);
         return this.formatTokens(tokens, opts);
     }
 
     // Backwards-compatible alias
-    format(input: string, options?: TrigFormatterOptions): SerializationResult {
+    format(input: string, options?: N3FormatterOptions): SerializationResult {
         return this.formatFromText(input, options);
     }
 
@@ -94,29 +84,26 @@ export class TrigFormatter
     // BaseTokenFormatter implementations
     // ========================================================================
 
-    protected getOptions(options?: TrigFormatterOptions): Required<TrigFormatterOptions> {
+    protected getOptions(options?: N3FormatterOptions): Required<N3FormatterOptions> {
         const base = this.mergeBaseOptions(options);
         return {
             ...base,
             lowercaseDirectives: options?.lowercaseDirectives ?? true,
-            newlineAfterSubject: options?.newlineAfterSubject ?? false,
             spaceBeforePunctuation: options?.spaceBeforePunctuation ?? false,
             sameBraceLine: options?.sameBraceLine ?? true,
-            useGraphKeyword: options?.useGraphKeyword ?? false,
         };
     }
 
-    protected createContext(opts: Required<TrigFormatterOptions>): TrigFormatterContext {
+    protected createContext(opts: Required<N3FormatterOptions>): N3FormatterContext {
         return {
             ...this.createBaseContext(),
             opts,
-            inGraph: false,
             sawPrefixDefinition: false,
             pendingPrefixToSubjectBlankLine: false,
         };
     }
 
-    protected formatTokenValue(token: IToken, opts: Required<TrigFormatterOptions>): string {
+    protected formatTokenValue(token: IToken, opts: Required<N3FormatterOptions>): string {
         const tokenType = token.tokenType;
 
         // Tokens marked as lowercase-only (true, false, a) stay lowercase
@@ -133,11 +120,6 @@ export class TrigFormatter
             return opts.lowercaseDirectives ? '@' + token.image.toLowerCase() : token.image.toUpperCase();
         }
 
-        // GRAPH keyword is always uppercased
-        if (tokenType === RdfToken.GRAPH) {
-            return token.image.toUpperCase();
-        }
-
         return token.image;
     }
 
@@ -148,7 +130,7 @@ export class TrigFormatter
     /**
      * Handles comment tokens.
      */
-    private handleTrigComment(ctx: TrigFormatterContext, comment: IToken): void {
+    private handleN3Comment(ctx: N3FormatterContext, comment: IToken): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
         if (ctx.parts.length > 0) {
@@ -167,10 +149,10 @@ export class TrigFormatter
     }
 
     /**
-     * Handles opening curly brace (graph start).
-     * Uses the scope stack to track graph nesting.
+     * Handles opening curly brace (formula start).
+     * Uses the scope stack to track formula nesting.
      */
-    private handleTrigOpenCurly(ctx: TrigFormatterContext): void {
+    private handleN3OpenCurly(ctx: N3FormatterContext): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
 
@@ -184,18 +166,16 @@ export class TrigFormatter
 
         this.addPart(ctx, '{', le);
         this.pushScope(ctx, 'curly', false, false);
-        ctx.inGraph = true;
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.needsSpace = false;
         ctx.triplePosition = 0;
-        ctx.lastSubject = null;
     }
 
     /**
-     * Handles closing curly brace (graph end).
-     * Pops the curly scope and checks if we're still inside a graph.
+     * Handles closing curly brace (formula end).
+     * Pops the curly scope.
      */
-    private handleTrigCloseCurly(ctx: TrigFormatterContext): void {
+    private handleN3CloseCurly(ctx: N3FormatterContext): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
 
@@ -210,16 +190,14 @@ export class TrigFormatter
         }
 
         this.addPart(ctx, '}', le);
-        ctx.needsNewline = ctx.opts.prettyPrint;
-        ctx.needsSpace = false;
-        // Still inside a graph if there are curly scopes remaining
-        ctx.inGraph = ctx.scopeStack.some(s => s.type === 'curly');
+        ctx.needsSpace = true;
+        ctx.needsNewline = false;
     }
 
     /**
-     * Handles opening bracket tokens ([ for blank nodes, etc.).
+     * Handles opening bracket tokens ([ for blank nodes, ( for collections).
      */
-    private handleTrigOpenBracket(ctx: TrigFormatterContext, token: IToken): void {
+    private handleN3OpenBracket(ctx: N3FormatterContext, token: IToken): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
 
@@ -243,9 +221,9 @@ export class TrigFormatter
     }
 
     /**
-     * Handles closing bracket tokens (] for blank nodes, etc.).
+     * Handles closing bracket tokens (] for blank nodes, ) for collections).
      */
-    private handleTrigCloseBracket(ctx: TrigFormatterContext, token: IToken): void {
+    private handleN3CloseBracket(ctx: N3FormatterContext, token: IToken): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
 
@@ -275,7 +253,7 @@ export class TrigFormatter
     /**
      * Handles period (statement terminator).
      */
-    private handleTrigPeriod(ctx: TrigFormatterContext): void {
+    private handleN3Period(ctx: N3FormatterContext): void {
         const le = ctx.opts.lineEnd;
         if (ctx.opts.spaceBeforePunctuation && !ctx.inPrefix && ctx.parts.length > 0) {
             this.addPart(ctx, ' ', le);
@@ -291,9 +269,9 @@ export class TrigFormatter
 
     /**
      * Handles semicolon (predicate separator).
-     * Always adds extra indent for continuation, matching Turtle behaviour.
+     * Always adds extra indent for continuation.
      */
-    private handleTrigSemicolon(ctx: TrigFormatterContext): void {
+    private handleN3Semicolon(ctx: N3FormatterContext): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
 
@@ -325,16 +303,40 @@ export class TrigFormatter
     /**
      * Handles comma (object separator).
      */
-    private handleTrigComma(ctx: TrigFormatterContext): void {
+    private handleN3Comma(ctx: N3FormatterContext): void {
         const le = ctx.opts.lineEnd;
         this.addPart(ctx, ',', le);
         ctx.needsSpace = true;
     }
 
     /**
+     * Handles N3 implication operator =>.
+     */
+    private handleN3Implication(ctx: N3FormatterContext): void {
+        const le = ctx.opts.lineEnd;
+        if (ctx.needsSpace && ctx.parts.length > 0) {
+            this.addPart(ctx, ' ', le);
+        }
+        this.addPart(ctx, '=>', le);
+        ctx.needsSpace = true;
+    }
+
+    /**
+     * Handles N3 reverse implication operator <=.
+     */
+    private handleN3ReverseImplication(ctx: N3FormatterContext): void {
+        const le = ctx.opts.lineEnd;
+        if (ctx.needsSpace && ctx.parts.length > 0) {
+            this.addPart(ctx, ' ', le);
+        }
+        this.addPart(ctx, '<=', le);
+        ctx.needsSpace = true;
+    }
+
+    /**
      * Handles PREFIX/BASE IRI completion.
      */
-    private handleTrigPrefixIri(ctx: TrigFormatterContext, value: string): void {
+    private handleN3PrefixIri(ctx: N3FormatterContext, value: string): void {
         const le = ctx.opts.lineEnd;
         if (ctx.needsSpace && ctx.parts.length > 0) {
             this.addPart(ctx, ' ', le);
@@ -347,9 +349,9 @@ export class TrigFormatter
 
     /**
      * Handles token spacing.
-     * TriG additionally suppresses space after opening curly braces.
+     * N3 additionally suppresses space after opening curly braces.
      */
-    private handleTrigTokenSpacing(ctx: TrigFormatterContext, token: IToken): void {
+    private handleN3TokenSpacing(ctx: N3FormatterContext, token: IToken): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
         const isDatatypeContext = token.tokenType === RdfToken.DCARET ||
@@ -377,7 +379,7 @@ export class TrigFormatter
 
     private formatTokens(
         tokens: IToken[],
-        opts: Required<TrigFormatterOptions>,
+        opts: Required<N3FormatterOptions>,
         comments: IToken[] = []
     ): SerializationResult {
         const ctx = this.createContext(opts);
@@ -392,7 +394,7 @@ export class TrigFormatter
             while (commentIndex < sortedComments.length) {
                 const comment = sortedComments[commentIndex];
                 if ((comment.startOffset ?? 0) < (token.startOffset ?? 0)) {
-                    this.handleTrigComment(ctx, comment);
+                    this.handleN3Comment(ctx, comment);
                     commentIndex++;
                 } else {
                     break;
@@ -407,7 +409,7 @@ export class TrigFormatter
 
             // Handle comment tokens in stream
             if (token.tokenType === RdfToken.COMMENT) {
-                this.handleTrigComment(ctx, token);
+                this.handleN3Comment(ctx, token);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -426,16 +428,31 @@ export class TrigFormatter
                 ctx.pendingPrefixToSubjectBlankLine = true;
             }
 
-            // Handle graph braces (must come before generic bracket handling)
+            // Handle formula braces (must come before generic bracket handling)
             if (token.tokenType === RdfToken.LCURLY) {
-                this.handleTrigOpenCurly(ctx);
+                this.handleN3OpenCurly(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.RCURLY) {
-                this.handleTrigCloseCurly(ctx);
+                this.handleN3CloseCurly(ctx);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
+                continue;
+            }
+
+            // Handle N3 implications
+            if (token.tokenType === RdfToken.IMPLIES) {
+                this.handleN3Implication(ctx);
+                ctx.lastToken = token;
+                ctx.lastNonWsToken = token;
+                continue;
+            }
+
+            if (token.tokenType === RdfToken.IMPLIED_BY) {
+                this.handleN3ReverseImplication(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -443,35 +460,35 @@ export class TrigFormatter
 
             // Handle structural tokens
             if (this.isOpeningBracket(token)) {
-                this.handleTrigOpenBracket(ctx, token);
+                this.handleN3OpenBracket(ctx, token);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (this.isClosingBracket(token)) {
-                this.handleTrigCloseBracket(ctx, token);
+                this.handleN3CloseBracket(ctx, token);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.PERIOD) {
-                this.handleTrigPeriod(ctx);
+                this.handleN3Period(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.SEMICOLON) {
-                this.handleTrigSemicolon(ctx);
+                this.handleN3Semicolon(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
             }
 
             if (token.tokenType === RdfToken.COMMA) {
-                this.handleTrigComma(ctx);
+                this.handleN3Comma(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -479,7 +496,7 @@ export class TrigFormatter
 
             // Handle PREFIX/BASE IRI completion
             if (ctx.inPrefix && (token.tokenType === RdfToken.IRIREF || token.tokenType === RdfToken.IRIREF_ABS)) {
-                this.handleTrigPrefixIri(ctx, value);
+                this.handleN3PrefixIri(ctx, value);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -495,7 +512,7 @@ export class TrigFormatter
                     ctx.pendingPrefixToSubjectBlankLine
                 ) {
                     // Insert a blank line between the final prefix definition and the
-                    // first root-level term (graph label or subject).
+                    // first root-level term.
                     this.addPart(ctx, le, le, true);
                     ctx.pendingPrefixToSubjectBlankLine = false;
                 }
@@ -506,9 +523,7 @@ export class TrigFormatter
                     }
                 }
                 ctx.lastSubject = token.image;
-
                 this.detectInlineStatement(ctx, tokens, i, ctx.opts.indent, ctx.opts.maxLineWidth);
-
                 ctx.triplePosition++;
             } else if (this.isTermToken(token) && !ctx.inPrefix) {
                 ctx.triplePosition++;
@@ -516,7 +531,7 @@ export class TrigFormatter
             }
 
             // Handle spacing
-            this.handleTrigTokenSpacing(ctx, token);
+            this.handleN3TokenSpacing(ctx, token);
 
             // Output the token
             this.addPart(ctx, value, le);
@@ -527,7 +542,7 @@ export class TrigFormatter
 
         // Add trailing comments
         while (commentIndex < sortedComments.length) {
-            this.handleTrigComment(ctx, sortedComments[commentIndex]);
+            this.handleN3Comment(ctx, sortedComments[commentIndex]);
             commentIndex++;
         }
 

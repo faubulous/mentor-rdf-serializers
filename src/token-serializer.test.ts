@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TokenSerializer, Token } from './token-serializer.js';
+import { TokenSerializer, Token } from './token-serializer';
 import { RdfToken } from '@faubulous/mentor-rdf-parsers';
 
 describe('TokenSerializer', () => {

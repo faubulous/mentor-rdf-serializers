@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
-import { PrioritySortingStrategy } from './priority-sorting-strategy.js';
-import { QuadSorter } from '../quad-sorter.js';
+import { PrioritySortingStrategy } from './priority-sorting-strategy';
+import { QuadSorter } from '../quad-sorter';
 
 const termValue = (term: unknown) => (term as { value: string }).value;
 const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';

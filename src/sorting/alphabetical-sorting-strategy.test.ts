@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
-import { AlphabeticalSortingStrategy } from './alphabetical-sorting-strategy.js';
+import { AlphabeticalSortingStrategy } from './alphabetical-sorting-strategy';
 
 const termValue = (term: unknown) => (term as { value: string }).value;
 

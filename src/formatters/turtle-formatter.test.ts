@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TurtleFormatter } from './turtle-formatter.js';
+import { TurtleFormatter } from '../formatters/turtle-formatter';
 
 describe('TurtleFormatter', () => {
     const formatter = new TurtleFormatter();

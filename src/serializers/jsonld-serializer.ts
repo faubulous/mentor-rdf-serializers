@@ -1,6 +1,6 @@
 import { RdfSyntax } from '@faubulous/mentor-rdf-parsers';
 import type { BlankNode, Literal, NamedNode, Quad, Term } from '@rdfjs/types';
-import { Rdf12Quad, Rdf12Term, TripleTerm } from '@src/types.js';
+import { Rdf12Quad, Rdf12Term, TripleTerm } from '@src/types';
 import { RDF, XSD } from '@src/ontologies';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';
@@ -11,7 +11,7 @@ import {
     groupQuadsByGraph,
     groupQuadsBySubject,
     parseLanguageTag
-} from '@src/utilities/utils.js';
+} from '@src/utilities/utils';
 
 /**
  * JSON-LD specific options.

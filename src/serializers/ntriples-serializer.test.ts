@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
-import { NTriplesSerializer } from './ntriples-serializer.js';
+import { NTriplesSerializer } from './ntriples-serializer';
 
 describe('NTriplesSerializer', () => {
     let serializer: NTriplesSerializer;

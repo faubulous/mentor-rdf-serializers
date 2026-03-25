@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
-import { QuadSorter } from './quad-sorter.js';
-import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy.js';
+import { QuadSorter } from './quad-sorter';
+import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy';
 
 const termValue = (term: unknown) => (term as { value: string }).value;
 

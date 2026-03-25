@@ -1,7 +1,7 @@
 import type { Quad } from '@rdfjs/types';
-import type { Rdf12Quad } from '../types.js';
-import { SortingStrategy } from '@src/sorting-strategy.js';
-import { termToString } from '../utilities/utils.js';
+import type { Rdf12Quad } from '../types';
+import { SortingStrategy } from '@src/sorting-strategy';
+import { termToString } from '../utilities/utils';
 
 /**
  * Alphabetical sorting by subject, predicate, object.

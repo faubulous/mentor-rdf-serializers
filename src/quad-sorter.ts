@@ -1,7 +1,7 @@
 import type { Quad } from '@rdfjs/types';
-import type { QuadComparator, SortingStrategy } from './sorting-strategy.js';
-import type { Rdf12Quad } from './types.js';
-import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy.js';
+import type { QuadComparator, SortingStrategy } from './sorting-strategy';
+import type { Rdf12Quad } from './types';
+import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy';
 
 /**
  * Applies sorting strategies to arrays of quads.

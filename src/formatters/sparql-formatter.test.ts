@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SparqlLexer } from '@faubulous/mentor-rdf-parsers';
-import { SparqlFormatter } from './sparql-formatter.js';
+import { SparqlFormatter } from './sparql-formatter';
 
 // NOTE: All IRIs, prefixes, and sample data in these tests are synthetic
 // examples used solely to exercise formatting behaviour.

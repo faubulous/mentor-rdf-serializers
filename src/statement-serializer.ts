@@ -1,10 +1,8 @@
 import { Quad } from '@rdfjs/types';
-import { QuadSorter } from './quad-sorter.js';
+import { QuadSorter } from './quad-sorter';
 import { QuadContext, IToken } from '@faubulous/mentor-rdf-parsers';
-import { SerializerOptions, SortOption } from './serializer-options.js';
-import { ISerializer } from './serializer.interface.js';
-
-export type { QuadContext };
+import { SerializerOptions, SortOption } from './serializer-options';
+import { ISerializer } from './serializer.interface';
 
 /**
  * Options for {@link StatementSerializer.serialize}.

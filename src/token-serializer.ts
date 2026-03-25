@@ -1,46 +1,8 @@
-import { TokenType, TokenMetadata } from '@faubulous/mentor-rdf-parsers';
-import { RdfToken } from '@faubulous/mentor-rdf-parsers';
-import { SerializationResult } from './serialization-result.js';
-import { SerializerOptions } from './serializer-options.js';
-import { mergeOptions } from './serializer-base.js';
-import { SourceMapEntry } from './source-map-entry.js';
-
-/**
- * Chevrotain token interface (subset of IToken).
- */
-export interface Token {
-    image: string;
-    startOffset: number;
-    endOffset?: number;
-    startLine?: number;
-    startColumn?: number;
-    endLine?: number;
-    endColumn?: number;
-    tokenType: TokenType & Partial<TokenMetadata>;
-    payload?: {
-        blankNodeId?: string;
-        [key: string]: unknown;
-    };
-}
-
-/**
- * Options for token-based serialization.
- */
-export interface TokenSerializerOptions extends SerializerOptions {
-    /**
-     * Whether to preserve the original blank node IDs from tokens.
-     * When true, uses the blankNodeId from token payloads.
-     * Default: true
-     */
-    preserveBlankNodeIds?: boolean;
-
-    /**
-     * Whether to preserve comments from the source.
-     * When true, comments are included in the output.
-     * Default: true
-     */
-    preserveComments?: boolean;
-}
+import { IToken, RdfToken } from '@faubulous/mentor-rdf-parsers';
+import { SerializationResult } from './serialization-result';
+import { SerializerOptions } from './serializer-options';
+import { SourceMapEntry } from './source-map-entry';
+import { mergeOptions } from './serializer-base';
 
 /**
  * Serializes RDF content directly from parser tokens, preserving source information.
@@ -59,15 +21,15 @@ export class TokenSerializer {
      * @param options Serialization options
      * @returns Serialization result with output and source map
      */
-    serialize(tokens: Token[], options?: TokenSerializerOptions): SerializationResult {
+    serialize(tokens: IToken[], options?: TokenSerializerOptions): SerializationResult {
         const opts = this.getOptions(options);
         const sourceMap: SourceMapEntry[] = [];
         const parts: string[] = [];
 
         let currentOffset = 0;
-        let lastToken: Token | null = null;
-        let lastNonCommentToken: Token | null = null;
-        let pendingComment: Token | null = null;
+        let lastToken: IToken | null = null;
+        let lastNonCommentToken: IToken | null = null;
+        let pendingComment: IToken | null = null;
 
         for (const token of tokens) {
             if (token.tokenType.isWhitespace === true) {
@@ -154,7 +116,7 @@ export class TokenSerializer {
     /**
      * Gets the current indentation based on context.
      */
-    private getCurrentIndent(lastToken: Token | null, opts: Required<TokenSerializerOptions>): string {
+    private getCurrentIndent(lastToken: IToken | null, opts: Required<TokenSerializerOptions>): string {
         // Simple indent tracking - could be enhanced with bracket depth
         return '';
     }
@@ -168,7 +130,7 @@ export class TokenSerializer {
      * @param endOffset End offset of the selection
      * @param options Serialization options
      */
-    serializeRange(tokens: Token[], startOffset: number, endOffset: number, options?: TokenSerializerOptions): SerializationResult {
+    serializeRange(tokens: IToken[], startOffset: number, endOffset: number, options?: TokenSerializerOptions): SerializationResult {
         // Filter tokens that fall within the range
         const rangeTokens = tokens.filter(t =>
             t.startOffset >= startOffset &&
@@ -181,7 +143,7 @@ export class TokenSerializer {
     /**
      * Serializes a single token to a string.
      */
-    private serializeToken(token: Token, opts: Required<TokenSerializerOptions>): string {
+    private serializeToken(token: IToken, opts: Required<TokenSerializerOptions>): string {
         const tokenType = token.tokenType;
 
         // Handle blank node tokens with preserved IDs
@@ -284,7 +246,7 @@ export class TokenSerializer {
     /**
      * Determines the spacing needed between two tokens.
      */
-    private getSpacing(prev: Token, current: Token, opts: Required<TokenSerializerOptions>): string {
+    private getSpacing(prev: IToken, current: IToken, opts: Required<TokenSerializerOptions>): string {
         // No space after opening brackets/parens
         if (prev.tokenType.isOpeningBracket === true) {
             return '';
@@ -332,7 +294,7 @@ export class TokenSerializer {
     /**
      * Determines if space should be omitted between tokens.
      */
-    private shouldOmitSpace(prev: Token, current: Token): boolean {
+    private shouldOmitSpace(prev: IToken, current: IToken): boolean {
         // No space between prefix namespace and local name
         return prev.tokenType === RdfToken.PNAME_NS && current.tokenType === RdfToken.PNAME_LN;
     }
@@ -340,7 +302,7 @@ export class TokenSerializer {
     /**
      * Gets the type category for a token.
      */
-    private getTokenType(token: Token): SourceMapEntry['type'] {
+    private getTokenType(token: IToken): SourceMapEntry['type'] {
         const tokenType = token.tokenType;
 
         if (tokenType.isIri === true) {
@@ -385,31 +347,20 @@ export class TokenSerializer {
 }
 
 /**
- * Extracts blank node ID from a token's payload.
- * @param token The token to check
- * @returns The blank node ID if present, undefined otherwise
+ * Options for token-based serialization.
  */
-export function getBlankNodeIdFromToken(token: Token): string | undefined {
-    return token.payload?.blankNodeId;
-}
+export interface TokenSerializerOptions extends SerializerOptions {
+    /**
+     * Whether to preserve the original blank node IDs from tokens.
+     * When true, uses the blankNodeId from token payloads.
+     * Default: true
+     */
+    preserveBlankNodeIds?: boolean;
 
-/**
- * Gets the source position from a token.
- */
-export function getTokenPosition(token: Token): {
-    startOffset: number;
-    endOffset: number;
-    startLine?: number;
-    startColumn?: number;
-    endLine?: number;
-    endColumn?: number;
-} {
-    return {
-        startOffset: token.startOffset,
-        endOffset: token.endOffset ?? token.startOffset + token.image.length - 1,
-        startLine: token.startLine,
-        startColumn: token.startColumn,
-        endLine: token.endLine,
-        endColumn: token.endColumn
-    };
+    /**
+     * Whether to preserve comments from the source.
+     * When true, comments are included in the output.
+     * Default: true
+     */
+    preserveComments?: boolean;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
-import { SemanticSortingStrategy } from './semantic-sorting-strategy.js';
+import { SemanticSortingStrategy } from './semantic-sorting-strategy';
 
 const termValue = (term: unknown) => (term as { value: string }).value;
 

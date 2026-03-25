@@ -1,7 +1,7 @@
 import { IToken, RdfSyntax, RdfToken, TurtleLexer } from '@faubulous/mentor-rdf-parsers';
 import { ITokenFormatter } from '@src/token-formatter.interface';
 import { TokenSerializerOptions } from '@src/token-serializer';
-import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from '@src/token-formatter-base.js';
+import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from '@src/token-formatter-base';
 import { SerializationResult } from '@src/serialization-result';
 
 /**

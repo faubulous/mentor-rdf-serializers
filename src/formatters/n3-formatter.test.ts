@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { N3Formatter } from './n3-formatter.js';
+import { N3Formatter } from './n3-formatter';
 
 // All IRIs and terms here are purely synthetic example data.
 

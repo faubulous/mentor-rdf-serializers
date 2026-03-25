@@ -1,20 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
 import { TurtleLexer, TurtleParser, TurtleReader } from '@faubulous/mentor-rdf-parsers';
-import { StatementSerializer } from './statement-serializer.js';
-import { TurtleSerializer } from './languages/turtle/turtle-serializer.js';
+import { StatementSerializer } from './statement-serializer';
+import { TurtleSerializer } from './serializers/turtle-serializer';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const PREFIX = '@prefix ex: <http://example.org/> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n';
+const PREFIX = [
+    '@prefix ex: <http://example.org/> .',
+    '@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .'
+].join('\n');
+
+const prefixes = {
+    ex: 'http://example.org/',
+    rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+};
 
 /** Parse Turtle text using the turtleDocInfoWithComments API. */
 function parseWithComments(input: string) {
     const lexer = new TurtleLexer();
     const lexResult = lexer.tokenize(input);
-    
+
     const parser = new TurtleParser();
     parser.input = lexResult.tokens;
 
@@ -25,12 +33,7 @@ function parseWithComments(input: string) {
     return { contexts, tokens: lexResult.tokens, reader };
 }
 
-const prefixes = {
-    ex: 'http://example.org/',
-    rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
-};
-
-const ss = new StatementSerializer(new TurtleSerializer());
+const statementSerializer = new StatementSerializer(new TurtleSerializer());
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -75,7 +78,7 @@ describe('StatementSerializer', () => {
                 DataFactory.namedNode('http://example.org/D')
             );
 
-            const merged = ss.addStatements(contexts, [newQuad]);
+            const merged = statementSerializer.addStatements(contexts, [newQuad]);
 
             expect(merged).toHaveLength(2);
             // Original context keeps its comment
@@ -94,7 +97,7 @@ describe('StatementSerializer', () => {
                 DataFactory.literal('value')
             );
 
-            const merged = ss.addStatements(contexts, [newQuad]);
+            const merged = statementSerializer.addStatements(contexts, [newQuad]);
 
             // Order preserved: original first, then new
             expect(merged).toHaveLength(2);
@@ -111,7 +114,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:Z ex:p "a" .\nex:A ex:q "b" .';
             const { contexts } = parseWithComments(input);
 
-            const sorted = ss.sort(contexts, true);
+            const sorted = statementSerializer.sort(contexts, true);
 
             expect(sorted[0].subject.value).toBe('http://example.org/A');
             expect(sorted[1].subject.value).toBe('http://example.org/Z');
@@ -127,7 +130,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
             const { contexts } = parseWithComments(input);
 
-            const sorted = ss.sort(contexts, true);
+            const sorted = statementSerializer.sort(contexts, true);
 
             // Comments should travel with their quads
             expect(sorted[0].leadingComments?.[0]?.image).toBe('# Comment for A');
@@ -147,7 +150,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
 
             expect(output).toContain('# This is Person\nex:Person a rdfs:Class .');
         });
@@ -156,7 +159,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:A ex:p ex:B . # important';
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
 
             expect(output).toContain('ex:A ex:p ex:B . # important');
         });
@@ -171,8 +174,8 @@ describe('StatementSerializer', () => {
                 DataFactory.literal('value')
             );
 
-            const merged = ss.addStatements(contexts, [newQuad]);
-            const output = ss.serialize(merged, { prefixes });
+            const merged = statementSerializer.addStatements(contexts, [newQuad]);
+            const output = statementSerializer.serialize(merged, { prefixes });
 
             // New quad serialized without any stray comment markers
             expect(output).toContain('ex:C ex:q "value" .');
@@ -182,7 +185,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .\nex:C ex:q ex:D .';
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts, {
+            const output = statementSerializer.serialize(contexts, {
                 prefixes,
                 blankLinesBetweenSubjects: true,
             });
@@ -196,7 +199,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .\nex:C ex:q ex:D .';
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts, {
+            const output = statementSerializer.serialize(contexts, {
                 prefixes,
                 blankLinesBetweenSubjects: false,
             });
@@ -211,7 +214,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
 
             expect(output).toContain('PREFIX ex: <http://example.org/>');
             expect(output).toContain('PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>');
@@ -221,7 +224,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts, {
+            const output = statementSerializer.serialize(contexts, {
                 prefixes,
                 lowercaseDirectives: true,
             });
@@ -234,7 +237,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts, {
+            const output = statementSerializer.serialize(contexts, {
                 prefixes,
                 baseIri: 'http://example.org/',
             });
@@ -246,7 +249,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts, {
+            const output = statementSerializer.serialize(contexts, {
                 prefixes,
                 baseIri: 'http://example.org/',
                 lowercaseDirectives: true,
@@ -259,7 +262,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:Z ex:p ex:B .\nex:A ex:q ex:D .';
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts, { prefixes, sort: true });
+            const output = statementSerializer.serialize(contexts, { prefixes, sort: true });
 
             const aIdx = output.indexOf('ex:A');
             const zIdx = output.indexOf('ex:Z');
@@ -270,7 +273,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
-            const output = ss.serialize(contexts);
+            const output = statementSerializer.serialize(contexts);
 
             // No PREFIX / @prefix lines — output starts with the statement
             // (IRIs will be full since no prefix map was provided)
@@ -305,8 +308,8 @@ describe('StatementSerializer', () => {
             );
 
             // 3. Merge & serialize with sorting
-            const merged = ss.addStatements(contexts, [newQuad]);
-            const output = ss.serialize(merged, {
+            const merged = statementSerializer.addStatements(contexts, [newQuad]);
+            const output = statementSerializer.serialize(merged, {
                 prefixes,
                 sort: true,
                 blankLinesBetweenSubjects: true,
@@ -341,7 +344,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
 
             expect(output).toContain('# keep this');
             expect(output).toContain('# keep this too');
@@ -359,7 +362,7 @@ describe('StatementSerializer', () => {
             const { contexts } = parseWithComments(input);
 
             // Re-serialize with no new quads, no sorting — pure round-trip
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
 
             // All comments must survive
             expect(output).toContain('# Section: Classes');
@@ -383,7 +386,7 @@ describe('StatementSerializer', () => {
             // Should have statements from the grouped statement
             expect(contexts.length).toBeGreaterThanOrEqual(1);
 
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
             expect(output).toContain('# Person definition');
         });
     });
@@ -400,7 +403,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
 
             // Should use predicate-object grouping with ";"
             expect(output).toContain('ex:Person a rdfs:Class ;');
@@ -423,7 +426,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = ss.serialize(contexts, { prefixes, sort: true });
+            const output = statementSerializer.serialize(contexts, { prefixes, sort: true });
 
             // After sorting, ex:A should come before ex:B
             const aIdx = output.indexOf('ex:A a rdfs:Class');
@@ -444,7 +447,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
 
             // Comment should precede the grouped subject block
             const commentIdx = output.indexOf('# Comment for class A');
@@ -463,7 +466,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
 
             // Trailing comment should appear on the last line of the block
             expect(output).toContain('# end comment');
@@ -479,7 +482,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = ss.serialize(contexts, {
+            const output = statementSerializer.serialize(contexts, {
                 prefixes,
                 blankLinesBetweenSubjects: true,
             });
@@ -504,7 +507,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = ss.serialize(contexts, { prefixes });
+            const output = statementSerializer.serialize(contexts, { prefixes });
 
             // Each subject has only one quad — no semicolons
             expect(output).toContain('ex:A a rdfs:Class .');
@@ -524,7 +527,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = ss.serialize(contexts, { prefixes, sort: true });
+            const output = statementSerializer.serialize(contexts, { prefixes, sort: true });
 
             // After alphabetical sorting: ex:Person before ex:hasName
             // (P < h in default locale — let's just verify grouping)
@@ -554,7 +557,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = ss.serialize(contexts, { prefixes, sort: true });
+            const output = statementSerializer.serialize(contexts, { prefixes, sort: true });
 
             // After sorting: A before Z
             const aIdx = output.indexOf('ex:A');
@@ -588,8 +591,8 @@ describe('StatementSerializer', () => {
                 DataFactory.literal('Person')
             );
 
-            const merged = ss.addStatements(contexts, [newQuad]);
-            const output = ss.serialize(merged, { prefixes });
+            const merged = statementSerializer.addStatements(contexts, [newQuad]);
+            const output = statementSerializer.serialize(merged, { prefixes });
 
             // Both predicates should be grouped under the same subject
             expect(output).toContain('ex:Person a rdfs:Class ;');

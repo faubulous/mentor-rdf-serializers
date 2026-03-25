@@ -1,5 +1,5 @@
 import { IToken, TokenType, RdfToken, SparqlLexer } from '@faubulous/mentor-rdf-parsers';
-import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from '@src/token-formatter-base.js';
+import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from '@src/token-formatter-base';
 import { SerializationResult } from '@src/serialization-result';
 import { TokenSerializerOptions } from '@src/token-serializer';
 import { ISparqlFormatter } from './sparql-formatter.interface';

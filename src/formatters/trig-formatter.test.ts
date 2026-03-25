@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TrigFormatter } from './trig-formatter.js';
+import { TrigFormatter } from './trig-formatter';
 
 // All IRIs and terms here are purely synthetic example data.
 

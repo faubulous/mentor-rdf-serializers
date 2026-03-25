@@ -1,5 +1,5 @@
 import type { Literal, Quad, Term } from '@rdfjs/types';
-import type { Rdf12Quad, Rdf12Term, TripleTerm, Reifier } from '../types.js';
+import type { Rdf12Quad, Rdf12Term, TripleTerm, Reifier } from '../types';
 import { _RDF, _XSD } from '../ontologies/index.js'
 
 /**

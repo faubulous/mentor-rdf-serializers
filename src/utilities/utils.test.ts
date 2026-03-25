@@ -10,7 +10,7 @@ import {
     formatLanguageTag,
     groupQuadsBySubject,
     groupQuadsByGraph
-} from './utils.js';
+} from './utils';
 
 describe('escapeIri', () => {
     it('should not escape normal characters', () => {
