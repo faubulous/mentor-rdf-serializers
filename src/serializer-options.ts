@@ -108,6 +108,15 @@ export interface SerializerOptions {
      * If provided, this function will be called to generate IDs for new blank nodes.
      */
     blankNodeIdGenerator?: (counter: number) => string;
+
+    /**
+     * Whether to serialize single-use blank nodes as local property lists
+     * (`[ ... ]`) when pretty printing.
+     *
+     * This applies only when `prettyPrint` is `true`.
+     * Default: true
+     */
+    inlineSingleUseBlankNodes?: boolean;
 }
 
 /**
@@ -160,5 +169,6 @@ export const DEFAULT_OPTIONS: Required<SerializerOptions> = {
     prettyPrint: true,
     sort: false,
     useRdfTypeShorthand: true,
-    blankNodeIdGenerator: (counter: number) => `b${counter}`
+    blankNodeIdGenerator: (counter: number) => `b${counter}`,
+    inlineSingleUseBlankNodes: true,
 };

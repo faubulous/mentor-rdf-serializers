@@ -2,7 +2,8 @@ import DataFactory from '@rdfjs/data-model';
 import { bench, describe } from 'vitest';
 import { IToken, QuadContext } from '@faubulous/mentor-rdf-parsers';
 import { StatementSerializer } from './statement-serializer';
-import { TurtleSerializer } from './languages/turtle/turtle-serializer';
+import { TurtleSerializer } from './serializers/turtle-serializer';
+import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy';
 
 const prefixes = {
   ex: 'http://example.org/',
@@ -93,12 +94,12 @@ function createCommentHeavyDataset(subjects: number, predicatesPerSubject: numbe
 const smallDataset = createDataset(200, 5);
 const largeDataset = createDataset(2000, 6);
 const commentHeavyDataset = createCommentHeavyDataset(1200, 6);
+const alphabeticalSort = new AlphabeticalSortingStrategy();
 
 describe('StatementSerializer benchmark', () => {
   bench('serialize small dataset (1k statements, no sort)', () => {
     serializer.serialize(smallDataset, {
       prefixes,
-      sort: false,
       blankLinesBetweenSubjects: true
     });
   }, stableBenchOptions);
@@ -106,7 +107,6 @@ describe('StatementSerializer benchmark', () => {
   bench('serialize large dataset (12k statements, no sort)', () => {
     serializer.serialize(largeDataset, {
       prefixes,
-      sort: false,
       blankLinesBetweenSubjects: true
     });
   }, stableBenchOptions);
@@ -114,7 +114,7 @@ describe('StatementSerializer benchmark', () => {
   bench('serialize large dataset (12k statements, sort enabled)', () => {
     serializer.serialize(largeDataset, {
       prefixes,
-      sort: true,
+      sortingStrategy: alphabeticalSort,
       blankLinesBetweenSubjects: true
     });
   }, stableBenchOptions);
@@ -122,7 +122,7 @@ describe('StatementSerializer benchmark', () => {
   bench('serialize comment-heavy dataset (7.2k statements, no sort)', () => {
     serializer.serialize(commentHeavyDataset, {
       prefixes,
-      sort: false,
+      sortingStrategy: alphabeticalSort,
       blankLinesBetweenSubjects: true
     });
   }, stableBenchOptions);
@@ -130,7 +130,7 @@ describe('StatementSerializer benchmark', () => {
   bench('serialize comment-heavy dataset (7.2k statements, sort enabled)', () => {
     serializer.serialize(commentHeavyDataset, {
       prefixes,
-      sort: true,
+      sortingStrategy: alphabeticalSort,
       blankLinesBetweenSubjects: true
     });
   }, stableBenchOptions);
@@ -138,7 +138,7 @@ describe('StatementSerializer benchmark', () => {
   bench('serialize large dataset (12k statements, assumeSorted)', () => {
     serializer.serialize(largeDataset, {
       prefixes,
-      sort: true,
+      sortingStrategy: alphabeticalSort,
       assumeSorted: true,
       blankLinesBetweenSubjects: true
     });

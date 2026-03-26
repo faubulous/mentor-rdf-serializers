@@ -32,6 +32,7 @@ These options control the visual layout of Turtle, TriG, and SPARQL output:
 | `alignPredicates` | `boolean` | `false` | Align predicates in columns |
 | `alignObjects` | `boolean` | `false` | Align objects in columns (requires `alignPredicates`) |
 | `blankNodeStyle` | `'labeled' \| 'inline' \| 'auto'` | `'auto'` | How to format blank nodes |
+| `inlineSingleUseBlankNodes` | `boolean` | `true` | In pretty-print mode, serialize single-use blank nodes locally as `[ ... ]` where possible |
 | `objectListStyle` | `'single-line' \| 'multi-line' \| 'auto'` | `'auto'` | How to format multiple objects |
 | `predicateListStyle` | `'single-line' \| 'multi-line' \| 'first-same-line'` | `'first-same-line'` | How to format predicate lists |
 | `blankLinesBetweenSubjects` | `boolean` | `true` | Insert blank lines between subject blocks |

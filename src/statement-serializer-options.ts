@@ -42,4 +42,12 @@ export interface StatementSerializerOptions {
      * (`PREFIX` / `BASE`).  Default: `false`.
      */
     lowercaseDirectives?: boolean;
+
+    /**
+     * Whether to serialize single-use blank nodes as local property lists
+     * (`[ ... ]`) when pretty printing.
+     *
+     * Default: `true`.
+     */
+    inlineSingleUseBlankNodes?: boolean;
 }

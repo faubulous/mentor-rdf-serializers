@@ -101,6 +101,7 @@ export class StatementSerializer {
         const sortingStrategy = options?.sortingStrategy ?? false;
         const assumeSorted = options?.assumeSorted ?? false;
         const lowercaseDirectives = options?.lowercaseDirectives ?? false;
+        const inlineSingleUseBlankNodes = options?.inlineSingleUseBlankNodes ?? true;
 
         // Sort if requested and not already sorted.
         const sortedContexts = (sortingStrategy && !assumeSorted) ? this.sort(contexts, sortingStrategy) : contexts;
@@ -131,6 +132,7 @@ export class StatementSerializer {
             lowercaseDirectives,
             lineEnd,
             emitDirectives: false,
+            inlineSingleUseBlankNodes,
         };
 
         // Group contexts by subject for pretty-printed output with

@@ -176,6 +176,10 @@ export class TurtleSerializer extends QuadSerializerBase {
             return new Map();
         }
 
+        if (!opts.prettyPrint || !opts.inlineSingleUseBlankNodes) {
+            return new Map();
+        }
+
         const blankNodeRefs = new Map<string, number>();
         const blankNodeDefs = new Map<string, Map<string, Array<Quad | Rdf12Quad>>>();
 

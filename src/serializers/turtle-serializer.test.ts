@@ -234,6 +234,52 @@ describe('TurtleSerializer', () => {
                 // Should use labeled form since b0 is referenced twice
                 expect(result).toContain('_:b0');
             });
+
+            it('should inline single-use blank nodes when prettyPrint and inlineSingleUseBlankNodes are enabled', () => {
+                const quads = [
+                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
+                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('test'))
+                ];
+
+                const result = serializer.serialize(quads, {
+                    prettyPrint: true,
+                    inlineSingleUseBlankNodes: true,
+                });
+
+                expect(result).toContain('[');
+                expect(result).toContain(']');
+                expect(result).not.toContain('_:b0');
+            });
+
+            it('should not inline single-use blank nodes when inlineSingleUseBlankNodes is disabled', () => {
+                const quads = [
+                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
+                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('test'))
+                ];
+
+                const result = serializer.serialize(quads, {
+                    prettyPrint: true,
+                    inlineSingleUseBlankNodes: false,
+                });
+
+                expect(result).toContain('_:b0');
+                expect(result).not.toContain('[');
+            });
+
+            it('should not inline single-use blank nodes in compact mode', () => {
+                const quads = [
+                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
+                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('test'))
+                ];
+
+                const result = serializer.serialize(quads, {
+                    prettyPrint: false,
+                    inlineSingleUseBlankNodes: true,
+                });
+
+                expect(result).toContain('_:b0');
+                expect(result).not.toContain('[');
+            });
         });
 
         describe('objectListStyle', () => {
