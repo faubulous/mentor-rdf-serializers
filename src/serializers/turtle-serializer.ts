@@ -3,7 +3,7 @@ import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
 import { Rdf12Quad, TripleTerm } from '../utilities/types';
 import { QuadSerializerBase } from '../quad-serializer-base';
 import { SerializationResult } from '../serialization-result';
-import { SerializerOptions } from '../serializer-options';
+import { SerializationOptions } from '../serialization-options';
 import { hasAnnotations, hasReifier, groupQuadsBySubjectPredicate } from '../utilities/quads';
 
 /**
@@ -40,7 +40,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      * Serializes a single quad/triple to Turtle format.
      * Note: For full Turtle formatting with grouping, use serialize().
      */
-    serializeQuad(quad: Quad | Rdf12Quad, options?: SerializerOptions): string {
+    serializeQuad(quad: Quad | Rdf12Quad, options?: SerializationOptions): string {
         const opts = this.getOptions(options);
 
         const subject = this.serializeTerm(quad.subject, opts);
@@ -65,7 +65,7 @@ export class TurtleSerializer extends QuadSerializerBase {
     /**
      * Serializes multiple quads to Turtle format with full formatting.
      */
-    serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): string {
+    serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): string {
         const opts = this.getOptions(options);
         const quadArray = Array.from(quads);
 
@@ -118,7 +118,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     private serializeGrouped(
         grouped: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
-        opts: Required<SerializerOptions>
+        opts: Required<SerializationOptions>
     ): string {
         const parts: string[] = [];
         const indent = opts.prettyPrint ? opts.indent : '';
@@ -170,7 +170,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     private findInlineBlankNodes(
         grouped: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
-        opts: Required<SerializerOptions>
+        opts: Required<SerializationOptions>
     ): Map<string, Map<string, Array<Quad | Rdf12Quad>>> {
         if (opts.blankNodeStyle === 'labeled') {
             return new Map();
@@ -220,7 +220,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     private calculatePredicateWidth(
         grouped: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
-        opts: Required<SerializerOptions>
+        opts: Required<SerializationOptions>
     ): number {
         let maxWidth = 0;
         for (const predicateMap of grouped.values()) {
@@ -238,7 +238,7 @@ export class TurtleSerializer extends QuadSerializerBase {
     private serializeSubjectBlock(
         subject: NamedNode | BlankNode | TripleTerm,
         predicateMap: Map<string, Array<Quad | Rdf12Quad>>,
-        opts: Required<SerializerOptions>,
+        opts: Required<SerializationOptions>,
         indent: string,
         lineEnd: string,
         alignWidth: number,
@@ -286,7 +286,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     private serializeObjectWithInlineBlankNode(
         quad: Quad | Rdf12Quad,
-        opts: Required<SerializerOptions>,
+        opts: Required<SerializationOptions>,
         inlineBlankNodes: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
         indent: string
     ): string {
@@ -310,7 +310,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     private serializeInlineBlankNode(
         predicateMap: Map<string, Array<Quad | Rdf12Quad>>,
-        opts: Required<SerializerOptions>,
+        opts: Required<SerializationOptions>,
         baseIndent: string
     ): string {
         const innerIndent = baseIndent + opts.indent;
@@ -343,7 +343,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     private formatObjectList(
         objects: string[],
-        opts: Required<SerializerOptions>,
+        opts: Required<SerializationOptions>,
         indent: string,
         lineOffset: number
     ): string {
@@ -378,7 +378,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     private formatMultiLineObjects(
         objects: string[],
-        opts: Required<SerializerOptions>,
+        opts: Required<SerializationOptions>,
         indent: string
     ): string {
         const lineEnd = opts.lineEnd;
@@ -395,7 +395,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     private serializeObjectWithAnnotations(
         quad: Quad | Rdf12Quad,
-        opts: Required<SerializerOptions>
+        opts: Required<SerializationOptions>
     ): string {
         let result = this.serializeTerm(quad.object, opts);
 
@@ -412,7 +412,7 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     private serializeAnnotations(
         annotations: Rdf12Quad[],
-        opts: Required<SerializerOptions>
+        opts: Required<SerializationOptions>
     ): string {
         if (annotations.length === 0) {
             return '';
@@ -436,7 +436,7 @@ export class TurtleSerializer extends QuadSerializerBase {
         predicate: NamedNode,
         object: NamedNode | BlankNode | TripleTerm,
         reifier: NamedNode | BlankNode | undefined,
-        opts: Required<SerializerOptions>
+        opts: Required<SerializationOptions>
     ): string {
         const s = this.serializeTerm(subject, opts);
         const p = this.serializeTerm(predicate, opts);
@@ -453,7 +453,7 @@ export class TurtleSerializer extends QuadSerializerBase {
     /**
      * Formats quads with detailed result information.
      */
-    override format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): SerializationResult {
+    override format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): SerializationResult {
         const warnings: string[] = [];
         const quadArray = Array.from(quads);
 

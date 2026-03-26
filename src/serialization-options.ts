@@ -3,7 +3,7 @@ import { QuadSortingStrategy, QuadComparator } from "./quad-sorting-strategy";
 /**
  * Configuration options for serializers.
  */
-export interface SerializerOptions {
+export interface SerializationOptions {
     /**
      * The base IRI for relative IRI resolution.
      */
@@ -151,7 +151,7 @@ export type PredicateListStyle = 'single-line' | 'multi-line' | 'first-same-line
 /**
  * Default serializer options.
  */
-export const DEFAULT_OPTIONS: Required<SerializerOptions> = {
+export const DEFAULT_OPTIONS: Required<SerializationOptions> = {
     alignObjects: false,
     alignPredicates: false,
     baseIri: '',

@@ -1,6 +1,6 @@
 import { IToken, TokenType, TokenMetadata } from '@faubulous/mentor-rdf-parsers';
 import { RdfToken } from '@faubulous/mentor-rdf-parsers';
-import { SerializerOptions } from './serializer-options';
+import { SerializationOptions } from './serialization-options';
 import { mergeOptions } from './quad-serializer-base';
 
 /**
@@ -153,7 +153,7 @@ export interface BaseFormatterContext {
 /**
  * Options common to all token-based formatters.
  */
-export interface BaseFormatterOptions extends SerializerOptions {
+export interface BaseFormatterOptions extends SerializationOptions {
     /**
      * Add a space before punctuation (. and ;). Default: false.
      */
@@ -541,7 +541,7 @@ export abstract class TokenFormatterBase<
      * @param options User-provided options (may be partial).
      * @returns The merged options with defaults applied.
      */
-    protected mergeBaseOptions(options?: SerializerOptions): Required<SerializerOptions> {
+    protected mergeBaseOptions(options?: SerializationOptions): Required<SerializationOptions> {
         return mergeOptions(options);
     }
 }

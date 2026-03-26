@@ -4,9 +4,10 @@ import { Rdf12Quad, Rdf12Term, TripleTerm } from './utilities/types';
 import { RDF, XSD } from './ontologies';
 import { IQuadSerializer } from './quad-serializer.interface';
 import { SerializationResult } from './serialization-result';
-import { SerializerOptions, DEFAULT_OPTIONS } from './serializer-options';
+import { SerializationOptions, DEFAULT_OPTIONS } from './serialization-options';
 import { escapeLocalName, escapeIri, escapeString } from "./utilities/escaping";
 import { isInteger, isDecimal, isDouble, needsLongString } from "./utilities/literals";
+import { normalizeBlankNodeId } from './utilities/blank-nodes';
 import { findPrefix } from "./utilities/prefixes";
 
 /**
@@ -37,17 +38,17 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     /**
      * Serializes a single quad to a string.
      */
-    abstract serializeQuad(quad: Quad | Rdf12Quad, options?: SerializerOptions): string;
+    abstract serializeQuad(quad: Quad | Rdf12Quad, options?: SerializationOptions): string;
 
     /**
      * Serializes an array of quads to a string.
      */
-    abstract serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): string;
+    abstract serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): string;
 
     /**
      * Serializes quads with formatting, returning detailed result.
      */
-    format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): SerializationResult {
+    format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): SerializationResult {
         return {
             output: this.serialize(quads, options)
         };
@@ -56,7 +57,7 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     /**
      * Serializes a named node (IRI).
      */
-    protected serializeNamedNode(node: NamedNode, options: Required<SerializerOptions>): string {
+    protected serializeNamedNode(node: NamedNode, options: Required<SerializationOptions>): string {
         // Check for rdf:type shorthand
         if (this.supportsRdfTypeShorthand && options.useRdfTypeShorthand && node.value === RDF.type) {
             return 'a';
@@ -78,14 +79,14 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     /**
      * Serializes a blank node.
      */
-    protected serializeBlankNode(node: BlankNode, _options: Required<SerializerOptions>): string {
-        return `_:${node.value}`;
+    protected serializeBlankNode(node: BlankNode, _options: Required<SerializationOptions>): string {
+        return `_:${normalizeBlankNodeId(node.value)}`;
     }
 
     /**
      * Serializes a literal value.
      */
-    protected serializeLiteral(literal: Literal, options: Required<SerializerOptions>): string {
+    protected serializeLiteral(literal: Literal, options: Required<SerializationOptions>): string {
         const value = literal.value;
         const datatype = literal.datatype?.value;
         const language = literal.language;
@@ -143,14 +144,14 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     /**
      * Serializes a SPARQL variable.
      */
-    protected serializeVariable(variable: Variable, _options: Required<SerializerOptions>): string {
+    protected serializeVariable(variable: Variable, _options: Required<SerializationOptions>): string {
         return `?${variable.value}`;
     }
 
     /**
      * Serializes an RDF 1.2 Triple Term.
      */
-    protected serializeTripleTerm(tripleTerm: TripleTerm, options: Required<SerializerOptions>): string {
+    protected serializeTripleTerm(tripleTerm: TripleTerm, options: Required<SerializationOptions>): string {
         if (!this.supportsRdf12) {
             throw new Error('Triple terms are not supported in this format');
         } else {
@@ -165,7 +166,7 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     /**
      * Serializes any RDF term.
      */
-    protected serializeTerm(term: Term | Rdf12Term, options: Required<SerializerOptions>): string {
+    protected serializeTerm(term: Term | Rdf12Term, options: Required<SerializationOptions>): string {
         switch (term.termType) {
             case 'DefaultGraph':
                 return '';
@@ -187,7 +188,7 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     /**
      * Gets merged options with defaults.
      */
-    protected getOptions(options?: SerializerOptions): Required<SerializerOptions> {
+    protected getOptions(options?: SerializationOptions): Required<SerializationOptions> {
         return mergeOptions(options);
     }
 }
@@ -195,7 +196,7 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
 /**
  * Merges user options with defaults.
  */
-export function mergeOptions(options?: SerializerOptions): Required<SerializerOptions> {
+export function mergeOptions(options?: SerializationOptions): Required<SerializationOptions> {
     return {
         ...DEFAULT_OPTIONS,
         ...options,

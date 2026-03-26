@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { resetBlankNodeCounter, generateBlankNodeId } from './blank-nodes';
+import { resetBlankNodeCounter, generateBlankNodeId, normalizeBlankNodeId } from './blank-nodes';
 
 describe('generateBlankNodeId', () => {
     beforeEach(() => {
@@ -28,5 +28,23 @@ describe('resetBlankNodeCounter', () => {
         generateBlankNodeId();
         resetBlankNodeCounter();
         expect(generateBlankNodeId()).toBe('b0');
+    });
+});
+
+describe('normalizeBlankNodeId', () => {
+    it('should strip a leading blank node prefix', () => {
+        expect(normalizeBlankNodeId('_:genid100')).toBe('genid100');
+    });
+
+    it('should strip repeated leading prefixes', () => {
+        expect(normalizeBlankNodeId('_:_:genid100')).toBe('genid100');
+    });
+
+    it('should repair invalid characters', () => {
+        expect(normalizeBlankNodeId('bad id')).toBe('bad_u20_id');
+    });
+
+    it('should avoid trailing dot in serialized labels', () => {
+        expect(normalizeBlankNodeId('node.')).toBe('node._');
     });
 });

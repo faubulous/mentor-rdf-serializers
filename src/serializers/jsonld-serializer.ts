@@ -3,17 +3,18 @@ import type { BlankNode, Literal, NamedNode, Quad, Term } from '@rdfjs/types';
 import { Rdf12Quad, Rdf12Term, TripleTerm } from '../utilities/types';
 import { RDF, XSD } from '../ontologies';
 import { SerializationResult } from '../serialization-result';
-import { SerializerOptions } from '../serializer-options';
+import { SerializationOptions } from '../serialization-options';
 import { IQuadSerializer } from '../quad-serializer.interface';
 import { mergeOptions } from '../quad-serializer-base';
 import { findPrefix } from '../utilities/prefixes';
 import { groupQuadsByGraph, groupQuadsBySubject } from '../utilities/quads';
 import { parseLanguageTag } from '../utilities/terms';
+import { normalizeBlankNodeId } from '../utilities/blank-nodes';
 
 /**
  * JSON-LD specific options.
  */
-export interface JsonLdSerializerOptions extends SerializerOptions {
+export interface JsonLdSerializerOptions extends SerializationOptions {
     /**
      * Whether to use @type shorthand instead of rdf:type.
      * Default: true
@@ -205,7 +206,7 @@ export class JsonLdSerializer implements IQuadSerializer {
         if (subject.termType === 'NamedNode') {
             node['@id'] = this.compactIri((subject as NamedNode).value, opts);
         } else if (subject.termType === 'BlankNode') {
-            node['@id'] = `_:${(subject as BlankNode).value}`;
+            node['@id'] = `_:${normalizeBlankNodeId((subject as BlankNode).value)}`;
         } else if (subject.termType === 'TripleTerm') {
             // Handle RDF 1.2 triple term subjects
             // JSON-LD doesn't directly support this, so we represent as reified statement
@@ -266,7 +267,7 @@ export class JsonLdSerializer implements IQuadSerializer {
                     return { '@id': term.value };
                 }
             case 'BlankNode':
-                return { '@id': `_:${term.value}` };
+                return { '@id': `_:${normalizeBlankNodeId(term.value)}` };
             case 'Literal':
                 return this.buildLiteralValue(term as Literal, opts);
             case 'TripleTerm':
@@ -367,7 +368,7 @@ export class JsonLdSerializer implements IQuadSerializer {
         }
 
         if (term.termType === 'BlankNode') {
-            return `_:${term.value}`;
+            return `_:${normalizeBlankNodeId(term.value)}`;
         }
 
         return '';

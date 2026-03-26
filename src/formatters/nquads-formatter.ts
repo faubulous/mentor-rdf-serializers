@@ -1,6 +1,6 @@
 import { IToken, RdfSyntax, RdfToken, NQuadsLexer } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from '../serialization-result';
-import { SerializerOptions } from '../serializer-options';
+import { SerializationOptions } from '../serialization-options';
 import { mergeOptions } from '../quad-serializer-base';
 import { TokenSerializerOptions } from '../token-serializer';
 import { ITokenFormatter } from '../token-formatter.interface';
@@ -8,7 +8,7 @@ import { ITokenFormatter } from '../token-formatter.interface';
 /**
  * N-Quads-specific formatting options.
  */
-export interface NQuadsFormatterOptions extends SerializerOptions {
+export interface NQuadsFormatterOptions extends SerializationOptions {
     /**
      * Whether to normalize whitespace to single spaces.
      * Default: true

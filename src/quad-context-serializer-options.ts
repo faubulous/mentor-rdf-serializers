@@ -3,7 +3,7 @@ import { QuadSortingStrategy } from "./quad-sorting-strategy";
 /**
  * Options for {@link StatementSerializer.serialize}.
  */
-export interface StatementSerializerOptions {
+export interface QuadContextSerializerOptions {
     /**
      * Prefix mappings for compacting IRIs and emitting prefix declarations.
      */

@@ -1,17 +1,18 @@
 import DataFactory from '@rdfjs/data-model';
 import { bench, describe } from 'vitest';
 import { IToken, QuadContext } from '@faubulous/mentor-rdf-parsers';
-import { StatementSerializer } from './statement-serializer';
+import { QuadContextSerializer } from './quad-context-serializer';
 import { TurtleSerializer } from './serializers/turtle-serializer';
 import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy';
+import { _RDF } from './ontologies';
 
 const prefixes = {
   ex: 'http://example.org/',
-  rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+  rdf: _RDF,
   rdfs: 'http://www.w3.org/2000/01/rdf-schema#'
 };
 
-const serializer = new StatementSerializer(new TurtleSerializer());
+const serializer = new QuadContextSerializer(new TurtleSerializer());
 
 const stableBenchOptions = {
   time: 2000,

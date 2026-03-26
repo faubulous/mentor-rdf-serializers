@@ -1,7 +1,7 @@
 import { Quad } from "@rdfjs/types";
 import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
 import { Rdf12Quad } from "./utilities/types";
-import { SerializerOptions } from "./serializer-options";
+import { SerializationOptions } from "./serialization-options";
 import { SerializationResult } from "./serialization-result";
 
 /**
@@ -16,15 +16,15 @@ export interface IQuadSerializer {
     /**
      * Serializes a single quad to a string.
      */
-    serializeQuad(quad: Quad | Rdf12Quad, options?: SerializerOptions): string;
+    serializeQuad(quad: Quad | Rdf12Quad, options?: SerializationOptions): string;
 
     /**
      * Serializes an array of quads to a string.
      */
-    serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): string;
+    serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): string;
 
     /**
      * Serializes quads to a string with formatting applied.
      */
-    format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): SerializationResult;
+    format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): SerializationResult;
 }

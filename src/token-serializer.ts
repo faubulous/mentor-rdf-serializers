@@ -1,6 +1,6 @@
 import { IToken, RdfToken } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from './serialization-result';
-import { SerializerOptions } from './serializer-options';
+import { SerializationOptions } from './serialization-options';
 import { SourceMapEntry } from './utilities/source-map-entry';
 import { mergeOptions } from './quad-serializer-base';
 
@@ -349,7 +349,7 @@ export class TokenSerializer {
 /**
  * Options for token-based serialization.
  */
-export interface TokenSerializerOptions extends SerializerOptions {
+export interface TokenSerializerOptions extends SerializationOptions {
     /**
      * Whether to preserve the original blank node IDs from tokens.
      * When true, uses the blankNodeId from token payloads.

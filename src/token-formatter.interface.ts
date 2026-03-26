@@ -1,6 +1,6 @@
 import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
 import { SerializationResult } from "./serialization-result";
-import { SerializerOptions } from "./serializer-options";
+import { SerializationOptions } from "./serialization-options";
 
 /**
  * Interface for RDF text formatters (Turtle, N-Triples, etc.).
@@ -14,10 +14,10 @@ export interface ITokenFormatter {
     /**
      * Formats RDF text input.
      */
-    formatFromText(input: string, options?: SerializerOptions): SerializationResult;
+    formatFromText(input: string, options?: SerializationOptions): SerializationResult;
 
     /**
      * Formats from already-parsed tokens.
      */
-    formatFromTokens(tokens: unknown[], options?: SerializerOptions): SerializationResult;
+    formatFromTokens(tokens: unknown[], options?: SerializationOptions): SerializationResult;
 }

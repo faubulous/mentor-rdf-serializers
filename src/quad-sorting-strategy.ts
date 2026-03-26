@@ -7,8 +7,8 @@ import { Rdf12Quad } from "./utilities/types.js";
 export type QuadComparator = (a: Quad | Rdf12Quad, b: Quad | Rdf12Quad) => number;
 
 /**
- * Strategy for sorting quads.
- * Supports pluggable sorting algorithms with optional preparation step.
+ * A strategy for sorting quads that supports pluggable sorting 
+ * algorithms with optional preparation step.
  */
 export interface QuadSortingStrategy {
     /**

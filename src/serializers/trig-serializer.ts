@@ -3,7 +3,7 @@ import { Quad } from '@rdfjs/types';
 import { Rdf12Quad } from '../utilities/types';
 import { TurtleSerializer } from './turtle-serializer';
 import { SerializationResult } from '../serialization-result';
-import { SerializerOptions } from '../serializer-options';
+import { SerializationOptions } from '../serialization-options';
 import { groupQuadsByGraph, groupQuadsBySubjectPredicate, hasAnnotations } from '../utilities/quads';
 
 /**
@@ -20,7 +20,7 @@ export class TrigSerializer extends TurtleSerializer {
     /**
      * Serializes multiple quads to TriG format with full formatting.
      */
-    override serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): string {
+    override serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): string {
         const opts = this.getOptions(options);
         const quadArray = Array.from(quads);
 
@@ -111,7 +111,7 @@ export class TrigSerializer extends TurtleSerializer {
     /**
      * Serializes a triple without the terminating period.
      */
-    private serializeTripleOnly(quad: Quad | Rdf12Quad, opts: Required<SerializerOptions>): string {
+    private serializeTripleOnly(quad: Quad | Rdf12Quad, opts: Required<SerializationOptions>): string {
         const subject = this.serializeTerm(quad.subject, opts);
         const predicate = this.serializeTerm(quad.predicate, opts);
         const object = this.serializeTerm(quad.object, opts);
@@ -131,7 +131,7 @@ export class TrigSerializer extends TurtleSerializer {
      */
     private serializeAnnotationsInternal(
         annotations: Rdf12Quad[],
-        opts: Required<SerializerOptions>
+        opts: Required<SerializationOptions>
     ): string {
         if (annotations.length === 0) {
             return '';
@@ -151,7 +151,7 @@ export class TrigSerializer extends TurtleSerializer {
      */
     private serializeGraphContent(
         grouped: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
-        opts: Required<SerializerOptions>,
+        opts: Required<SerializationOptions>,
         baseIndent: string
     ): string {
         const parts: string[] = [];
@@ -194,7 +194,7 @@ export class TrigSerializer extends TurtleSerializer {
      */
     private serializeObjectWithAnnotationsInternal(
         quad: Quad | Rdf12Quad,
-        opts: Required<SerializerOptions>
+        opts: Required<SerializationOptions>
     ): string {
         let result = this.serializeTerm(quad.object, opts);
 
@@ -208,7 +208,7 @@ export class TrigSerializer extends TurtleSerializer {
     /**
      * Formats quads with detailed result information.
      */
-    override format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): SerializationResult {
+    override format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): SerializationResult {
         return {
             output: this.serialize(quads, options)
         };

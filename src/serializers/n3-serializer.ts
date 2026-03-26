@@ -3,14 +3,14 @@ import { Quad, Term, Variable } from '@rdfjs/types';
 import { Rdf12Quad, TripleTerm, Formula, QuickVariable } from '../utilities/types';
 import { TurtleSerializer } from './turtle-serializer';
 import { SerializationResult } from '../serialization-result';
-import { SerializerOptions } from '../serializer-options';
+import { SerializationOptions } from '../serialization-options';
 
 export type N3Term = Term | TripleTerm | Formula | QuickVariable;
 
 /**
  * N3-specific options extending standard serializer options.
  */
-export interface N3SerializerOptions extends SerializerOptions {
+export interface N3SerializerOptions extends SerializationOptions {
     /**
      * Whether to use the => shorthand for log:implies.
      * Default: true
@@ -159,7 +159,7 @@ export class N3Serializer extends TurtleSerializer {
      * @param _opts The N3 serialization options.
      * @returns The serialized variable.
      */
-    protected override serializeVariable(variable: Variable, _opts: Required<SerializerOptions>): string {
+    protected override serializeVariable(variable: Variable, _opts: Required<SerializationOptions>): string {
         return `?${variable.value}`;
     }
 

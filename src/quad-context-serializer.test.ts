@@ -1,13 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
 import { TurtleLexer, TurtleParser, TurtleReader } from '@faubulous/mentor-rdf-parsers';
-import { StatementSerializer } from './statement-serializer';
+import { QuadContextSerializer } from './quad-context-serializer';
 import { TurtleSerializer } from './serializers/turtle-serializer';
 import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 const PREFIX = [
     '@prefix ex: <http://example.org/> .',
@@ -34,18 +30,11 @@ function parseWithComments(input: string) {
     return { contexts, tokens: lexResult.tokens, reader };
 }
 
-const statementSerializer = new StatementSerializer(new TurtleSerializer());
+const statementSerializer = new QuadContextSerializer(new TurtleSerializer());
 
 const alphabeticalSort = new AlphabeticalSortingStrategy();
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-describe('StatementSerializer', () => {
-    // ====================================================================
-    // QuadContext shape
-    // ====================================================================
+describe('QuadContextSerializer', () => {
     describe('QuadContext shape', () => {
         it('should expose RDF/JS quad fields directly', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
@@ -67,9 +56,6 @@ describe('StatementSerializer', () => {
         });
     });
 
-    // ====================================================================
-    // addStatements
-    // ====================================================================
     describe('addStatements', () => {
         it('should merge new quads into existing contexts', () => {
             const input = PREFIX + '# Existing\nex:A ex:p ex:B .';
@@ -109,9 +95,6 @@ describe('StatementSerializer', () => {
         });
     });
 
-    // ====================================================================
-    // sort
-    // ====================================================================
     describe('sort', () => {
         it('should sort contexts alphabetically', () => {
             const input = PREFIX + 'ex:Z ex:p "a" .\nex:A ex:q "b" .';
@@ -141,9 +124,6 @@ describe('StatementSerializer', () => {
         });
     });
 
-    // ====================================================================
-    // serialize
-    // ====================================================================
     describe('serialize', () => {
         it('should serialize contexts preserving leading comments', () => {
             const input = [
@@ -272,6 +252,29 @@ describe('StatementSerializer', () => {
             expect(aIdx).toBeLessThan(zIdx);
         });
 
+        it('should not emit duplicated blank node prefixes when sorting', () => {
+            const contexts = statementSerializer.addStatements([], [
+                DataFactory.quad(
+                    DataFactory.blankNode('genid200'),
+                    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                    DataFactory.namedNode('http://www.w3.org/2002/07/owl#Class')
+                ),
+                DataFactory.quad(
+                    DataFactory.blankNode('_:genid100'),
+                    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                    DataFactory.namedNode('http://www.w3.org/2002/07/owl#Class')
+                ),
+            ]);
+
+            const output = statementSerializer.serialize(contexts, {
+                prefixes: { owl: 'http://www.w3.org/2002/07/owl#' },
+                sortingStrategy: alphabeticalSort,
+            });
+
+            expect(output).toContain('_:genid100 a owl:Class .');
+            expect(output).not.toContain('_:_:genid100');
+        });
+
         it('should not emit prefix block when prefixes is empty', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
@@ -394,9 +397,6 @@ describe('StatementSerializer', () => {
         });
     });
 
-    // ====================================================================
-    // Pretty-printed subject grouping
-    // ====================================================================
     describe('pretty-printed subject grouping', () => {
         it('should group multiple predicates for the same subject using semicolons', () => {
             const input = [

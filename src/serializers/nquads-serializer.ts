@@ -3,7 +3,7 @@ import { Quad } from '@rdfjs/types';
 import { Rdf12Quad } from '../utilities/types';
 import { QuadSerializerBase } from '../quad-serializer-base';
 import { SerializationResult } from '../serialization-result';
-import { SerializerOptions } from '../serializer-options';
+import { SerializationOptions } from '../serialization-options';
 
 /**
  * Serializer for N-Quads format (RDF 1.2 compatible).
@@ -36,7 +36,7 @@ export class NQuadsSerializer extends QuadSerializerBase {
      * @param options Serialization options.
      * @returns The serialized N-Quad string.
      */
-    serializeQuad(quad: Quad | Rdf12Quad, options?: SerializerOptions): string {
+    serializeQuad(quad: Quad | Rdf12Quad, options?: SerializationOptions): string {
         const opts = this.getOptions(options);
 
         const subject = this.serializeTerm(quad.subject, opts);
@@ -60,7 +60,7 @@ export class NQuadsSerializer extends QuadSerializerBase {
      * @param options Serialization options.
      * @returns The serialized N-Quads string.
      */
-    serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): string {
+    serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): string {
         const opts = this.getOptions(options);
         const quadArray = Array.from(quads);
         const lines: string[] = [];
@@ -75,7 +75,7 @@ export class NQuadsSerializer extends QuadSerializerBase {
     /**
      * Formats quads with detailed result information.
      */
-    override format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializerOptions): SerializationResult {
+    override format(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): SerializationResult {
         return {
             output: this.serialize(quads, options)
         };

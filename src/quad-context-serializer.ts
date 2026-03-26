@@ -1,9 +1,8 @@
 import { Quad } from '@rdfjs/types';
 import { QuadContext, IToken } from '@faubulous/mentor-rdf-parsers';
 import { IQuadSerializer } from './quad-serializer.interface';
-import { SerializerOptions, SortingOption } from './serializer-options';
-import { StatementSerializerOptions } from './statement-serializer-options';
-import { QuadSortingStrategy } from './quad-sorting-strategy';
+import { SerializationOptions, SortingOption } from './serialization-options';
+import { QuadContextSerializerOptions } from './quad-context-serializer-options';
 import { QuadSorter } from './quad-sorter';
 
 /**
@@ -11,7 +10,7 @@ import { QuadSorter } from './quad-sorter';
  * document string, preserving source comments and emitting prefix/base
  * declarations automatically.
  */
-export class StatementSerializer {
+export class QuadContextSerializer {
     /**
      * Shared synthetic token for contexts created from external quads.
      */
@@ -93,7 +92,7 @@ export class StatementSerializer {
      * @param options  Serialization options.
      * @returns The complete serialized document string.
      */
-    serialize(contexts: QuadContext[], options?: StatementSerializerOptions,): string {
+    serialize(contexts: QuadContext[], options?: QuadContextSerializerOptions,): string {
         const prefixes = options?.prefixes ?? {};
         const baseIri = options?.baseIri ?? '';
         const lineEnd = options?.lineEnd ?? '\n';
@@ -126,7 +125,7 @@ export class StatementSerializer {
             parts.push('');
         }
 
-        const serializerOpts: SerializerOptions = {
+        const serializerOpts: SerializationOptions = {
             prefixes,
             baseIri: baseIri || undefined,
             lowercaseDirectives,

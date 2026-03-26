@@ -1,6 +1,6 @@
 import { IToken, RdfSyntax, RdfToken, NTriplesLexer } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from '../serialization-result';
-import { SerializerOptions } from '../serializer-options';
+import { SerializationOptions } from '../serialization-options';
 import { ITokenFormatter } from '../token-formatter.interface';
 import { TokenSerializerOptions } from '../token-serializer';
 import { mergeOptions } from '../quad-serializer-base';
@@ -8,7 +8,7 @@ import { mergeOptions } from '../quad-serializer-base';
 /**
  * N-Triples-specific formatting options.
  */
-export interface NTriplesFormatterOptions extends SerializerOptions {
+export interface NTriplesFormatterOptions extends SerializationOptions {
     /**
      * Whether to normalize whitespace to single spaces.
      * Default: true

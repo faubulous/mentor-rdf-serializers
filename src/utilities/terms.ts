@@ -1,5 +1,6 @@
 import type { Literal, Term } from '@rdfjs/types';
 import type { Rdf12Term, TripleTerm, Reifier } from './types.js';
+import { normalizeBlankNodeId } from './blank-nodes';
 
 /**
  * Checks if a term is an RDF 1.2 Triple Term.
@@ -29,7 +30,7 @@ export function termToString(term: Term | Rdf12Term): string {
             return `<${v}>`;
         }
         case 'BlankNode': {
-            const v = term.value;
+            const v = normalizeBlankNodeId(term.value);
             return `_:${v}`;
         }
         case 'Literal': {
