@@ -3,7 +3,7 @@ import { QuadContext, IToken } from '@faubulous/mentor-rdf-parsers';
 import { IQuadSerializer } from './quad-serializer.interface';
 import { SerializerOptions, SortingOption } from './serializer-options';
 import { StatementSerializerOptions } from './statement-serializer-options';
-import { SortingStrategy } from './sorting-strategy';
+import { QuadSortingStrategy } from './quad-sorting-strategy';
 import { QuadSorter } from './quad-sorter';
 
 /**

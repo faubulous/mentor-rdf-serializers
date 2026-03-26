@@ -187,7 +187,7 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     /**
      * Gets merged options with defaults.
      */
-    protected getOptions(options?: SerializerOptions): SerializerOptions {
+    protected getOptions(options?: SerializerOptions): Required<SerializerOptions> {
         return mergeOptions(options);
     }
 }
@@ -195,7 +195,7 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
 /**
  * Merges user options with defaults.
  */
-export function mergeOptions(options?: SerializerOptions): SerializerOptions {
+export function mergeOptions(options?: SerializerOptions): Required<SerializerOptions> {
     return {
         ...DEFAULT_OPTIONS,
         ...options,

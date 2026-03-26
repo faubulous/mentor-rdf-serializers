@@ -1,4 +1,4 @@
-import { SortingStrategy, QuadComparator } from "./sorting-strategy";
+import { QuadSortingStrategy, QuadComparator } from "./quad-sorting-strategy";
 
 /**
  * Configuration options for serializers.
@@ -113,7 +113,7 @@ export interface SerializerOptions {
 /**
  * Types of sorting methods for serializers.
  */
-export type SortingOption = boolean | SortingStrategy | QuadComparator;
+export type SortingOption = boolean | QuadSortingStrategy | QuadComparator;
 
 /**
  * Blank node formatting style.
@@ -142,7 +142,7 @@ export type PredicateListStyle = 'single-line' | 'multi-line' | 'first-same-line
 /**
  * Default serializer options.
  */
-export const DEFAULT_OPTIONS: SerializerOptions = {
+export const DEFAULT_OPTIONS: Required<SerializerOptions> = {
     alignObjects: false,
     alignPredicates: false,
     baseIri: '',
@@ -158,7 +158,7 @@ export const DEFAULT_OPTIONS: SerializerOptions = {
     predicateListStyle: 'first-same-line',
     prefixes: {},
     prettyPrint: true,
-    sort: undefined,
+    sort: false,
     useRdfTypeShorthand: true,
     blankNodeIdGenerator: (counter: number) => `b${counter}`
 };

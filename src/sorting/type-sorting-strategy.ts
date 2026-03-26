@@ -1,7 +1,7 @@
 import type { Quad } from '@rdfjs/types';
 import type { Rdf12Quad } from '@src/utilities/types';
 import { RDF } from '@src/ontologies/index';
-import { SortingStrategy } from '@src/sorting-strategy';
+import { QuadSortingStrategy } from '@src/quad-sorting-strategy';
 import { termToString } from '@src/utilities/terms';
 
 export interface TypeSortingStrategyConfig {
@@ -19,7 +19,7 @@ export interface TypeSortingStrategyConfig {
 /**
  * Groups quads by rdf:type, then sorts alphabetically within each type.
  */
-export class TypeSortingStrategy implements SortingStrategy {
+export class TypeSortingStrategy implements QuadSortingStrategy {
     private readonly unmatchedPosition: 'start' | 'end';
 
     private readonly secondarySort: 'alphabetical' | 'none';

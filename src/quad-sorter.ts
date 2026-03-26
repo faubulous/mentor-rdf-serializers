@@ -1,5 +1,5 @@
 import type { Quad } from '@rdfjs/types';
-import type { QuadComparator, SortingStrategy } from './sorting-strategy';
+import type { QuadComparator, QuadSortingStrategy } from './quad-sorting-strategy';
 import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy';
 import { Rdf12Quad } from './utilities/types';
 
@@ -9,7 +9,7 @@ import { Rdf12Quad } from './utilities/types';
 export class QuadSorter {
     private static readonly defaultAlphabeticalStrategy = new AlphabeticalSortingStrategy();
 
-    static sort(quads: Array<Quad | Rdf12Quad>, strategy: boolean | SortingStrategy | QuadComparator): Array<Quad | Rdf12Quad> {
+    static sort(quads: Array<Quad | Rdf12Quad>, strategy: boolean | QuadSortingStrategy | QuadComparator): Array<Quad | Rdf12Quad> {
         if (strategy === false) {
             return quads;
         }

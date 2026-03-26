@@ -1,6 +1,6 @@
 import type { Quad } from '@rdfjs/types';
 import type { Rdf12Quad } from '@src/utilities/types';
-import { SortingStrategy } from '@src/sorting-strategy';
+import { QuadSortingStrategy } from '@src/quad-sorting-strategy';
 import { termToString } from '@src/utilities/terms';
 
 export interface SemanticSortingStrategyConfig {
@@ -13,7 +13,7 @@ export interface SemanticSortingStrategyConfig {
 /**
  * Semantic ordering based on subject dependencies.
  */
-export class SemanticSortingStrategy implements SortingStrategy {
+export class SemanticSortingStrategy implements QuadSortingStrategy {
     private readonly cyclesPosition: 'start' | 'end';
 
     private readonly subjectOrder = new Map<string, number>();

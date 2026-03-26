@@ -1,12 +1,12 @@
 import type { Quad } from '@rdfjs/types';
 import type { Rdf12Quad } from '../utilities/types';
-import { SortingStrategy } from '@src/sorting-strategy';
+import { QuadSortingStrategy } from '@src/quad-sorting-strategy';
 import { termToString } from '@src/utilities/terms';
 
 /**
  * Alphabetical sorting by subject, predicate, object.
  */
-export class AlphabeticalSortingStrategy implements SortingStrategy {
+export class AlphabeticalSortingStrategy implements QuadSortingStrategy {
     readonly name = 'alphabetical';
 
     compare(a: Quad | Rdf12Quad, b: Quad | Rdf12Quad): number {

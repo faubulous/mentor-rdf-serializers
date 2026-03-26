@@ -10,10 +10,15 @@ export type QuadComparator = (a: Quad | Rdf12Quad, b: Quad | Rdf12Quad) => numbe
  * Strategy for sorting quads.
  * Supports pluggable sorting algorithms with optional preparation step.
  */
-export interface SortingStrategy {
-    /** Compare two quads for sorting. Returns negative if a < b, positive if a > b, 0 if equal. */
+export interface QuadSortingStrategy {
+    /**
+     * Compare two quads for sorting.
+     */
     compare: QuadComparator;
 
-    /** Optional: pre-process quads to build indexes for efficient sorting */
+    /**
+     * Pre-process quads to build indexes for efficient sorting.
+     * @param quads - The quads to prepare for sorting
+     */
     prepare?(quads: Array<Quad | Rdf12Quad>): void;
 }

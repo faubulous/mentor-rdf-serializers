@@ -1,6 +1,6 @@
 import type { Quad } from '@rdfjs/types';
 import type { Rdf12Quad } from '../utilities/types';
-import type { SortingStrategy } from '../sorting-strategy';
+import type { QuadSortingStrategy } from '../quad-sorting-strategy';
 import { termToString } from '@src/utilities/terms';
 import { RDF } from '@src/ontologies/index';
 
@@ -24,7 +24,7 @@ export interface PriorityStrategyConfig {
 /**
  * Priority-based sorting using type and optional predicate precedence.
  */
-export class PrioritySortingStrategy implements SortingStrategy {
+export class PrioritySortingStrategy implements QuadSortingStrategy {
     private readonly typeOrder: string[];
 
     private readonly predicateOrder: string[];

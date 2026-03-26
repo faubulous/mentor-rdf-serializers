@@ -1,4 +1,4 @@
-import { SortingStrategy } from "./sorting-strategy";
+import { QuadSortingStrategy } from "./quad-sorting-strategy";
 
 /**
  * Options for {@link StatementSerializer.serialize}.
@@ -28,7 +28,7 @@ export interface StatementSerializerOptions {
     /**
      * The sorting strategy to use for reordering statements.
      */
-    sortingStrategy?: SortingStrategy;
+    sortingStrategy?: QuadSortingStrategy;
 
     /**
      * When `true`, skip the sort stage even if `sortingStrategy` is specified.  Use this
