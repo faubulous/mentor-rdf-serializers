@@ -52,12 +52,13 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@rdfjs/data-model": "^2.1.0",
-    "@faubulous/mentor-rdf-parsers": "^1.7.0"
+    "@faubulous/mentor-rdf-parsers": "^1.7.0",
+    "@rdfjs/data-model": "^2.1.0"
   },
   "devDependencies": {
     "@rdfjs/types": "^2.0.1",
     "@types/rdfjs__data-model": "^2.0.9",
+    "@vitest/coverage-v8": "^4.0.18",
     "chevrotain": "^11.2.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
