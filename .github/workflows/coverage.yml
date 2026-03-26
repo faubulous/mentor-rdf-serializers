@@ -3,12 +3,15 @@ name: Test Coverage
 on:
   push:
     branches:
-      - '**'
+      - main
   pull_request:
+
+concurrency:
+  group: coverage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   coverage:
@@ -50,7 +53,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: coverage/lcov.info
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
       - name: Build coverage summary markdown
         id: coverage-summary
@@ -96,8 +99,27 @@ jobs:
       - name: Add coverage summary to job output
         run: cat coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Upload coverage summary for PR comment
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: coverage-summary.md
+          if-no-files-found: error
+
+  coverage-pr-comment:
+    if: github.event_name == 'pull_request'
+    needs: coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Download coverage summary
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-summary
+
       - name: Publish sticky PR coverage comment
-        if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           path: coverage-summary.md

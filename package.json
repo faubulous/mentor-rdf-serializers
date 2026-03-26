@@ -44,11 +44,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
     "bench": "vitest bench --run",
     "bench:stable": "vitest bench --run",
     "bench:baseline": "node scripts/run-bench-baseline.mjs",
     "bench:watch": "vitest bench",
     "build": "tsc",
+    "check:pack": "npm pack --dry-run",
+    "ci:quality": "npm run typecheck && npm test && npm run build && npm run check:pack",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
