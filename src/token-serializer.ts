@@ -1,7 +1,7 @@
 import { IToken, RdfToken } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from './serialization-result';
 import { SerializerOptions } from './serializer-options';
-import { SourceMapEntry } from './source-map-entry';
+import { SourceMapEntry } from './utilities/source-map-entry';
 import { mergeOptions } from './serializer-base';
 
 /**

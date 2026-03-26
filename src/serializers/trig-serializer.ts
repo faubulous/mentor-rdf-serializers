@@ -1,14 +1,10 @@
 import { RdfSyntax} from '@faubulous/mentor-rdf-parsers';
 import { Quad } from '@rdfjs/types';
-import { Rdf12Quad } from '@src/types';
+import { Rdf12Quad } from '@src/utilities/types';
 import { TurtleSerializer } from '@src/serializers/turtle-serializer';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';
-import {
-    groupQuadsByGraph,
-    groupQuadsBySubjectPredicate,
-    hasAnnotations
-} from '@src/utilities/utils';
+import { groupQuadsByGraph, groupQuadsBySubjectPredicate, hasAnnotations } from '@src/utilities/quads';
 
 /**
  * Serializer for TriG format (RDF 1.2 compatible).

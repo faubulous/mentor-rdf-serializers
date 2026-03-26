@@ -1,6 +1,6 @@
 import { RdfSyntax } from '@faubulous/mentor-rdf-parsers';
 import { Quad, Term, Variable } from '@rdfjs/types';
-import { Rdf12Quad, TripleTerm, Formula, QuickVariable } from '@src/types';
+import { Rdf12Quad, TripleTerm, Formula, QuickVariable } from '@src/utilities/types';
 import { TurtleSerializer } from '@src/serializers/turtle-serializer';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';

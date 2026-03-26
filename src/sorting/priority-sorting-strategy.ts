@@ -1,8 +1,8 @@
 import type { Quad } from '@rdfjs/types';
-import type { Rdf12Quad } from '../types';
+import type { Rdf12Quad } from '../utilities/types';
 import type { SortingStrategy } from '../sorting-strategy';
-import { termToString } from '../utilities/utils';
-import { RDF } from '../ontologies/index';
+import { termToString } from '@src/utilities/terms';
+import { RDF } from '@src/ontologies/index';
 
 /**
  * Configuration for priority-based sorting strategy.

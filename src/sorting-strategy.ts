@@ -1,5 +1,5 @@
 import { Quad } from "@rdfjs/types";
-import { Rdf12Quad } from "./types.js";
+import { Rdf12Quad } from "./utilities/types.js";
 
 /**
  * Comparator function for sorting quads.

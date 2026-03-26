@@ -1,14 +1,10 @@
 import type { BlankNode, NamedNode, Quad } from '@rdfjs/types';
 import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
-import { Rdf12Quad, TripleTerm } from '@src/types';
+import { Rdf12Quad, TripleTerm } from '@src/utilities/types';
 import { SerializerBase } from '@src/serializer-base';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';
-import {
-    groupQuadsBySubjectPredicate,
-    hasAnnotations,
-    hasReifier
-} from '@src/utilities/utils';
+import { hasAnnotations, hasReifier, groupQuadsBySubjectPredicate } from '@src/utilities/quads';
 
 /**
  * Serializer for Turtle format (RDF 1.2 compatible).

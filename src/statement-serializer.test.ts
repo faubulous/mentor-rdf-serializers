@@ -3,6 +3,7 @@ import DataFactory from '@rdfjs/data-model';
 import { TurtleLexer, TurtleParser, TurtleReader } from '@faubulous/mentor-rdf-parsers';
 import { StatementSerializer } from './statement-serializer';
 import { TurtleSerializer } from './serializers/turtle-serializer';
+import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,6 +35,8 @@ function parseWithComments(input: string) {
 }
 
 const statementSerializer = new StatementSerializer(new TurtleSerializer());
+
+const alphabeticalSort = new AlphabeticalSortingStrategy();
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -114,7 +117,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:Z ex:p "a" .\nex:A ex:q "b" .';
             const { contexts } = parseWithComments(input);
 
-            const sorted = statementSerializer.sort(contexts, true);
+            const sorted = statementSerializer.sort(contexts, alphabeticalSort);
 
             expect(sorted[0].subject.value).toBe('http://example.org/A');
             expect(sorted[1].subject.value).toBe('http://example.org/Z');
@@ -130,7 +133,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
             const { contexts } = parseWithComments(input);
 
-            const sorted = statementSerializer.sort(contexts, true);
+            const sorted = statementSerializer.sort(contexts, alphabeticalSort);
 
             // Comments should travel with their quads
             expect(sorted[0].leadingComments?.[0]?.image).toBe('# Comment for A');
@@ -262,7 +265,7 @@ describe('StatementSerializer', () => {
             const input = PREFIX + 'ex:Z ex:p ex:B .\nex:A ex:q ex:D .';
             const { contexts } = parseWithComments(input);
 
-            const output = statementSerializer.serialize(contexts, { prefixes, sort: true });
+            const output = statementSerializer.serialize(contexts, { prefixes, sortingStrategy: alphabeticalSort });
 
             const aIdx = output.indexOf('ex:A');
             const zIdx = output.indexOf('ex:Z');
@@ -311,7 +314,7 @@ describe('StatementSerializer', () => {
             const merged = statementSerializer.addStatements(contexts, [newQuad]);
             const output = statementSerializer.serialize(merged, {
                 prefixes,
-                sort: true,
+                sortingStrategy: alphabeticalSort,
                 blankLinesBetweenSubjects: true,
             });
 
@@ -426,7 +429,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = statementSerializer.serialize(contexts, { prefixes, sort: true });
+            const output = statementSerializer.serialize(contexts, { prefixes, sortingStrategy: alphabeticalSort });
 
             // After sorting, ex:A should come before ex:B
             const aIdx = output.indexOf('ex:A a rdfs:Class');
@@ -527,7 +530,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = statementSerializer.serialize(contexts, { prefixes, sort: true });
+            const output = statementSerializer.serialize(contexts, { prefixes, sortingStrategy: alphabeticalSort });
 
             // After alphabetical sorting: ex:Person before ex:hasName
             // (P < h in default locale — let's just verify grouping)
@@ -557,7 +560,7 @@ describe('StatementSerializer', () => {
             ].join('\n');
 
             const { contexts } = parseWithComments(input);
-            const output = statementSerializer.serialize(contexts, { prefixes, sort: true });
+            const output = statementSerializer.serialize(contexts, { prefixes, sortingStrategy: alphabeticalSort });
 
             // After sorting: A before Z
             const aIdx = output.indexOf('ex:A');

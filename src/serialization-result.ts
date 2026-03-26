@@ -1,4 +1,4 @@
-import { SourceMapEntry } from "./source-map-entry";
+import { SourceMapEntry } from "./utilities/source-map-entry";
 
 /**
  * Result of a serialization operation.

@@ -1,53 +1,9 @@
 import { Quad } from '@rdfjs/types';
-import { QuadSorter } from './quad-sorter';
 import { QuadContext, IToken } from '@faubulous/mentor-rdf-parsers';
-import { SerializerOptions, SortOption } from './serializer-options';
 import { ISerializer } from './serializer.interface';
-
-/**
- * Options for {@link StatementSerializer.serialize}.
- */
-export interface StatementSerializerOptions {
-    /**
-     * Prefix mappings for compacting IRIs and emitting prefix declarations.
-     */
-    prefixes?: Record<string, string>;
-
-    /**
-     * Base IRI for the document.  When set, a `BASE` / `@base` declaration
-     * is emitted at the top of the output.
-     */
-    baseIri?: string;
-
-    /**
-     * Line ending string (default: `'\n'`).
-     */
-    lineEnd?: string;
-
-    /**
-     * Whether to insert blank lines between subject blocks (default: `true`).
-     */
-    blankLinesBetweenSubjects?: boolean;
-
-    /**
-     * Sorting option — `false` to disable, `true` for alphabetical,
-     * or a `SortingStrategy` / `QuadComparator` for custom ordering.
-     */
-    sort?: SortOption;
-
-    /**
-     * When `true`, skip the sort stage even if `sort` is specified.  Use this
-     * when the caller has already sorted the contexts and wants to avoid the
-     * O(n log n) overhead.  Default: `false`.
-     */
-    assumeSorted?: boolean;
-
-    /**
-     * Use lowercase directives (`@prefix` / `@base`) instead of uppercase
-     * (`PREFIX` / `BASE`).  Default: `false`.
-     */
-    lowercaseDirectives?: boolean;
-}
+import { SerializerOptions, SortOption } from './serializer-options';
+import { StatementSerializerOptions } from './statement-serializer-options';
+import { SortingStrategy } from './sorting-strategy';
 
 /**
  * Serializes {@link QuadContext | statement contexts} to a complete
@@ -115,11 +71,15 @@ export class StatementSerializer {
      * associated with the correct statement after reordering.
      *
      * @param contexts The statement contexts to sort.
-     * @param sort Sorting option (see {@link SortOption}).
+     * @param strategy Sorting option (see {@link SortOption}).
      * @returns A new sorted array.
      */
-    sort(contexts: QuadContext[], sort: SortOption): QuadContext[] {
-        return QuadSorter.apply(contexts as Quad[], sort) as QuadContext[];
+    sort(contexts: QuadContext[], strategy: SortingStrategy): QuadContext[] {
+        strategy.prepare?.(contexts);
+
+        contexts.sort((a, b) => strategy.compare(a, b));
+
+        return contexts;
     }
 
     /**
@@ -141,12 +101,12 @@ export class StatementSerializer {
         const baseIri = options?.baseIri ?? '';
         const lineEnd = options?.lineEnd ?? '\n';
         const blankLines = options?.blankLinesBetweenSubjects ?? true;
-        const sortOpt = options?.sort ?? false;
+        const sortingStrategy = options?.sortingStrategy ?? false;
         const assumeSorted = options?.assumeSorted ?? false;
         const lowercaseDirectives = options?.lowercaseDirectives ?? false;
 
         // Sort if requested and not already sorted.
-        const sortedContexts = (sortOpt && !assumeSorted) ? this.sort(contexts, sortOpt) : contexts;
+        const sortedContexts = (sortingStrategy && !assumeSorted) ? this.sort(contexts, sortingStrategy) : contexts;
         const parts: string[] = [];
 
         if (baseIri) {
