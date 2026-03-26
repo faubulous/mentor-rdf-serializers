@@ -2,7 +2,7 @@ import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
 import { BlankNode, Literal, NamedNode, Quad, Term, Variable } from '@rdfjs/types';
 import { Rdf12Quad, Rdf12Term, TripleTerm } from './utilities/types';
 import { RDF, XSD } from '@src/ontologies';
-import { ISerializer } from './serializer.interface';
+import { IQuadSerializer } from './quad-serializer.interface';
 import { SerializationResult } from './serialization-result';
 import { SerializerOptions, DEFAULT_OPTIONS } from './serializer-options';
 import { escapeLocalName, escapeIri, escapeString } from "./utilities/escaping";
@@ -13,7 +13,7 @@ import { findPrefix } from "./utilities/prefixes";
  * Abstract base class for RDF serializers. Provides common functionality 
  * for serializing terms and literals.
  */
-export abstract class SerializerBase implements ISerializer {
+export abstract class QuadSerializerBase implements IQuadSerializer {
     /**
      * The RDF syntax supported by this serializer.
      */
@@ -187,7 +187,7 @@ export abstract class SerializerBase implements ISerializer {
     /**
      * Gets merged options with defaults.
      */
-    protected getOptions(options?: SerializerOptions): Required<SerializerOptions> {
+    protected getOptions(options?: SerializerOptions): SerializerOptions {
         return mergeOptions(options);
     }
 }
@@ -195,7 +195,7 @@ export abstract class SerializerBase implements ISerializer {
 /**
  * Merges user options with defaults.
  */
-export function mergeOptions(options?: SerializerOptions): Required<SerializerOptions> {
+export function mergeOptions(options?: SerializerOptions): SerializerOptions {
     return {
         ...DEFAULT_OPTIONS,
         ...options,

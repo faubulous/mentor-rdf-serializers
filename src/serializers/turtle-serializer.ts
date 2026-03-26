@@ -1,7 +1,7 @@
 import type { BlankNode, NamedNode, Quad } from '@rdfjs/types';
 import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
 import { Rdf12Quad, TripleTerm } from '@src/utilities/types';
-import { SerializerBase } from '@src/serializer-base';
+import { QuadSerializerBase } from '@src/quad-serializer-base';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';
 import { hasAnnotations, hasReifier, groupQuadsBySubjectPredicate } from '@src/utilities/quads';
@@ -26,7 +26,7 @@ import { hasAnnotations, hasReifier, groupQuadsBySubjectPredicate } from '@src/u
  * 
  * @see https://www.w3.org/TR/rdf12-turtle/
  */
-export class TurtleSerializer extends SerializerBase {
+export class TurtleSerializer extends QuadSerializerBase {
     readonly syntax: RdfSyntax = RdfSyntax.Turtle;
 
     constructor() {

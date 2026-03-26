@@ -1,4 +1,4 @@
-export * from './serializer-base';
+export * from './quad-serializer-base';
 export * from './sorting';
 export * from './statement-serializer';
 export * from './token-formatter-base';

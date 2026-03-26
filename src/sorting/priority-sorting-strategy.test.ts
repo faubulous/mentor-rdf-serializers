@@ -142,7 +142,7 @@ describe('PrioritySortingStrategy', () => {
             predicateOrder: [RDF_TYPE, RDFS_LABEL, RDFS_COMMENT, RDFS_DOMAIN, RDFS_RANGE]
         });
 
-        const sorted = QuadSorter.apply(quads, strategy);
+        const sorted = QuadSorter.sort(quads, strategy);
 
         expect(termValue(sorted[0].subject)).toBe('http://example.org/onto');
         expect(termValue(sorted[0].predicate)).toBe(RDF_TYPE);

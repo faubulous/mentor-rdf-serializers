@@ -5,9 +5,9 @@ import { SerializerOptions } from "./serializer-options";
 import { SerializationResult } from "./serialization-result";
 
 /**
- * Common interface for all RDF serializers.
+ * Common interface for all serializers that can serialize RDF quads to a string format.
  */
-export interface ISerializer {
+export interface IQuadSerializer {
     /**
      * The RDF syntax this serializer produces.
      */

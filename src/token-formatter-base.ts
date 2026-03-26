@@ -1,7 +1,7 @@
 import { IToken, TokenType, TokenMetadata } from '@faubulous/mentor-rdf-parsers';
 import { RdfToken } from '@faubulous/mentor-rdf-parsers';
 import { SerializerOptions } from './serializer-options';
-import { mergeOptions } from './serializer-base';
+import { mergeOptions } from './quad-serializer-base';
 
 /**
  * Metadata attached to each token during the analysis pass. This captures 

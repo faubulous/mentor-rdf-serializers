@@ -1,7 +1,7 @@
 import { IToken, RdfSyntax, RdfToken, NQuadsLexer } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';
-import { mergeOptions } from '@src/serializer-base';
+import { mergeOptions } from '@src/quad-serializer-base';
 import { TokenSerializerOptions } from '@src/token-serializer';
 import { ITokenFormatter } from '@src/token-formatter.interface';
 

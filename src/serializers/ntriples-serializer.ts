@@ -1,7 +1,7 @@
 import { RdfSyntax} from '@faubulous/mentor-rdf-parsers';
 import { Quad } from '@rdfjs/types';
 import { Rdf12Quad } from '@src/utilities/types';
-import { SerializerBase } from '@src/serializer-base';
+import { QuadSerializerBase } from '@src/quad-serializer-base';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';
 
@@ -15,7 +15,7 @@ import { SerializerOptions } from '@src/serializer-options';
  * 
  * @see https://www.w3.org/TR/rdf12-n-triples/
  */
-export class NTriplesSerializer extends SerializerBase {
+export class NTriplesSerializer extends QuadSerializerBase {
     readonly syntax: RdfSyntax = RdfSyntax.NTriples;
 
     constructor() {

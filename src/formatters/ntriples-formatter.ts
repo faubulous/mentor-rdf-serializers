@@ -3,7 +3,7 @@ import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';
 import { ITokenFormatter } from '@src/token-formatter.interface';
 import { TokenSerializerOptions } from '@src/token-serializer';
-import { mergeOptions } from '@src/serializer-base';
+import { mergeOptions } from '@src/quad-serializer-base';
 
 /**
  * N-Triples-specific formatting options.

@@ -33,12 +33,8 @@ export interface SerializerOptions {
 
     /**
      * Sorting option for quads.
-     * - `false`: no sorting (default)
-     * - `true`: alphabetical sorting by subject, predicate, object
-     * - `SortingStrategy`: use a custom sorting strategy
-     * - `QuadComparator`: use a custom comparator function
      */
-    sort?: SortOption;
+    sort?: SortingOption;
 
     /**
      * Whether to group statements by subject (Turtle/TriG style).
@@ -115,9 +111,9 @@ export interface SerializerOptions {
 }
 
 /**
- * Sort option type - can be boolean, strategy object, or custom comparator.
+ * Types of sorting methods for serializers.
  */
-export type SortOption = boolean | SortingStrategy | QuadComparator;
+export type SortingOption = boolean | SortingStrategy | QuadComparator;
 
 /**
  * Blank node formatting style.
@@ -146,23 +142,23 @@ export type PredicateListStyle = 'single-line' | 'multi-line' | 'first-same-line
 /**
  * Default serializer options.
  */
-export const DEFAULT_OPTIONS: Required<SerializerOptions> = {
+export const DEFAULT_OPTIONS: SerializerOptions = {
+    alignObjects: false,
+    alignPredicates: false,
     baseIri: '',
-    prefixes: {},
+    blankLinesBetweenSubjects: true,
+    blankNodeStyle: 'auto',
+    emitDirectives: true,
+    groupBySubject: true,
     indent: '  ',
     lineEnd: '\n',
-    prettyPrint: true,
-    sort: false,
-    groupBySubject: true,
-    useRdfTypeShorthand: true,
+    lowercaseDirectives: false,
     maxLineWidth: 0,
-    alignPredicates: false,
-    alignObjects: false,
-    blankNodeStyle: 'auto',
     objectListStyle: 'auto',
     predicateListStyle: 'first-same-line',
-    blankLinesBetweenSubjects: true,
-    lowercaseDirectives: false,
-    emitDirectives: true,
+    prefixes: {},
+    prettyPrint: true,
+    sort: undefined,
+    useRdfTypeShorthand: true,
     blankNodeIdGenerator: (counter: number) => `b${counter}`
 };

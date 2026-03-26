@@ -1,5 +1,5 @@
 import { SerializationResult } from "./serialization-result";
-import { ISerializer } from "./serializer.interface";
+import { IQuadSerializer } from "./quad-serializer.interface";
 import { TokenSerializerOptions } from "./token-serializer";
 
 /**
@@ -7,7 +7,7 @@ import { TokenSerializerOptions } from "./token-serializer";
  * This allows serializing directly from parser tokens while preserving
  * source information like blank node IDs.
  */
-export interface ITokenSerializer extends ISerializer {
+export interface ITokenSerializer extends IQuadSerializer {
     /**
      * Serializes from Chevrotain tokens, preserving blank node IDs and source positions.
      */

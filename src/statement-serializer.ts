@@ -1,9 +1,10 @@
 import { Quad } from '@rdfjs/types';
 import { QuadContext, IToken } from '@faubulous/mentor-rdf-parsers';
-import { ISerializer } from './serializer.interface';
-import { SerializerOptions, SortOption } from './serializer-options';
+import { IQuadSerializer } from './quad-serializer.interface';
+import { SerializerOptions, SortingOption } from './serializer-options';
 import { StatementSerializerOptions } from './statement-serializer-options';
 import { SortingStrategy } from './sorting-strategy';
+import { QuadSorter } from './quad-sorter';
 
 /**
  * Serializes {@link QuadContext | statement contexts} to a complete
@@ -32,7 +33,7 @@ export class StatementSerializer {
      * @param serializer The underlying format-specific serializer used to
      *                   render individual quads (e.g. `TurtleSerializer`).
      */
-    constructor(private readonly serializer: ISerializer) { }
+    constructor(private readonly serializer: IQuadSerializer) { }
 
     /**
      * Merges externally created quads into an existing set of statement
@@ -71,15 +72,11 @@ export class StatementSerializer {
      * associated with the correct statement after reordering.
      *
      * @param contexts The statement contexts to sort.
-     * @param strategy Sorting option (see {@link SortOption}).
+     * @param sort Sorting option (see {@link SortOption}).
      * @returns A new sorted array.
      */
-    sort(contexts: QuadContext[], strategy: SortingStrategy): QuadContext[] {
-        strategy.prepare?.(contexts);
-
-        contexts.sort((a, b) => strategy.compare(a, b));
-
-        return contexts;
+    sort(contexts: QuadContext[], sort: SortingOption): QuadContext[] {
+        return QuadSorter.sort(contexts as Quad[], sort) as QuadContext[];
     }
 
     /**

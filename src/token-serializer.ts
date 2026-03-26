@@ -2,7 +2,7 @@ import { IToken, RdfToken } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from './serialization-result';
 import { SerializerOptions } from './serializer-options';
 import { SourceMapEntry } from './utilities/source-map-entry';
-import { mergeOptions } from './serializer-base';
+import { mergeOptions } from './quad-serializer-base';
 
 /**
  * Serializes RDF content directly from parser tokens, preserving source information.

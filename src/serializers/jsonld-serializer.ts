@@ -4,8 +4,8 @@ import { Rdf12Quad, Rdf12Term, TripleTerm } from '@src/utilities/types';
 import { RDF, XSD } from '@src/ontologies';
 import { SerializationResult } from '@src/serialization-result';
 import { SerializerOptions } from '@src/serializer-options';
-import { ISerializer } from '@src/serializer.interface';
-import { mergeOptions } from '@src/serializer-base';
+import { IQuadSerializer } from '@src/quad-serializer.interface';
+import { mergeOptions } from '@src/quad-serializer-base';
 import { findPrefix } from '@src/utilities/prefixes';
 import { groupQuadsByGraph, groupQuadsBySubject } from '@src/utilities/quads';
 import { parseLanguageTag } from '@src/utilities/terms';
@@ -81,7 +81,7 @@ type JsonLdValue = string | number | boolean | JsonLdNode | null;
  * 
  * @see https://www.w3.org/TR/json-ld11/
  */
-export class JsonLdSerializer implements ISerializer {
+export class JsonLdSerializer implements IQuadSerializer {
     readonly syntax: RdfSyntax = RdfSyntax.JsonLd;
 
     /**
