@@ -1,9 +1,9 @@
 import { IToken, RdfSyntax, RdfToken, NTriplesLexer } from '@faubulous/mentor-rdf-parsers';
-import { SerializationResult } from '@src/serialization-result';
-import { SerializerOptions } from '@src/serializer-options';
-import { ITokenFormatter } from '@src/token-formatter.interface';
-import { TokenSerializerOptions } from '@src/token-serializer';
-import { mergeOptions } from '@src/quad-serializer-base';
+import { SerializationResult } from '../serialization-result';
+import { SerializerOptions } from '../serializer-options';
+import { ITokenFormatter } from '../token-formatter.interface';
+import { TokenSerializerOptions } from '../token-serializer';
+import { mergeOptions } from '../quad-serializer-base';
 
 /**
  * N-Triples-specific formatting options.

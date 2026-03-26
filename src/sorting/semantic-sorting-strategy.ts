@@ -1,7 +1,7 @@
 import type { Quad } from '@rdfjs/types';
-import type { Rdf12Quad } from '@src/utilities/types';
-import { QuadSortingStrategy } from '@src/quad-sorting-strategy';
-import { termToString } from '@src/utilities/terms';
+import type { Rdf12Quad } from '../utilities/types';
+import { QuadSortingStrategy } from '../quad-sorting-strategy';
+import { termToString } from '../utilities/terms';
 
 export interface SemanticSortingStrategyConfig {
     /**

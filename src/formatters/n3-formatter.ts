@@ -1,8 +1,8 @@
 import { IToken, RdfSyntax, RdfToken, N3Lexer } from '@faubulous/mentor-rdf-parsers';
-import { ITokenFormatter } from '@src/token-formatter.interface';
-import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from '@src/token-formatter-base';
-import { TokenSerializerOptions } from '@src/token-serializer';
-import { SerializationResult } from '@src/serialization-result';
+import { ITokenFormatter } from '../token-formatter.interface';
+import { TokenFormatterBase, BaseFormatterContext, BaseFormatterOptions } from '../token-formatter-base';
+import { TokenSerializerOptions } from '../token-serializer';
+import { SerializationResult } from '../serialization-result';
 
 /**
  * N3-specific formatting options.

@@ -1,8 +1,8 @@
 import { IToken, RdfSyntax, RdfToken, TrigLexer } from '@faubulous/mentor-rdf-parsers';
-import { TokenFormatterBase, type BaseFormatterContext } from '@src/token-formatter-base';
-import { ITokenFormatter } from '@src/token-formatter.interface';
-import { SerializationResult } from '@src/serialization-result';
-import { TokenSerializerOptions } from '@src/token-serializer';
+import { TokenFormatterBase, BaseFormatterContext } from '../token-formatter-base';
+import { ITokenFormatter } from '../token-formatter.interface';
+import { SerializationResult } from '../serialization-result';
+import { TokenSerializerOptions } from '../token-serializer';
 import { TurtleFormatterOptions } from './turtle-formatter';
 
 // ============================================================================

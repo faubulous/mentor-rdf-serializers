@@ -1,9 +1,9 @@
 import { RdfSyntax } from '@faubulous/mentor-rdf-parsers';
 import { Quad } from '@rdfjs/types';
-import { Rdf12Quad } from '@src/utilities/types';
-import { QuadSerializerBase } from '@src/quad-serializer-base';
-import { SerializationResult } from '@src/serialization-result';
-import { SerializerOptions } from '@src/serializer-options';
+import { Rdf12Quad } from '../utilities/types';
+import { QuadSerializerBase } from '../quad-serializer-base';
+import { SerializationResult } from '../serialization-result';
+import { SerializerOptions } from '../serializer-options';
 
 /**
  * Serializer for N-Quads format (RDF 1.2 compatible).

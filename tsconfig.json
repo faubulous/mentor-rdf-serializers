@@ -16,12 +16,7 @@
     "lib": [
       "ES2022"
     ],
-    "baseUrl": ".",
-    "paths": {
-      "@src/*": [
-        "src/*"
-      ]
-    }
+    "baseUrl": "."
   },
   "include": [
     "src/**/*"

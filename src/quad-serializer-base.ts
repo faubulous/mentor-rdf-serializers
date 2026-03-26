@@ -1,7 +1,7 @@
 import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
 import { BlankNode, Literal, NamedNode, Quad, Term, Variable } from '@rdfjs/types';
 import { Rdf12Quad, Rdf12Term, TripleTerm } from './utilities/types';
-import { RDF, XSD } from '@src/ontologies';
+import { RDF, XSD } from './ontologies';
 import { IQuadSerializer } from './quad-serializer.interface';
 import { SerializationResult } from './serialization-result';
 import { SerializerOptions, DEFAULT_OPTIONS } from './serializer-options';

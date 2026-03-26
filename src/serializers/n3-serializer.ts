@@ -1,9 +1,9 @@
 import { RdfSyntax } from '@faubulous/mentor-rdf-parsers';
 import { Quad, Term, Variable } from '@rdfjs/types';
-import { Rdf12Quad, TripleTerm, Formula, QuickVariable } from '@src/utilities/types';
-import { TurtleSerializer } from '@src/serializers/turtle-serializer';
-import { SerializationResult } from '@src/serialization-result';
-import { SerializerOptions } from '@src/serializer-options';
+import { Rdf12Quad, TripleTerm, Formula, QuickVariable } from '../utilities/types';
+import { TurtleSerializer } from './turtle-serializer';
+import { SerializationResult } from '../serialization-result';
+import { SerializerOptions } from '../serializer-options';
 
 export type N3Term = Term | TripleTerm | Formula | QuickVariable;
 

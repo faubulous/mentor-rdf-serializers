@@ -1,5 +1,5 @@
-import { SerializationResult } from "@src/serialization-result";
-import { SerializerOptions } from "@src/serializer-options";
+import { SerializationResult } from "../serialization-result";
+import { SerializerOptions } from "../serializer-options";
 
 /**
  * Interface for SPARQL formatters.
