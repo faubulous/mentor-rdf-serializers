@@ -269,10 +269,76 @@ describe('QuadContextSerializer', () => {
             const output = statementSerializer.serialize(contexts, {
                 prefixes: { owl: 'http://www.w3.org/2002/07/owl#' },
                 sortingStrategy: alphabeticalSort,
+                inlineSingleUseBlankNodes: false,
             });
 
             expect(output).toContain('_:genid100 a owl:Class .');
             expect(output).not.toContain('_:_:genid100');
+        });
+
+        it('should inline single-use blank nodes in an OWL-style nested text fixture', () => {
+            const input = [
+                '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                '@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .',
+                '@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .',
+                '',
+                '<http://example.org/Process> a owl:Class ;',
+                '  rdfs:subClassOf [',
+                '    a owl:Restriction ;',
+                '    owl:allValuesFrom [',
+                '      a owl:Class ;',
+                '      owl:unionOf (',
+                '        <http://example.org/Process>',
+                '        <http://example.org/Boundary>',
+                '      )',
+                '    ] ;',
+                '    owl:onProperty <http://example.org/hasPart>',
+                '  ] .',
+                '',
+                '<http://example.org/locationOfAtSomeTime>',
+                '  a owl:ObjectProperty ;',
+                '  rdfs:domain [',
+                '    a owl:Class ;',
+                '    owl:intersectionOf (',
+                '      <http://example.org/IndependentContinuant>',
+                '      _:genid66',
+                '    )',
+                '  ] ;',
+                '  rdfs:range [',
+                '    a owl:Class ;',
+                '    owl:intersectionOf (',
+                '      <http://example.org/IndependentContinuant>',
+                '      _:genid70',
+                '    )',
+                '  ] .',
+                '',
+                '_:genid66 a owl:Class ; owl:complementOf <http://example.org/SpatialRegion> .',
+                '_:genid70 a owl:Class ; owl:complementOf <http://example.org/SpatialRegion> .',
+                '',
+                '[] a owl:AllDisjointClasses ;',
+                '   owl:members (',
+                '     <http://example.org/SpatialRegion>',
+                '     <http://example.org/Site>',
+                '     <http://example.org/FiatBoundary>',
+                '   ) .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+
+            const output = statementSerializer.serialize(contexts, {
+                prefixes: {
+                    owl: 'http://www.w3.org/2002/07/owl#',
+                    rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+                    rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+                },
+                inlineSingleUseBlankNodes: true,
+            });
+
+            // Single-use generated/auxiliary blank nodes should be inlined
+            // rather than emitted as standalone top-level subjects.
+            expect(output).not.toMatch(/^_:genid\d+/m);
+            expect(output).not.toMatch(/^_:b\d+/m);
+            expect(output).toContain('owl:AllDisjointClasses');
         });
 
         it('should not emit prefix block when prefixes is empty', () => {

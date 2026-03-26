@@ -124,8 +124,9 @@ export class TurtleSerializer extends QuadSerializerBase {
         const indent = opts.prettyPrint ? opts.indent : '';
         const lineEnd = opts.prettyPrint ? opts.lineEnd : ' ';
 
-        // Build inline blank node map if using auto/inline style
-        const inlineBlankNodes = this.findInlineBlankNodes(grouped, opts);
+        // Build inline blank node map if using auto/inline style.
+        const blankNodeUsage = this.collectBlankNodeUsage(grouped);
+        const inlineBlankNodes = this.findInlineBlankNodes(blankNodeUsage, opts);
 
         // Calculate alignment widths if requested
         const alignWidth = opts.alignPredicates ? this.calculatePredicateWidth(grouped, opts) : 0;
@@ -150,49 +151,51 @@ export class TurtleSerializer extends QuadSerializerBase {
             }
             firstSubject = false;
 
-            const subjectBlock = this.serializeSubjectBlock(
-                firstQuad.subject as NamedNode | BlankNode | TripleTerm,
-                predicateMap,
-                opts,
-                indent,
-                lineEnd,
-                alignWidth,
-                inlineBlankNodes
-            );
+            let subjectBlock: string;
+
+            // Keep unreferenced root blank-node subjects anonymous (`[ ... ]`) when
+            // single-use inlining is enabled to avoid noisy top-level labels.
+            if (
+                firstQuad.subject.termType === 'BlankNode'
+                && this.canInlineSingleUseBlankNodes(opts)
+                && (blankNodeUsage.blankNodeRefs.get(firstQuad.subject.value) || 0) === 0
+            ) {
+                subjectBlock = `${this.serializeInlineBlankNode(predicateMap, opts, '', inlineBlankNodes, new Set())} .`;
+            } else {
+                subjectBlock = this.serializeSubjectBlock(
+                    firstQuad.subject as NamedNode | BlankNode | TripleTerm,
+                    predicateMap,
+                    opts,
+                    indent,
+                    lineEnd,
+                    alignWidth,
+                    inlineBlankNodes
+                );
+            }
+
             parts.push(subjectBlock);
         }
 
         return parts.join(opts.lineEnd);
     }
 
-    /**
-     * Finds blank nodes that can be serialized inline (only referenced once as object).
-     */
-    private findInlineBlankNodes(
-        grouped: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
-        opts: Required<SerializationOptions>
-    ): Map<string, Map<string, Array<Quad | Rdf12Quad>>> {
-        if (opts.blankNodeStyle === 'labeled') {
-            return new Map();
-        }
-
-        if (!opts.prettyPrint || !opts.inlineSingleUseBlankNodes) {
-            return new Map();
-        }
-
+    private collectBlankNodeUsage(
+        grouped: Map<string, Map<string, Array<Quad | Rdf12Quad>>>
+    ): {
+        blankNodeRefs: Map<string, number>;
+        blankNodeDefs: Map<string, Map<string, Array<Quad | Rdf12Quad>>>;
+    } {
         const blankNodeRefs = new Map<string, number>();
         const blankNodeDefs = new Map<string, Map<string, Array<Quad | Rdf12Quad>>>();
 
-        // Count references to blank nodes as objects and collect their definitions
-        for (const [subjectKey, predicateMap] of grouped) {
+        // Count references to blank nodes as objects and collect their definitions.
+        for (const [, predicateMap] of grouped) {
             const firstQuad = predicateMap.values().next().value![0];
 
-            // Track blank node definitions
             if (firstQuad.subject.termType === 'BlankNode') {
                 blankNodeDefs.set(firstQuad.subject.value, predicateMap);
             }
 
-            // Count references as objects
             for (const quads of predicateMap.values()) {
                 for (const quad of quads) {
                     if (quad.object.termType === 'BlankNode') {
@@ -203,10 +206,35 @@ export class TurtleSerializer extends QuadSerializerBase {
             }
         }
 
+        return { blankNodeRefs, blankNodeDefs };
+    }
+
+    private canInlineSingleUseBlankNodes(opts: Required<SerializationOptions>): boolean {
+        if (opts.blankNodeStyle === 'labeled') {
+            return false;
+        }
+
+        return opts.prettyPrint && opts.inlineSingleUseBlankNodes;
+    }
+
+    /**
+     * Finds blank nodes that can be serialized inline (only referenced once as object).
+     */
+    private findInlineBlankNodes(
+        usage: {
+            blankNodeRefs: Map<string, number>;
+            blankNodeDefs: Map<string, Map<string, Array<Quad | Rdf12Quad>>>;
+        },
+        opts: Required<SerializationOptions>
+    ): Map<string, Map<string, Array<Quad | Rdf12Quad>>> {
+        if (!this.canInlineSingleUseBlankNodes(opts)) {
+            return new Map();
+        }
+
         // Keep only blank nodes referenced exactly once
         const inlineBlankNodes = new Map<string, Map<string, Array<Quad | Rdf12Quad>>>();
-        for (const [bnodeId, predicateMap] of blankNodeDefs) {
-            const refCount = blankNodeRefs.get(bnodeId) || 0;
+        for (const [bnodeId, predicateMap] of usage.blankNodeDefs) {
+            const refCount = usage.blankNodeRefs.get(bnodeId) || 0;
             if (refCount === 1) {
                 inlineBlankNodes.set(bnodeId, predicateMap);
             }
@@ -251,7 +279,6 @@ export class TurtleSerializer extends QuadSerializerBase {
         for (let i = 0; i < predicateEntries.length; i++) {
             const [_predicateKey, quads] = predicateEntries[i];
             const isFirst = i === 0;
-            const isLast = i === predicateEntries.length - 1;
 
             let predicateStr = this.serializeTerm(quads[0].predicate, opts);
 
@@ -290,13 +317,13 @@ export class TurtleSerializer extends QuadSerializerBase {
         inlineBlankNodes: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
         indent: string
     ): string {
-        // Check if object is an inline blank node
-        if (quad.object.termType === 'BlankNode' && inlineBlankNodes.has(quad.object.value)) {
-            const bnodePredicateMap = inlineBlankNodes.get(quad.object.value)!;
-            return this.serializeInlineBlankNode(bnodePredicateMap, opts, indent);
-        }
-
-        let result = this.serializeTerm(quad.object, opts);
+        let result = this.serializeTermWithInlineBlankNodes(
+            quad.object,
+            opts,
+            inlineBlankNodes,
+            indent,
+            new Set()
+        );
 
         if (hasAnnotations(quad)) {
             result += ' ' + this.serializeAnnotations((quad as Rdf12Quad).annotations!, opts);
@@ -311,7 +338,9 @@ export class TurtleSerializer extends QuadSerializerBase {
     private serializeInlineBlankNode(
         predicateMap: Map<string, Array<Quad | Rdf12Quad>>,
         opts: Required<SerializationOptions>,
-        baseIndent: string
+        baseIndent: string,
+        inlineBlankNodes: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
+        visiting: Set<string>
     ): string {
         const innerIndent = baseIndent + opts.indent;
         const predicateEntries = Array.from(predicateMap.entries());
@@ -320,7 +349,13 @@ export class TurtleSerializer extends QuadSerializerBase {
         if (predicateEntries.length === 1 && predicateEntries[0][1].length === 1) {
             const quad = predicateEntries[0][1][0];
             const predicate = this.serializeTerm(quad.predicate, opts);
-            const object = this.serializeTerm(quad.object, opts);
+            const object = this.serializeTermWithInlineBlankNodes(
+                quad.object,
+                opts,
+                inlineBlankNodes,
+                innerIndent,
+                visiting
+            );
             return `[ ${predicate} ${object} ]`;
         }
 
@@ -329,13 +364,42 @@ export class TurtleSerializer extends QuadSerializerBase {
         for (let i = 0; i < predicateEntries.length; i++) {
             const [_predicateKey, quads] = predicateEntries[i];
             const predicate = this.serializeTerm(quads[0].predicate, opts);
-            const objects = quads.map(q => this.serializeTerm(q.object, opts));
+            const objects = quads.map(q => this.serializeTermWithInlineBlankNodes(
+                q.object,
+                opts,
+                inlineBlankNodes,
+                innerIndent,
+                visiting
+            ));
             const suffix = i < predicateEntries.length - 1 ? ' ;' : '';
             parts.push(`${innerIndent}${predicate} ${objects.join(' , ')}${suffix}`);
         }
         parts.push(`${baseIndent}]`);
 
         return parts.join(opts.lineEnd);
+    }
+
+    private serializeTermWithInlineBlankNodes(
+        term: Quad['object'] | TripleTerm,
+        opts: Required<SerializationOptions>,
+        inlineBlankNodes: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
+        baseIndent: string,
+        visiting: Set<string>
+    ): string {
+        if (term.termType === 'BlankNode' && inlineBlankNodes.has(term.value)) {
+            if (visiting.has(term.value)) {
+                return this.serializeTerm(term, opts);
+            }
+
+            const nestedPredicateMap = inlineBlankNodes.get(term.value)!;
+            visiting.add(term.value);
+            const inline = this.serializeInlineBlankNode(nestedPredicateMap, opts, baseIndent, inlineBlankNodes, visiting);
+            visiting.delete(term.value);
+
+            return inline;
+        }
+
+        return this.serializeTerm(term, opts);
     }
 
     /**

@@ -280,6 +280,53 @@ describe('TurtleSerializer', () => {
                 expect(result).toContain('_:b0');
                 expect(result).not.toContain('[');
             });
+
+            it('should inline nested single-use blank nodes recursively', () => {
+                const quads = [
+                    DataFactory.quad(
+                        DataFactory.namedNode('http://example.org/s'),
+                        DataFactory.namedNode('http://example.org/p'),
+                        DataFactory.blankNode('b0')
+                    ),
+                    DataFactory.quad(
+                        DataFactory.blankNode('b0'),
+                        DataFactory.namedNode('http://example.org/child'),
+                        DataFactory.blankNode('b1')
+                    ),
+                    DataFactory.quad(
+                        DataFactory.blankNode('b1'),
+                        DataFactory.namedNode('http://example.org/value'),
+                        DataFactory.literal('nested')
+                    )
+                ];
+
+                const result = serializer.serialize(quads, {
+                    prettyPrint: true,
+                    inlineSingleUseBlankNodes: true,
+                });
+
+                expect(result).not.toContain('_:b0');
+                expect(result).not.toContain('_:b1');
+                expect(result).toContain('[ <http://example.org/value> "nested" ]');
+            });
+
+            it('should render unreferenced blank node subjects as anonymous property lists', () => {
+                const quads = [
+                    DataFactory.quad(
+                        DataFactory.blankNode('b0'),
+                        DataFactory.namedNode('http://example.org/p'),
+                        DataFactory.literal('root')
+                    )
+                ];
+
+                const result = serializer.serialize(quads, {
+                    prettyPrint: true,
+                    inlineSingleUseBlankNodes: true,
+                });
+
+                expect(result).not.toContain('_:b0');
+                expect(result).toContain('[ <http://example.org/p> "root" ] .');
+            });
         });
 
         describe('objectListStyle', () => {
