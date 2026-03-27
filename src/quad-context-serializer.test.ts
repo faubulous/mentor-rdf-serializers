@@ -138,6 +138,32 @@ describe('QuadContextSerializer', () => {
             expect(output).toContain('# This is Person\nex:Person a rdfs:Class .');
         });
 
+        it('should not insert a blank line between a comment block and a following class declaration', () => {
+            const input = [
+                PREFIX,
+                '# Clarify the role of ex:Maintainer in the model.',
+                '# This class belongs in the shared ontology layer.',
+                'ex:WorkItem a rdfs:Class ;',
+                '   rdfs:label "Work Item" ;',
+                '   rdfs:comment "A bounded event-driven unit of work that can include sub-activities." ;',
+                '   rdfs:subClassOf ex:Event .',
+            ].join('\n');
+            const { contexts } = parseWithComments(input);
+
+            const output = statementSerializer.serialize(contexts, { prefixes });
+
+            expect(output).toContain([
+                '# Clarify the role of ex:Maintainer in the model.',
+                '# This class belongs in the shared ontology layer.',
+                'ex:WorkItem a rdfs:Class ;',
+            ].join('\n'));
+            expect(output).not.toContain([
+                '# This class belongs in the shared ontology layer.',
+                '',
+                'ex:WorkItem a rdfs:Class ;',
+            ].join('\n'));
+        });
+
         it('should serialize trailing comments', () => {
             const input = PREFIX + 'ex:A ex:p ex:B . # important';
             const { contexts } = parseWithComments(input);

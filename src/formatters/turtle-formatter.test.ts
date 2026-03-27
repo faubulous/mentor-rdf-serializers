@@ -197,6 +197,71 @@ describe('TurtleFormatter', () => {
             // Final closing bracket before ';' should align too
             expect(result.output).toContain('\n  ];');
         });
+
+        it('does not insert empty lines between nested bracket and collection boundaries', () => {
+            const input = [
+                'gist:Account a owl:Class ;',
+                'rdfs:isDefinedBy <https://w3id.org/semanticarts/ontology/gistCore> ;',
+                'owl:equivalentClass [',
+                '    a owl:Class ;',
+                '    owl:intersectionOf (gist:Agreement [',
+                '        a owl:Restriction ;',
+                '        owl:onProperty gist:hasMagnitude ;',
+                '        owl:someValuesFrom gist:Balance ;',
+                '    ]) ;',
+                '] ;',
+                'skos:definition "An agreement having a balance, as in a bank account, or credit card account, or Accounts Receivable account."^^xsd:string ;',
+                'skos:prefLabel "Account"^^xsd:string ;',
+                '.',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                indent: '    ',
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            expect(result.output).not.toContain(';\n\n    ])');
+            expect(result.output).not.toContain(']) ;\n\n] ;');
+            expect(result.output).not.toContain('[\n\n    a owl:Class');
+        });
+
+        it('formats the owl:equivalentClass nested block without internal empty lines', () => {
+            const input = [
+                'gist:Account a owl:Class ;',
+                'rdfs:isDefinedBy <https://w3id.org/semanticarts/ontology/gistCore> ;',
+                'owl:equivalentClass [',
+                '    a owl:Class ;',
+                '    owl:intersectionOf (gist:Agreement [',
+                '        a owl:Restriction ;',
+                '        owl:onProperty gist:hasMagnitude ;',
+                '        owl:someValuesFrom gist:Balance ;',
+                '    ]) ;',
+                '] ;',
+                'skos:definition "An agreement having a balance, as in a bank account, or credit card account, or Accounts Receivable account."^^xsd:string ;',
+                'skos:prefLabel "Account"^^xsd:string ;',
+                '.',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                indent: '    ',
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            const expectedBlock = [
+                '    owl:equivalentClass [',
+                '        a owl:Class;',
+                '        owl:intersectionOf (gist:Agreement [',
+                '            a owl:Restriction;',
+                '            owl:onProperty gist:hasMagnitude;',
+                '            owl:someValuesFrom gist:Balance;',
+                '            ]);',
+                '        ];',
+            ].join('\n');
+
+            expect(result.output).toContain(expectedBlock);
+        });
     });
 
     describe('blankLinesBetweenSubjects', () => {

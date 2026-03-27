@@ -219,8 +219,14 @@ export class TurtleFormatter
                     // The scope's indentLevel represents the indentation at
                     // the point where '[' was seen (the predicate line).
                     const baseIndentLevel = scope.indentLevel;
-                    this.addPart(ctx, le + this.getIndent(baseIndentLevel, ind), le, true);
-                    ctx.lastWasNewline = true;
+
+                    // If a previous token handler already emitted a newline
+                    // and indentation for this line (for example after ';'
+                    // inside a bracket scope), avoid adding another newline.
+                    if (!ctx.lastWasNewline) {
+                        this.addPart(ctx, le + this.getIndent(baseIndentLevel, ind), le, true);
+                        ctx.lastWasNewline = true;
+                    }
                 }
             }
         }
