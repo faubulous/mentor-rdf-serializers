@@ -341,6 +341,75 @@ describe('QuadContextSerializer', () => {
             expect(output).toContain('owl:AllDisjointClasses');
         });
 
+        it('should recursively inline owl:members blank node chains', () => {
+            const input = [
+                '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                '@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .',
+                '@prefix ex: <http://example.org/> .',
+                '',
+                '[] a owl:AllDisjointClasses ;',
+                '   owl:members _:b122 .',
+                '_:b122 rdf:first ex:A ; rdf:rest _:b123 .',
+                '_:b123 rdf:first ex:B ; rdf:rest rdf:nil .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+
+            const output = statementSerializer.serialize(contexts, {
+                prefixes: {
+                    owl: 'http://www.w3.org/2002/07/owl#',
+                    rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+                    ex: 'http://example.org/',
+                },
+                inlineSingleUseBlankNodes: true,
+            });
+
+            expect(output).toContain('owl:members [');
+            expect(output).toContain('rdf:first ex:A');
+            expect(output).toContain('rdf:first ex:B');
+            expect(output).not.toMatch(/owl:members\s+_:[A-Za-z0-9_-]+/);
+            expect(output).not.toMatch(/^_:[A-Za-z0-9_-]+\s+rdf:first/m);
+        });
+
+        it('should recursively inline owl:members chains for multiple sibling disjoint-class blocks', () => {
+            const input = [
+                '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                '@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .',
+                '@prefix ex: <http://example.org/> .',
+                '',
+                '[] a owl:AllDisjointClasses ;',
+                '   owl:members _:b122 .',
+                '_:b122 rdf:first ex:A ; rdf:rest _:b123 .',
+                '_:b123 rdf:first ex:B ; rdf:rest rdf:nil .',
+                '',
+                '[] a owl:AllDisjointClasses ;',
+                '   owl:members _:b124 .',
+                '_:b124 rdf:first ex:C ; rdf:rest _:b125 .',
+                '_:b125 rdf:first ex:D ; rdf:rest rdf:nil .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+
+            const output = statementSerializer.serialize(contexts, {
+                prefixes: {
+                    owl: 'http://www.w3.org/2002/07/owl#',
+                    rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+                    ex: 'http://example.org/',
+                },
+                inlineSingleUseBlankNodes: true,
+            });
+
+            expect((output.match(/owl:AllDisjointClasses/g) ?? []).length).toBe(2);
+            expect((output.match(/owl:members\s+\[/g) ?? []).length).toBe(2);
+            expect(output).toContain('rdf:first ex:A');
+            expect(output).toContain('rdf:first ex:B');
+            expect(output).toContain('rdf:first ex:C');
+            expect(output).toContain('rdf:first ex:D');
+            expect(output).not.toContain('owl:members _:b122');
+            expect(output).not.toContain('owl:members _:b124');
+            expect(output).not.toMatch(/^_:[A-Za-z0-9_-]+\s+rdf:first/m);
+        });
+
         it('should not emit prefix block when prefixes is empty', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);

@@ -150,6 +150,25 @@ export class QuadContextSerializer {
 
         const groupEntries = Array.from(subjectGroups.entries());
 
+        const hasComments = sortedContexts.some(ctx =>
+            (ctx.leadingComments?.length ?? 0) > 0 || !!ctx.trailingComment
+        );
+
+        // When there are no comments to merge back in, serialize in a single
+        // pass so inline blank node decisions can use full-graph context.
+        if (!hasComments) {
+            const body = this.serializer.serialize(sortedContexts, {
+                ...serializerOpts,
+                blankLinesBetweenSubjects: blankLines,
+            });
+
+            if (body) {
+                parts.push(body);
+            }
+
+            return parts.join(lineEnd);
+        }
+
         // Fast path: render all quads in one serializer call and split by
         // subject-block separators. This avoids repeated serializer setup.
         const batchedBody = this.serializer.serialize(sortedContexts, {
