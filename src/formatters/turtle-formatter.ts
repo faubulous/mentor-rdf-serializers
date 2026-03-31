@@ -157,7 +157,15 @@ export class TurtleFormatter
                     lineGap > 1 || (shouldConsumePendingPrefixBlankLine && lineGap <= 1);
 
                 const indentText = this.getIndent(ctx.indentLevel, ind);
-                if (needsBlankLineBeforeComment) {
+                if (ctx.lastWasNewline) {
+                    // A newline+indent was already emitted (e.g. after `;`
+                    // in pretty-print mode).  If the source also had a blank
+                    // line before the comment we still need the extra `le`.
+                    if (needsBlankLineBeforeComment) {
+                        this.addPart(ctx, le + indentText, le, true);
+                    }
+                    // Otherwise nothing — the newline is already there.
+                } else if (needsBlankLineBeforeComment) {
                     this.addPart(ctx, le + le + indentText, le, true);
                 } else {
                     this.addPart(ctx, le + indentText, le, true);
@@ -165,6 +173,23 @@ export class TurtleFormatter
 
                 ctx.lastWasNewline = true;
             } else {
+                // Comment is on the same line as the previous token.
+                // If a newline was already emitted (e.g. after `;`), undo it
+                // so the comment stays inline.
+                if (ctx.lastWasNewline && ctx.parts.length > 0) {
+                    // Remove the trailing newline+indent that was eagerly
+                    // emitted by the previous handler (e.g. handleTurtleSemicolon).
+                    let removed = '';
+                    while (ctx.parts.length > 0) {
+                        const last = ctx.parts[ctx.parts.length - 1];
+                        if (last.includes(le) || last.trim() === '') {
+                            removed = ctx.parts.pop()! + removed;
+                        } else {
+                            break;
+                        }
+                    }
+                    ctx.lastWasNewline = false;
+                }
                 this.addPart(ctx, ' ', le);
             }
         }
@@ -175,6 +200,7 @@ export class TurtleFormatter
         ctx.lastWasComment = true;
         ctx.lastNonWsToken = comment;
         ctx.lastToken = comment;
+        ctx.lastWasNewline = false;
 
         // If a leading comment appears between the prefix block and the first
         // subject, treat the prefix→subject separator as belonging before the
@@ -413,6 +439,10 @@ export class TurtleFormatter
 
             const value = this.formatTokenValue(token, opts);
 
+            // Reset comment tracking — this is a non-comment token.
+            const prevWasComment = ctx.lastWasComment;
+            ctx.lastWasComment = false;
+
             // Track prefix declarations
             if (token.tokenType === RdfToken.TTL_PREFIX || token.tokenType === RdfToken.PREFIX ||
                 token.tokenType === RdfToken.TTL_BASE || token.tokenType === RdfToken.BASE) {
@@ -495,13 +525,50 @@ export class TurtleFormatter
                     ctx.pendingPrefixToSubjectBlankLine = false;
                 }
 
+                // When a leading comment block consumed the prefix→subject
+                // blank line, the source may still have had a blank line
+                // between the last comment and this first subject.  Preserve
+                // it so the visual grouping is maintained.
+                if (
+                    isStatementSubjectToken &&
+                    ctx.opts.prettyPrint &&
+                    ctx.lastSubject === null &&
+                    prevWasComment &&
+                    ctx.lastNonWsToken &&
+                    token.startLine !== undefined &&
+                    ctx.lastNonWsToken.endLine !== undefined
+                ) {
+                    const gapToSubject = token.startLine - ctx.lastNonWsToken.endLine;
+                    if (gapToSubject > 1) {
+                        ctx.needsBlankLine = true;
+                        ctx.needsNewline = true;
+                        ctx.needsSpace = false;
+                    }
+                }
+
                 // Root-level subject separation (before each new subject block)
                 if (isStatementSubjectToken &&
                     ctx.opts.prettyPrint &&
                     ctx.opts.blankLinesBetweenSubjects &&
                     ctx.lastSubject !== null &&
                     token.image !== ctx.lastSubject) {
-                    ctx.needsBlankLine = true;
+                    // When the previous output was a comment, the blank line
+                    // between subject blocks was already emitted before the
+                    // comment (or should not be inserted between comment and
+                    // subject).  Only request it when the last output was NOT
+                    // a comment, unless the source explicitly had a blank
+                    // line between the comment and this subject.
+                    if (prevWasComment &&
+                        ctx.lastNonWsToken &&
+                        token.startLine !== undefined &&
+                        ctx.lastNonWsToken.endLine !== undefined) {
+                        const gapToSubject = token.startLine - ctx.lastNonWsToken.endLine;
+                        if (gapToSubject > 1) {
+                            ctx.needsBlankLine = true;
+                        }
+                    } else {
+                        ctx.needsBlankLine = true;
+                    }
                     ctx.needsNewline = true;
                     ctx.needsSpace = false;
                 }

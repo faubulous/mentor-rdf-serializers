@@ -580,7 +580,25 @@ export class SparqlFormatter
             ctx.lastCommentPartIndex = ctx.parts.length;
             ctx.lastCommentHadBlankLine = false;
         }
-        if (ctx.needsNewline) {
+        // If the comment is on the same source line as the previous non-WS token
+        // but a newline+indent was already emitted (e.g. by handleSparqlSemicolon),
+        // undo the newline so the comment stays inline.
+        const sameSourceLine = ctx.lastNonWsToken &&
+            token.startLine !== undefined && ctx.lastNonWsToken.endLine !== undefined &&
+            token.startLine === ctx.lastNonWsToken.endLine;
+
+        if (sameSourceLine && ctx.lastWasNewline && ctx.parts.length > 0) {
+            while (ctx.parts.length > 0) {
+                const last = ctx.parts[ctx.parts.length - 1];
+                if (last.includes(le) || last.trim() === '') {
+                    ctx.parts.pop();
+                } else {
+                    break;
+                }
+            }
+            ctx.lastWasNewline = false;
+            this.addPart(ctx, ' ', le);
+        } else if (ctx.needsNewline) {
             if (!ctx.lastWasNewline) this.addPart(ctx, le, le, true);
             if (ctx.needsBlankLine) {
                 this.addPart(ctx, le, le, true);

@@ -36,6 +36,132 @@ describe('TurtleFormatter', () => {
 
             expect(result.output).toMatch(/:Test\s+:label\s+"Example"\.\s+# trailing comment/);
         });
+
+        it('should not insert a blank line between a leading comment and a subsequent subject', () => {
+            const input = [
+                '@prefix : <http://example.org/> .',
+                '',
+                ':A a :ClassA .',
+                '',
+                '# Comment for B.',
+                ':B a :ClassB .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            // The comment should directly precede :B without a blank line in between.
+            expect(result.output).toMatch(/# Comment for B\.\n:B/);
+            expect(result.output).not.toMatch(/# Comment for B\.\n\n:B/);
+        });
+
+        it('should not insert blank line between multi-line comment block and subject', () => {
+            const input = [
+                '@prefix : <http://example.org/> .',
+                '',
+                ':A a :ClassA .',
+                '',
+                '# First comment.',
+                '# Second comment.',
+                ':B a :ClassB .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            // Both comments should precede :B with no blank line before it.
+            expect(result.output).toMatch(/# Second comment\.\n:B/);
+            expect(result.output).not.toMatch(/# Second comment\.\n\n:B/);
+        });
+
+        it('should keep inline comment after semicolon on the same line', () => {
+            const input = [
+                '@prefix : <http://example.org/> .',
+                '',
+                ':X a :Class ;',
+                '    :label "Name" ; # inline note',
+                '    :value "42" .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                prettyPrint: true,
+            });
+
+            // The comment should remain on the same line as the semicolon.
+            expect(result.output).toMatch(/; # inline note/);
+            expect(result.output).not.toMatch(/;\n\s*# inline note/);
+        });
+
+        it('should keep inline comment after period on the same line', () => {
+            const input = [
+                ':X a :Class . # end comment',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input);
+
+            expect(result.output).toMatch(/\. # end comment/);
+        });
+
+        it('should preserve blank line between block comment and first subject', () => {
+            const input = [
+                '@prefix : <http://example.org/> .',
+                '',
+                '# Section header',
+                '',
+                ':First a :Class .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            // There should be a blank line between the comment and the subject.
+            expect(result.output).toMatch(/# Section header\n\n:First/);
+        });
+
+        it('should preserve blank line between block comment and subsequent subject', () => {
+            const input = [
+                '@prefix : <http://example.org/> .',
+                '',
+                ':A a :ClassA .',
+                '',
+                '# Section header',
+                '',
+                ':B a :ClassB .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            // There should be a blank line between the comment and the subject.
+            expect(result.output).toMatch(/# Section header\n\n:B/);
+        });
+
+        it('should not insert blank line when comment directly precedes subject on adjacent lines', () => {
+            const input = [
+                '@prefix : <http://example.org/> .',
+                '',
+                ':A a :ClassA .',
+                '',
+                '# Directly before B.',
+                ':B a :ClassB .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            // No blank line between comment and subject.
+            expect(result.output).toMatch(/# Directly before B\.\n:B/);
+        });
     });
 
     describe('newlineAfterSubject', () => {

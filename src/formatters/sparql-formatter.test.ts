@@ -1350,5 +1350,22 @@ LIMIT 100`;
             const idIndent = idLine!.match(/^\s*/)?.[0]?.length ?? 0;
             expect(idIndent).toBeGreaterThan(partIndent);
         });
+
+        it('should keep inline comment after semicolon on the same line', () => {
+            const query = [
+                'SELECT * WHERE {',
+                '    ?item a ex:Item ; # check this',
+                '        ex:name ?name .',
+                '}',
+            ].join('\n');
+
+            const result = formatter.formatFromText(query);
+
+            // The comment should stay on the same line as the semicolon
+            expect(result.output).toMatch(/;\s*# check this/);
+
+            // The comment should NOT appear on a new line after the semicolon
+            expect(result.output).not.toMatch(/;\s*\n\s*# check this/);
+        });
     });
 });
