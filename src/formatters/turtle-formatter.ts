@@ -299,6 +299,7 @@ export class TurtleFormatter
         this.addPart(ctx, '.', le);
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.needsSpace = true;
+        ctx.lastWasNewline = false;
         ctx.inPrefix = false;
         ctx.triplePosition = 0;
         ctx.inlineStatement = false;

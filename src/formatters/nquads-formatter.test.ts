@@ -31,4 +31,18 @@ describe('NQuadsFormatter', () => {
 
         expect(result.output).toBe(invalid);
     });
+
+    it('should preserve blank line between a quad and a following comment', () => {
+        const input = [
+            '<http://example.org/s> <http://example.org/p> <http://example.org/o> <http://example.org/g> .',
+            '',
+            '# Section heading',
+            '<http://example.org/s2> <http://example.org/p2> <http://example.org/o2> <http://example.org/g> .',
+        ].join('\n');
+
+        const result = formatter.formatFromText(input);
+
+        // The blank line before '# Section heading' must survive.
+        expect(result.output).toMatch(/\.\n\n# Section heading/);
+    });
 });

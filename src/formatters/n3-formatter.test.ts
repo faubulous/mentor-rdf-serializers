@@ -85,4 +85,27 @@ describe('N3Formatter', () => {
 
         expect(result.output).toBe(invalid);
     });
+
+    it('should preserve blank line between period and a following comment section', () => {
+        const input = [
+            '@prefix ex: <http://example.org/> .',
+            '',
+            'ex:ShapeA a ex:NodeShape ;',
+            '    ex:property [',
+            '        ex:path ex:name',
+            '    ] .',
+            '',
+            '# Section Two',
+            'ex:ShapeB a ex:NodeShape .',
+        ].join('\n');
+
+        const result = formatter.formatFromText(input, {
+            prettyPrint: true,
+            blankLinesBetweenSubjects: true,
+            spaceBeforePunctuation: true,
+        });
+
+        // The blank line between '] .' and '# Section Two' must survive.
+        expect(result.output).toMatch(/\] \.\n\n# Section Two/);
+    });
 });

@@ -78,12 +78,20 @@ export class NQuadsFormatter implements ITokenFormatter {
 
                 if ((comment.startOffset ?? 0) < (token.startOffset ?? 0)) {
                     if (parts.length > 0) {
+                        // Preserve blank line between previous token and comment.
+                        if (lastNonWsToken &&
+                            comment.startLine !== undefined &&
+                            lastNonWsToken.endLine !== undefined &&
+                            comment.startLine - lastNonWsToken.endLine > 1) {
+                            parts.push(opts.lineEnd);
+                        }
                         parts.push(opts.lineEnd);
                     }
 
                     parts.push(comment.image);
                     parts.push(opts.lineEnd);
 
+                    lastNonWsToken = comment;
                     commentIndex++;
                     needsSpace = false;
                 } else {
@@ -100,6 +108,12 @@ export class NQuadsFormatter implements ITokenFormatter {
             if (token.tokenType === RdfToken.COMMENT) {
                 if (parts.length > 0 && lastNonWsToken?.tokenType !== RdfToken.PERIOD) {
                     parts.push(' ');
+                } else if (parts.length > 0 && lastNonWsToken &&
+                    token.startLine !== undefined &&
+                    lastNonWsToken.endLine !== undefined &&
+                    token.startLine - lastNonWsToken.endLine > 1) {
+                    // Preserve blank line between previous token and comment.
+                    parts.push(opts.lineEnd);
                 }
 
                 parts.push(token.image);

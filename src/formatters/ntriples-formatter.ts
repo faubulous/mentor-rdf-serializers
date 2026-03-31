@@ -77,12 +77,24 @@ export class NTriplesFormatter implements ITokenFormatter {
             // Insert comments that appear before this token
             while (commentIndex < sortedComments.length) {
                 const comment = sortedComments[commentIndex];
+
                 if ((comment.startOffset ?? 0) < (token.startOffset ?? 0)) {
                     if (parts.length > 0) {
+                        // Preserve blank line between previous token and comment.
+                        if (lastNonWsToken &&
+                            comment.startLine !== undefined &&
+                            lastNonWsToken.endLine !== undefined &&
+                            comment.startLine - lastNonWsToken.endLine > 1) {
+                            parts.push(opts.lineEnd);
+                        }
+
                         parts.push(opts.lineEnd);
                     }
+
                     parts.push(comment.image);
                     parts.push(opts.lineEnd);
+
+                    lastNonWsToken = comment;
                     commentIndex++;
                     needsSpace = false;
                 } else {
@@ -99,9 +111,17 @@ export class NTriplesFormatter implements ITokenFormatter {
             if (token.tokenType === RdfToken.COMMENT) {
                 if (parts.length > 0 && lastNonWsToken?.tokenType !== RdfToken.PERIOD) {
                     parts.push(' ');
+                } else if (parts.length > 0 && lastNonWsToken &&
+                    token.startLine !== undefined &&
+                    lastNonWsToken.endLine !== undefined &&
+                    token.startLine - lastNonWsToken.endLine > 1) {
+                    // Preserve blank line between previous token and comment.
+                    parts.push(opts.lineEnd);
                 }
+
                 parts.push(token.image);
                 parts.push(opts.lineEnd);
+
                 needsSpace = false;
                 lastNonWsToken = token;
                 continue;
@@ -111,6 +131,7 @@ export class NTriplesFormatter implements ITokenFormatter {
             if (token.tokenType === RdfToken.PERIOD) {
                 parts.push(' .');
                 parts.push(opts.lineEnd);
+
                 needsSpace = false;
                 lastNonWsToken = token;
                 continue;
@@ -122,6 +143,7 @@ export class NTriplesFormatter implements ITokenFormatter {
             }
 
             parts.push(token.image);
+
             needsSpace = true;
             lastNonWsToken = token;
         }
@@ -130,6 +152,7 @@ export class NTriplesFormatter implements ITokenFormatter {
         while (commentIndex < sortedComments.length) {
             parts.push(sortedComments[commentIndex].image);
             parts.push(opts.lineEnd);
+            
             commentIndex++;
         }
 

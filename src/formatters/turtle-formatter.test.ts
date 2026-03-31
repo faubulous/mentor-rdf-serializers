@@ -162,6 +162,33 @@ describe('TurtleFormatter', () => {
             // No blank line between comment and subject.
             expect(result.output).toMatch(/# Directly before B\.\n:B/);
         });
+
+        it('should preserve blank line between period ending a bracket block and a following comment section', () => {
+            const input = [
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:ShapeA a ex:NodeShape ;',
+                '    ex:property [',
+                '        ex:path ex:name ;',
+                '        ex:minCount 1',
+                '    ] .',
+                '',
+                '# Section Two',
+                'ex:ShapeB a ex:NodeShape ;',
+                '    ex:property [',
+                '        ex:path ex:value',
+                '    ] .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+                spaceBeforePunctuation: true,
+            });
+
+            // The blank line between '] .' and '# Section Two' must survive.
+            expect(result.output).toMatch(/\] \.\n\n# Section Two/);
+        });
     });
 
     describe('newlineAfterSubject', () => {

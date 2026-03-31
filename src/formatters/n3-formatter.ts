@@ -137,7 +137,18 @@ export class N3Formatter extends TokenFormatterBase<N3FormatterContext, N3Format
             if (ctx.lastNonWsToken && comment.startLine !== undefined &&
                 ctx.lastNonWsToken.endLine !== undefined &&
                 comment.startLine > ctx.lastNonWsToken.endLine) {
-                this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+                const lineGap = comment.startLine - ctx.lastNonWsToken.endLine;
+                const indentText = this.getIndent(ctx.indentLevel, ind);
+                if (lineGap > 1) {
+                    // Preserve blank line between previous token and comment.
+                    if (ctx.lastWasNewline) {
+                        this.addPart(ctx, le + indentText, le, true);
+                    } else {
+                        this.addPart(ctx, le + le + indentText, le, true);
+                    }
+                } else {
+                    this.addPart(ctx, le + indentText, le, true);
+                }
                 ctx.lastWasNewline = true;
             } else {
                 this.addPart(ctx, ' ', le);
@@ -146,6 +157,10 @@ export class N3Formatter extends TokenFormatterBase<N3FormatterContext, N3Format
         this.addPart(ctx, comment.image, le);
         ctx.needsNewline = true;
         ctx.needsSpace = false;
+        ctx.lastWasComment = true;
+        ctx.lastNonWsToken = comment;
+        ctx.lastToken = comment;
+        ctx.lastWasNewline = false;
     }
 
     /**
@@ -261,6 +276,7 @@ export class N3Formatter extends TokenFormatterBase<N3FormatterContext, N3Format
         this.addPart(ctx, '.', le);
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.needsSpace = true;
+        ctx.lastWasNewline = false;
         ctx.inPrefix = false;
         ctx.triplePosition = 0;
         ctx.lastSubject = null;
