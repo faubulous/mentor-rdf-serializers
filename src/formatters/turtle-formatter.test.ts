@@ -252,15 +252,61 @@ describe('TurtleFormatter', () => {
             const expectedBlock = [
                 '    owl:equivalentClass [',
                 '        a owl:Class;',
-                '        owl:intersectionOf (gist:Agreement [',
-                '            a owl:Restriction;',
-                '            owl:onProperty gist:hasMagnitude;',
-                '            owl:someValuesFrom gist:Balance;',
-                '            ]);',
-                '        ];',
+                '        owl:intersectionOf (',
+                '            gist:Agreement',
+                '            [',
+                '                a owl:Restriction;',
+                '                owl:onProperty gist:hasMagnitude;',
+                '                owl:someValuesFrom gist:Balance;',
+                '            ]',
+                '        );',
+                '    ];',
             ].join('\n');
 
             expect(result.output).toContain(expectedBlock);
+        });
+
+        it('preserves multiline collection items between adjacent blank-node restrictions', () => {
+            const input = [
+                '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                '@prefix gist: <https://w3id.org/semanticarts/ns/ontology/gist/> .',
+                '@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .',
+                '',
+                'gist:Contract a owl:Class ;',
+                '    owl:equivalentClass [',
+                '        a owl:Class ;',
+                '        owl:intersectionOf (',
+                '            gist:Commitment',
+                '            [',
+                '                a owl:Restriction ;',
+                '                owl:onProperty gist:hasParty ;',
+                '                owl:someValuesFrom [',
+                '                    a owl:Class ;',
+                '                    owl:unionOf (',
+                '                        gist:Organization',
+                '                        gist:Person',
+                '                    ) ;',
+                '                ] ;',
+                '            ]',
+                '            [',
+                '                a owl:Restriction ;',
+                '                owl:onProperty gist:hasDirectPart ;',
+                '                owl:onClass gist:Obligation ;',
+                '                owl:minQualifiedCardinality "2"^^xsd:nonNegativeInteger ;',
+                '            ]',
+                '        ) ;',
+                '    ] .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                indent: '    ',
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            expect(result.output).toContain('owl:intersectionOf (\n            gist:Commitment\n            [');
+            expect(result.output).toContain(']\n            [');
+            expect(result.output).toContain('owl:unionOf (\n                        gist:Organization\n                        gist:Person\n                    )');
         });
     });
 
@@ -385,6 +431,50 @@ describe('TurtleFormatter', () => {
             expect(result.output).toContain('# Section header');
             expect(result.output).toContain('# inline note');
             expect(result.output).toContain('# Another section');
+        });
+    });
+
+    describe('collections (parenthesised lists)', () => {
+        it('should not insert extra newlines inside a single-item inline collection', () => {
+            const input = [
+                '@prefix sh: <http://www.w3.org/ns/shacl#> .',
+                '@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .',
+                '@prefix exsh: <http://example.org/shapes/> .',
+                '',
+                'exsh:Shape a sh:NodeShape ;',
+                '    sh:datatype rdf:langString ;',
+                '    sh:languageIn ("en") ;',
+                '    sh:minCount 1 .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                indent: '    ',
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            // The collection ("en") must stay on one line with no blank lines.
+            expect(result.output).not.toMatch(/\(\s*\n/);
+            expect(result.output).toContain('sh:languageIn ("en")');
+        });
+
+        it('should place the predicate following an inline collection on its own line', () => {
+            const input = [
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:Subject ex:type ex:TypeA ;',
+                '    ex:allowedValues ("a" "b") ;',
+                '    ex:label "test" .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                indent: '    ',
+                prettyPrint: true,
+                blankLinesBetweenSubjects: true,
+            });
+
+            // ex:label must appear on its own indented line, not inlined after the collection semicolon.
+            expect(result.output).toMatch(/ex:allowedValues \("a" "b"\);\n    ex:label "test"\./);
         });
     });
 });

@@ -321,6 +321,15 @@ export abstract class TokenFormatterBase<
     }
 
     /**
+     * Indicates if we are inside a paren scope (RDF collection list).
+     * @param context The formatting context.
+     * @returns `true` if inside a paren scope, `false` otherwise.
+     */
+    protected inParenScope(context: TContext): boolean {
+        return context.scopeStack.some(s => s.type === 'paren');
+    }
+
+    /**
      * Append text to the output and track line length.
      * @param context The formatting context.
      * @param text The text to append.

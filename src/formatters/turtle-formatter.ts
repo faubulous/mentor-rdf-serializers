@@ -184,7 +184,7 @@ export class TurtleFormatter
         }
     }
 
-    protected handleTurtleOpenBracket(ctx: TurtleFormatterContext, token: IToken): void {
+    protected handleTurtleOpenBracket(ctx: TurtleFormatterContext, token: IToken, tokens?: IToken[], tokenIndex?: number): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
         if (ctx.needsNewline) {
@@ -200,6 +200,13 @@ export class TurtleFormatter
         if (token.tokenType === RdfToken.LBRACKET) {
             this.pushScope(ctx, 'bracket', false, false);
             ctx.needsNewline = ctx.opts.prettyPrint;
+        } else if (token.tokenType === RdfToken.LPARENT) {
+            const isMultiLine = ctx.opts.prettyPrint &&
+                tokens !== undefined &&
+                tokenIndex !== undefined &&
+                this.isParenBlockMultiLine(tokens, tokenIndex);
+            this.pushScope(ctx, 'paren', !isMultiLine, isMultiLine);
+            ctx.needsNewline = isMultiLine;
         }
 
         ctx.needsSpace = false;
@@ -229,11 +236,33 @@ export class TurtleFormatter
                     }
                 }
             }
+        } else if (token.tokenType === RdfToken.RPARENT) {
+            const scope = this.currentScope(ctx);
+            if (scope?.type === 'paren') {
+                this.popScope(ctx);
+                if (scope.isMultiLine) {
+                    // In a multi-line collection (...), the closing ')' goes on its own line
+                    // at the scope's base indentation level.
+                    if (!ctx.lastWasNewline) {
+                        this.addPart(ctx, le + this.getIndent(scope.indentLevel, ind), le, true);
+                        ctx.lastWasNewline = true;
+                    }
+                }
+            }
         }
 
         this.addPart(ctx, token.image, le);
         ctx.needsSpace = true;
-        ctx.needsNewline = false;
+
+        // After closing a bracket/paren, if we are now directly inside a multi-line
+        // collection (...), the next element should start on a new line.
+        const outerScope = this.currentScope(ctx);
+        ctx.needsNewline = ctx.opts.prettyPrint &&
+            outerScope?.type === 'paren' && outerScope.isMultiLine;
+        if (ctx.needsNewline) {
+            ctx.needsSpace = false;
+            ctx.lastWasNewline = false;
+        }
     }
 
     protected handleTurtlePeriod(ctx: TurtleFormatterContext): void {
@@ -278,11 +307,16 @@ export class TurtleFormatter
                 const scope = this.currentScope(ctx);
                 const statementBaseIndentLevel = scope ? scope.indentLevel + 1 : 0;
                 ctx.indentLevel = statementBaseIndentLevel + 1;
+                this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+                ctx.lastWasNewline = true;
+            } else {
+                // Inside a blank node property list, defer the newline so that
+                // the next token handler (including ']') can emit it at the
+                // correct indentation level.
+                ctx.lastWasNewline = false;
             }
 
-            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
-            ctx.lastWasNewline = true;
-            ctx.needsNewline = false;
+            ctx.needsNewline = !ctx.lastWasNewline;
             ctx.needsSpace = false;
         } else {
             ctx.needsSpace = true;
@@ -394,7 +428,7 @@ export class TurtleFormatter
 
             // Handle structural tokens
             if (this.isOpeningBracket(token)) {
-                this.handleTurtleOpenBracket(ctx, token);
+                this.handleTurtleOpenBracket(ctx, token, tokens, i);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;
                 continue;
@@ -440,7 +474,8 @@ export class TurtleFormatter
                 this.isTermToken(token) &&
                 ctx.triplePosition === 0 &&
                 !ctx.inPrefix &&
-                !this.inBracketScope(ctx);
+                !this.inBracketScope(ctx) &&
+                !this.inParenScope(ctx);
 
             // Handle triple position tracking
             if (this.isTermToken(token) && ctx.triplePosition === 0 && !ctx.inPrefix) {
@@ -474,7 +509,9 @@ export class TurtleFormatter
                 if (isStatementSubjectToken) {
                     ctx.lastSubject = token.image;
                 }
-                this.detectInlineStatement(ctx, tokens, i, ctx.opts.indent, ctx.opts.maxLineWidth);
+                if (!this.inParenScope(ctx)) {
+                    this.detectInlineStatement(ctx, tokens, i, ctx.opts.indent, ctx.opts.maxLineWidth);
+                }
                 ctx.triplePosition++;
             } else if (this.isTermToken(token) && !ctx.inPrefix) {
                 ctx.triplePosition++;
@@ -497,6 +534,17 @@ export class TurtleFormatter
                 ctx.inlineStatement = false;
                 ctx.needsNewline = true;
                 ctx.needsSpace = false;
+            }
+
+            // When a term is a direct child of a multi-line collection (...),
+            // the next collection item should start on a new line.
+            if (ctx.opts.prettyPrint && !ctx.inPrefix) {
+                const scope = this.currentScope(ctx);
+                if (scope?.type === 'paren' && scope.isMultiLine) {
+                    ctx.needsNewline = true;
+                    ctx.needsSpace = false;
+                    ctx.lastWasNewline = false;
+                }
             }
 
             ctx.lastToken = token;
