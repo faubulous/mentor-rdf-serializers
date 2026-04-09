@@ -410,6 +410,10 @@ export class SparqlFormatter
         if (ctx.opts.predicateListStyle === 'single-line') {
             ctx.needsNewline = false;
             ctx.needsSpace = true;
+        } else if (ctx.opts.prettyPrint && this.inBracketScope(ctx) && this.currentScope(ctx)?.isInline) {
+            // Inside an inline blank node property list — stay on the same line.
+            ctx.needsNewline = false;
+            ctx.needsSpace = true;
         } else if (shouldMultiLine && ctx.opts.prettyPrint) {
             const extra = this.inBracketScope(ctx) ? '' : ind;
             this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind) + extra, le, true);
@@ -479,7 +483,19 @@ export class SparqlFormatter
 
         // Square bracket [ ] → push bracket scope (for blank node property lists)
         if (isLBracket) {
-            this.pushScope(ctx, 'bracket', false, false);
+            const maxLineWidth = ctx.opts.maxLineWidth;
+            let isInlineBracket = false;
+
+            if (ctx.opts.prettyPrint && maxLineWidth > 0) {
+                const blockLength = this.calculateBracketBlockInlineLength(tokens, index);
+                isInlineBracket = blockLength >= 0 && ctx.currentLineLength + blockLength <= maxLineWidth;
+            }
+
+            this.pushScope(ctx, 'bracket', isInlineBracket, false);
+            if (isInlineBracket) {
+                // Emit the space between '[' and first content token immediately.
+                this.addPart(ctx, ' ', le);
+            }
         }
 
         // Multi-line parenthesis → push paren scope for proper indent
@@ -500,16 +516,21 @@ export class SparqlFormatter
         if (token.tokenType === RdfToken.RBRACKET) {
             const scope = this.currentScope(ctx);
             if (scope?.type === 'bracket') {
-                // Pop any trailing newline+indent from a semicolon
-                if (ctx.lastWasNewline && ctx.parts.length > 0) {
-                    const lastPart = ctx.parts[ctx.parts.length - 1];
-                    if (lastPart.includes(le) || /^\s+$/.test(lastPart)) {
-                        ctx.parts.pop();
+                if (!scope.isInline) {
+                    // Pop any trailing newline+indent from a semicolon
+                    if (ctx.lastWasNewline && ctx.parts.length > 0) {
+                        const lastPart = ctx.parts[ctx.parts.length - 1];
+                        if (lastPart.includes(le) || /^\s+$/.test(lastPart)) {
+                            ctx.parts.pop();
+                        }
                     }
                 }
                 this.popScope(ctx);
-                if (ctx.opts.prettyPrint) {
+                if (ctx.opts.prettyPrint && !scope.isInline) {
                     this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+                } else if (scope.isInline) {
+                    // Emit the space between last content token and ']'.
+                    this.addPart(ctx, ' ', le);
                 }
                 this.addPart(ctx, token.image, le);
                 ctx.lastWasNewline = false;
@@ -734,6 +755,13 @@ export class SparqlFormatter
         // Only suppress newlines in function calls when they are NOT from source.
         // Source newlines (detected from token positions) should always be preserved.
         const shouldAvoidNewline = isDatatypeContext || (inFunctionCall && !ctx.sourceNewline);
+
+        // Inside an inline bracket scope, suppress source-layout newlines so the
+        // entire blank node property list stays on one line.
+        if (ctx.needsNewline && this.inBracketScope(ctx) && this.currentScope(ctx)?.isInline) {
+            ctx.needsNewline = false;
+            ctx.needsBlankLine = false;
+        }
 
         if (ctx.needsNewline && !shouldAvoidNewline) {
             if (!ctx.lastWasNewline) {

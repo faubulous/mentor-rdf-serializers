@@ -329,6 +329,65 @@ describe('TurtleSerializer', () => {
             });
         });
 
+        describe('maxLineWidth blank node inlining', () => {
+            it('inlines multi-predicate blank node when it fits within maxLineWidth', () => {
+                const quads = [
+                    DataFactory.quad(
+                        DataFactory.namedNode('http://example.org/s'),
+                        DataFactory.namedNode('http://example.org/p'),
+                        DataFactory.blankNode('b0')
+                    ),
+                    DataFactory.quad(
+                        DataFactory.blankNode('b0'),
+                        DataFactory.namedNode('http://example.org/q'),
+                        DataFactory.literal('val1')
+                    ),
+                    DataFactory.quad(
+                        DataFactory.blankNode('b0'),
+                        DataFactory.namedNode('http://example.org/r'),
+                        DataFactory.literal('val2')
+                    ),
+                ];
+
+                const result = serializer.serialize(quads, {
+                    prettyPrint: true,
+                    inlineSingleUseBlankNodes: true,
+                    maxLineWidth: 120,
+                });
+
+                expect(result).toContain('[ <http://example.org/q> "val1" ; <http://example.org/r> "val2" ]');
+            });
+
+            it('keeps multi-predicate blank node multi-line when it exceeds maxLineWidth', () => {
+                const quads = [
+                    DataFactory.quad(
+                        DataFactory.namedNode('http://example.org/s'),
+                        DataFactory.namedNode('http://example.org/p'),
+                        DataFactory.blankNode('b0')
+                    ),
+                    DataFactory.quad(
+                        DataFactory.blankNode('b0'),
+                        DataFactory.namedNode('http://example.org/q'),
+                        DataFactory.literal('val1')
+                    ),
+                    DataFactory.quad(
+                        DataFactory.blankNode('b0'),
+                        DataFactory.namedNode('http://example.org/r'),
+                        DataFactory.literal('val2')
+                    ),
+                ];
+
+                const result = serializer.serialize(quads, {
+                    prettyPrint: true,
+                    inlineSingleUseBlankNodes: true,
+                    maxLineWidth: 10,
+                });
+
+                // Multi-line: closing bracket on its own line
+                expect(result).toMatch(/\n\s*\]/);
+            });
+        });
+
         describe('objectListStyle', () => {
             it('should format objects on single line when set to "single-line"', () => {
                 const quads = [

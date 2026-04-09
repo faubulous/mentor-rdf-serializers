@@ -361,6 +361,8 @@ export class TurtleSerializer extends QuadSerializerBase {
 
         // Multi-line form for complex blank nodes
         const parts: string[] = ['['];
+        const inlineParts: string[] = [];
+
         for (let i = 0; i < predicateEntries.length; i++) {
             const [_predicateKey, quads] = predicateEntries[i];
             const predicate = this.serializeTerm(quads[0].predicate, opts);
@@ -373,8 +375,17 @@ export class TurtleSerializer extends QuadSerializerBase {
             ));
             const suffix = i < predicateEntries.length - 1 ? ' ;' : '';
             parts.push(`${innerIndent}${predicate} ${objects.join(' , ')}${suffix}`);
+            inlineParts.push(`${predicate} ${objects.join(' , ')}${suffix}`);
         }
         parts.push(`${baseIndent}]`);
+
+        // Try single-line form when maxLineWidth allows.
+        if (opts.maxLineWidth > 0) {
+            const trialInline = `[ ${inlineParts.join(' ')} ]`;
+            if (baseIndent.length + trialInline.length <= opts.maxLineWidth) {
+                return trialInline;
+            }
+        }
 
         return parts.join(opts.lineEnd);
     }

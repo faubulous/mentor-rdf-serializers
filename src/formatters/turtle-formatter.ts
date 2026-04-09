@@ -163,10 +163,12 @@ export class TurtleFormatter
                     // line before the comment we still need the extra `le`.
                     if (needsBlankLineBeforeComment) {
                         this.addPart(ctx, le + indentText, le, true);
+                        ctx.needsBlankLine = false;
                     }
                     // Otherwise nothing — the newline is already there.
                 } else if (needsBlankLineBeforeComment) {
                     this.addPart(ctx, le + le + indentText, le, true);
+                    ctx.needsBlankLine = false;
                 } else {
                     this.addPart(ctx, le + indentText, le, true);
                 }
@@ -214,6 +216,10 @@ export class TurtleFormatter
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
         if (ctx.needsNewline) {
+            if (ctx.needsBlankLine) {
+                this.addPart(ctx, le, le, true);
+                ctx.needsBlankLine = false;
+            }
             this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
@@ -224,8 +230,44 @@ export class TurtleFormatter
         this.addPart(ctx, token.image, le);
 
         if (token.tokenType === RdfToken.LBRACKET) {
-            this.pushScope(ctx, 'bracket', false, false);
-            ctx.needsNewline = ctx.opts.prettyPrint;
+            const maxLineWidth = ctx.opts.maxLineWidth;
+            let isInline = false;
+
+            if (ctx.opts.prettyPrint && tokens !== undefined && tokenIndex !== undefined) {
+                // Determine whether the source placed the first content token on
+                // the same line as `[`.  When it did, we preserve that layout
+                // (subject to the maxLineWidth limit).  When the source already
+                // had a newline after `[` we always keep it multi-line.
+                let nextNonWs: IToken | undefined;
+                for (let j = tokenIndex + 1; j < tokens.length; j++) {
+                    if (tokens[j].tokenType !== RdfToken.WS) {
+                        nextNonWs = tokens[j];
+                        break;
+                    }
+                }
+
+                const sourceIsInline =
+                    nextNonWs !== undefined &&
+                    nextNonWs.startLine !== undefined &&
+                    token.startLine !== undefined &&
+                    nextNonWs.startLine === token.startLine;
+
+                if (sourceIsInline) {
+                    const blockLength = this.calculateBracketBlockInlineLength(tokens, tokenIndex);
+                    // Inline if the content has no comment and fits within the
+                    // line-width limit (or there is no limit).
+                    isInline = blockLength >= 0 &&
+                        (maxLineWidth === 0 || ctx.currentLineLength + blockLength <= maxLineWidth);
+                }
+                // Source was multi-line → isInline stays false.
+            }
+
+            this.pushScope(ctx, 'bracket', isInline, false);
+            ctx.needsNewline = ctx.opts.prettyPrint && !isInline;
+            if (isInline) {
+                // Emit the space between '[' and first content token immediately.
+                this.addPart(ctx, ' ', le);
+            }
         } else if (token.tokenType === RdfToken.LPARENT) {
             const isMultiLine = ctx.opts.prettyPrint &&
                 tokens !== undefined &&
@@ -246,7 +288,7 @@ export class TurtleFormatter
             const scope = this.currentScope(ctx);
             if (scope?.type === 'bracket') {
                 this.popScope(ctx);
-                if (ctx.opts.prettyPrint) {
+                if (ctx.opts.prettyPrint && !scope.isInline) {
                     // For blank node property lists, the closing ']' should
                     // align with the predicate that introduced the '['.
                     // The scope's indentLevel represents the indentation at
@@ -260,6 +302,9 @@ export class TurtleFormatter
                         this.addPart(ctx, le + this.getIndent(baseIndentLevel, ind), le, true);
                         ctx.lastWasNewline = true;
                     }
+                } else if (scope.isInline) {
+                    // Emit the space between last content token and ']'.
+                    this.addPart(ctx, ' ', le);
                 }
             }
         } else if (token.tokenType === RdfToken.RPARENT) {
@@ -336,9 +381,15 @@ export class TurtleFormatter
                 ctx.indentLevel = statementBaseIndentLevel + 1;
                 this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
                 ctx.lastWasNewline = true;
+            } else if (this.currentScope(ctx)?.isInline) {
+                // Inside an inline blank node property list — stay on the same line.
+                ctx.needsNewline = false;
+                ctx.needsSpace = true;
+                ctx.triplePosition = 1;
+                return;
             } else {
-                // Inside a blank node property list, defer the newline so that
-                // the next token handler (including ']') can emit it at the
+                // Inside a multi-line blank node property list, defer the newline so
+                // that the next token handler (including ']') can emit it at the
                 // correct indentation level.
                 ctx.lastWasNewline = false;
             }
@@ -428,6 +479,17 @@ export class TurtleFormatter
             if (token.tokenType === RdfToken.WS) {
                 ctx.lastToken = token;
                 continue;
+            }
+
+            // Preserve source blank lines at statement boundaries.
+            // When the source has a blank line after a '.' (root-level, outside any scope)
+            // carry it through to the output even if blankLinesBetweenSubjects is false.
+            if (ctx.opts.prettyPrint && !ctx.needsBlankLine &&
+                ctx.needsNewline && ctx.indentLevel === 0 &&
+                !this.inBracketScope(ctx) && !this.inParenScope(ctx) &&
+                token.startLine !== undefined && ctx.lastNonWsToken?.endLine !== undefined &&
+                token.startLine - ctx.lastNonWsToken.endLine > 1) {
+                ctx.needsBlankLine = true;
             }
 
             // Handle comment tokens in stream

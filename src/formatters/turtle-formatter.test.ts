@@ -461,6 +461,127 @@ describe('TurtleFormatter', () => {
             expect(result.output).toContain(']\n            [');
             expect(result.output).toContain('owl:unionOf (\n                        gist:Organization\n                        gist:Person\n                    )');
         });
+
+        it('inlines blank node with single predicate when it fits within maxLineWidth', () => {
+            const input = 'ex:s ex:p [ ex:q ex:o ].';
+
+            const result = formatter.formatFromText(input, { maxLineWidth: 80 });
+
+            expect(result.output).toContain('[ ex:q ex:o ]');
+        });
+
+        it('inlines blank node with multiple predicates when it fits within maxLineWidth', () => {
+            const input = 'ex:s ex:p [ ex:q ex:o ; ex:r ex:v ].';
+
+            const result = formatter.formatFromText(input, { maxLineWidth: 80 });
+
+            expect(result.output).toContain('[ ex:q ex:o; ex:r ex:v ]');
+        });
+
+        it('keeps blank node multi-line when it exceeds maxLineWidth', () => {
+            const input = [
+                'ex:s ex:p [',
+                '  ex:q ex:o ;',
+                '  ex:r ex:v',
+                '].',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { maxLineWidth: 10 });
+
+            // Should not be inlined; closing bracket should be on its own line
+            expect(result.output).toContain('\n]');
+        });
+
+        it('keeps blank node multi-line when maxLineWidth is 0 (disabled)', () => {
+            const input = [
+                'ex:s ex:p [',
+                '  ex:q ex:o',
+                '].',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input);
+
+            // Default behavior: no inlining without maxLineWidth
+            expect(result.output).toContain('\n]');
+        });
+    });
+
+    describe('source blank line preservation', () => {
+        it('preserves a blank line after ] . before the next subject', () => {
+            const input = [
+                'ex:s ex:p [ ex:q ex:o ] .',
+                '',
+                'ex:s2 a ex:T.',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { maxLineWidth: 80 });
+
+            expect(result.output).toContain('.\n\nex:s2');
+        });
+
+        it('preserves a blank line after ] . for an anonymous subject before the next subject', () => {
+            const input = [
+                '[ ex:p ex:o ] .',
+                '',
+                'ex:s2 a ex:T.',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { maxLineWidth: 80 });
+
+            expect(result.output).toContain('.\n\nex:s2');
+        });
+
+        it('does not add a blank line when source has none after ] .', () => {
+            const input = [
+                '[ ex:p ex:o ] .',
+                'ex:s2 a ex:T.',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { maxLineWidth: 80 });
+
+            expect(result.output).not.toContain('\n\n');
+        });
+
+        it('preserves a blank line after ] . with a comment between subjects', () => {
+            const input = [
+                '[ ex:p ex:o ] .',
+                '',
+                '# next subject',
+                'ex:s2 a ex:T.',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { maxLineWidth: 80 });
+
+            // Blank line should appear before the comment block, not between comment and subject
+            expect(result.output).toContain('.\n\n# next subject\nex:s2');
+        });
+
+        it('preserves a blank line between two anonymous (blank node) subjects', () => {
+            const input = [
+                '[ ex:p ex:o ; ex:q ex:r ] .',
+                '',
+                '[ ex:a ex:b ] .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { prettyPrint: true, blankLinesBetweenSubjects: true });
+
+            // Blank line must appear between the two blank-node subjects, not inside the second one
+            expect(result.output).toContain('.\n\n[');
+            expect(result.output).not.toContain('[\n\n');
+        });
+
+        it('preserves a blank line between a named subject and an anonymous subject', () => {
+            const input = [
+                'ex:s ex:p ex:o .',
+                '',
+                '[ ex:a ex:b ] .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { prettyPrint: true, blankLinesBetweenSubjects: true });
+
+            expect(result.output).toContain('.\n\n[');
+            expect(result.output).not.toContain('[\n\n');
+        });
     });
 
     describe('blankLinesBetweenSubjects', () => {

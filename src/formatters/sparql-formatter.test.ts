@@ -1053,7 +1053,7 @@ LIMIT 100`;
 }`;
                 const result = formatter.formatFromText(query, {
                     indent: '    ',
-                    maxLineWidth: 120,
+                    // No maxLineWidth (default 0) to exercise multi-line bracket indentation.
                 });
 
                 const lines = result.output.split('\n');
@@ -1366,6 +1366,62 @@ LIMIT 100`;
 
             // The comment should NOT appear on a new line after the semicolon
             expect(result.output).not.toMatch(/;\s*\n\s*# check this/);
+        });
+    });
+
+    describe('inline blank node property lists', () => {
+        it('inlines blank node property list in WHERE clause when it fits within maxLineWidth', () => {
+            const query = [
+                'SELECT ?item WHERE {',
+                '    ?item ex:hasReview [',
+                '        ex:status ?s',
+                '    ]',
+                '}',
+            ].join('\n');
+
+            const result = formatter.formatFromText(query, {
+                indent: '    ',
+                maxLineWidth: 120,
+            });
+
+            expect(result.output).toContain('[ ex:status ?s ]');
+        });
+
+        it('inlines blank node with multiple predicates in WHERE clause when it fits', () => {
+            const query = [
+                'SELECT ?item WHERE {',
+                '    ?item ex:hasReview [',
+                '        ex:date ?d ;',
+                '        ex:status ?s',
+                '    ]',
+                '}',
+            ].join('\n');
+
+            const result = formatter.formatFromText(query, {
+                indent: '    ',
+                maxLineWidth: 120,
+            });
+
+            expect(result.output).toContain('[ ex:date ?d; ex:status ?s ]');
+        });
+
+        it('keeps blank node multi-line in WHERE clause when it exceeds maxLineWidth', () => {
+            const query = [
+                'SELECT ?item WHERE {',
+                '    ?item ex:hasReview [',
+                '        ex:date ?d ;',
+                '        ex:status ?s',
+                '    ]',
+                '}',
+            ].join('\n');
+
+            const result = formatter.formatFromText(query, {
+                indent: '    ',
+                maxLineWidth: 10,
+            });
+
+            // Should not be inlined; closing bracket on its own line
+            expect(result.output).toContain('\n    ]');
         });
     });
 });

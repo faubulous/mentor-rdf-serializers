@@ -369,6 +369,62 @@ export abstract class TokenFormatterBase<
     }
 
     /**
+     * Scans forward from `openIndex` (the `[` token) to the matching `]` and
+     * computes the approximate character length if the bracket block were
+     * rendered on a single line.
+     *
+     * Unlike `calculateStatementLength`, source newlines are ignored — the
+     * formatter always normalises layout, so we only care about fit.
+     * Comments inside the block force multi-line by returning `-1`.
+     *
+     * The returned length includes the brackets themselves and one space of
+     * padding inside each end: `[ content ]`.
+     *
+     * @param tokens The full token stream.
+     * @param openIndex Index of the `[` token.
+     * @returns Inline character-length, or `-1` if the block cannot be inlined
+     *          (contains a comment or has no matching `]`).
+     */
+    protected calculateBracketBlockInlineLength(tokens: IToken[], openIndex: number): number {
+        let length = 0; // accumulated content length (excluding the outer [ ])
+        let depth = 0;  // bracket nesting depth (0 = we are directly inside the target block)
+        let count = 0;  // non-WS token count for inter-token space estimation
+
+        for (let i = openIndex + 1; i < tokens.length; i++) {
+            const t = tokens[i];
+
+            if (t.tokenType === RdfToken.WS) {
+                continue;
+            }
+
+            // A comment anywhere inside forces multi-line.
+            if (t.tokenType === RdfToken.COMMENT) {
+                return -1;
+            }
+
+            if (t.tokenType === RdfToken.RBRACKET) {
+                if (depth === 0) {
+                    // Found the matching closer.
+                    // `[` is already emitted, so we count only what remains:
+                    //   ` ` (padding after `[`) + content + inter-token spaces + ` ]`
+                    //   = 1 + length + max(0, count - 1) + 2
+                    if (count === 0) return 1; // `]` only → `[]`
+                    return 1 + length + Math.max(0, count - 1) + 2;
+                }
+                depth--;
+            } else if (t.tokenType === RdfToken.LBRACKET) {
+                depth++;
+            }
+
+            length += t.image.length;
+            count++;
+        }
+
+        // No matching `]` found.
+        return -1;
+    }
+
+    /**
      * Scans forward from `startIndex` to the statement-terminating period
      * (at nesting depth 0) and determines whether the source had the
      * entire statement on a single line.
