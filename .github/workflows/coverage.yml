@@ -1,11 +1,11 @@
-name: Test Coverage
+name: Generate Coverage Report
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
-# Cancel in-progress runs for the same branch to avoid redundant deployments.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -50,28 +50,9 @@ jobs:
             console.log('Statement coverage: ' + pct.toFixed(1) + '%');
           "
 
-      # Upload the coverage directory as a GitHub Pages artifact.
-      # Only do this on pushes to main so PRs don't trigger a deployment.
-      - name: Upload coverage report for GitHub Pages
+      - name: Upload coverage artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          path: ./coverage
-
-  deploy-pages:
-    name: Deploy Coverage Report
-    needs: test
-    # Only deploy on direct pushes to main, not on pull requests.
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v4
+          name: coverage-report
+          path: coverage
