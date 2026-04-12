@@ -278,7 +278,8 @@ describe('TurtleFormatter', () => {
             expect(result.output).toContain(';\n');
         });
 
-        it('should handle inline statement inside blank node brackets', () => {
+        it('should format multi-line blank node content across multiple lines', () => {
+            // The '[' is on its own line → bracket scope is multi-line → predicates each get their own line.
             const input = [
                 'ex:s ex:p [',
                 '  a ex:T; ex:q ex:o',
@@ -287,8 +288,11 @@ describe('TurtleFormatter', () => {
 
             const result = formatter.formatFromText(input, { maxLineWidth: 80 });
 
-            // The inner statement inside [] should stay inline since source had it inline
-            expect(result.output).toContain('a ex:T; ex:q ex:o');
+            // Bracket is multi-line ([ not on same source line as first content token),
+            // so each predicate must be on its own line.
+            expect(result.output).toContain('a ex:T');
+            expect(result.output).toContain(';\n');
+            expect(result.output).toContain('ex:q ex:o');
         });
 
         it('should handle prefix declarations followed by an inline statement', () => {
@@ -503,6 +507,68 @@ describe('TurtleFormatter', () => {
 
             // Default behavior: no inlining without maxLineWidth
             expect(result.output).toContain('\n]');
+        });
+
+        it('places each consecutive closing bracket on its own indented line', () => {
+            const input = [
+                'ex:s ex:p [',
+                '    a owl:Class ;',
+                '    ex:q [',
+                '        ex:r [',
+                '            ex:first ex:a ;',
+                '            ex:rest ex:nil',
+                '        ]]].',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                indent: '    ',
+                prettyPrint: true,
+            });
+
+            // Each closing bracket must appear on its own line, indented to the
+            // level of the predicate that opened it — not collapsed onto one line.
+            expect(result.output).not.toContain(']]]');
+            expect(result.output).toContain('\n        ]');
+            expect(result.output).toContain('\n    ]');
+            expect(result.output).toContain('\n]');
+        });
+
+        it('places predicates after deeply nested closing brackets each on their own line', () => {
+            const input = [
+                '@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .',
+                '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                '@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .',
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:prop a owl:ObjectProperty ;',
+                '    rdfs:domain [',
+                '        a owl:Class ;',
+                '        owl:unionOf [',
+                '            rdf:first ex:A ;',
+                '            rdf:rest [',
+                '                rdf:first ex:B ; rdf:rest rdf:nil',
+                '            ]]] ;',
+                '    rdfs:label "prop"@en ;',
+                '    rdfs:range [',
+                '        a owl:Class ;',
+                '        owl:unionOf [',
+                '            rdf:first ex:A ;',
+                '            rdf:rest [',
+                '                rdf:first ex:B ; rdf:rest rdf:nil',
+                '            ]]] ;',
+                '    rdfs:subPropertyOf owl:topObjectProperty .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, {
+                indent: '    ',
+                prettyPrint: true,
+            });
+
+            // Predicates after the closing ]]] must each be on their own indented line,
+            // not inlined on the same line as the brackets.
+            expect(result.output).toContain('\n    rdfs:label');
+            expect(result.output).toContain('\n    rdfs:range');
+            expect(result.output).toContain('\n    rdfs:subPropertyOf');
         });
     });
 

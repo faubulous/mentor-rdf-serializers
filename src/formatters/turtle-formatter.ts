@@ -324,6 +324,7 @@ export class TurtleFormatter
 
         this.addPart(ctx, token.image, le);
         ctx.needsSpace = true;
+        ctx.lastWasNewline = false;
 
         // After closing a bracket/paren, if we are now directly inside a multi-line
         // collection (...), the next element should start on a new line.
@@ -639,7 +640,7 @@ export class TurtleFormatter
                 if (isStatementSubjectToken) {
                     ctx.lastSubject = token.image;
                 }
-                if (!this.inParenScope(ctx)) {
+                if (!this.inParenScope(ctx) && !this.inBracketScope(ctx)) {
                     this.detectInlineStatement(ctx, tokens, i, ctx.opts.indent, ctx.opts.maxLineWidth);
                 }
                 ctx.triplePosition++;
