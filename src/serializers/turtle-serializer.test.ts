@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import DataFactory from '@rdfjs/data-model';
+import { TurtleLexer, TurtleParser, TurtleReader } from '@faubulous/mentor-rdf-parsers';
 import { TurtleSerializer } from './turtle-serializer';
 
 describe('TurtleSerializer', () => {
@@ -385,6 +386,95 @@ describe('TurtleSerializer', () => {
 
                 // Multi-line: closing bracket on its own line
                 expect(result).toMatch(/\n\s*\]/);
+            });
+        });
+
+        describe('inlineSingleUseBlankNodes with parsed Turtle input', () => {
+            function parseQuads(input: string) {
+                const lexResult = new TurtleLexer().tokenize(input);
+                const cst = new TurtleParser().parse(lexResult.tokens);
+                return new TurtleReader().readQuadContexts(cst, lexResult.tokens);
+            }
+
+            it('should inline a named blank node referenced inside an RDF collection', () => {
+                // Reproduces the BFO pattern where a named blank node (_:genid*)
+                // is used as an item in owl:intersectionOf / owl:unionOf collections.
+                // The blank node is defined as a top-level subject AND referenced
+                // once as a list item inside the collection; it should be inlined.
+                const input = [
+                    '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                    '@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .',
+                    '',
+                    '<http://example.org/A>',
+                    '  a owl:ObjectProperty ;',
+                    '  rdfs:range [',
+                    '    a owl:Class ;',
+                    '    owl:intersectionOf (',
+                    '      <http://example.org/B>',
+                    '      _:genid1',
+                    '    )',
+                    '  ] .',
+                    '',
+                    '_:genid1 a owl:Class ;',
+                    '  owl:complementOf <http://example.org/C> .',
+                ].join('\n');
+
+                const result = serializer.serialize(parseQuads(input), {
+                    prefixes: {
+                        owl: 'http://www.w3.org/2002/07/owl#',
+                        rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+                    },
+                    inlineSingleUseBlankNodes: true,
+                    prettyPrint: true,
+                });
+
+                // The named blank node should be inlined; no top-level _:genid1 subject.
+                expect(result).not.toMatch(/^_:genid1\b/m);
+                // Its content must appear somewhere (inlined under rdfs:range).
+                expect(result).toContain('owl:complementOf');
+            });
+
+            it('should inline multiple named blank nodes each referenced once in collections', () => {
+                // Both _:genid1 and _:genid2 appear exactly once, each in a separate
+                // owl:intersectionOf list — both should be inlined.
+                const input = [
+                    '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                    '@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .',
+                    '',
+                    '<http://example.org/A>',
+                    '  a owl:ObjectProperty ;',
+                    '  rdfs:domain [',
+                    '    a owl:Class ;',
+                    '    owl:intersectionOf (',
+                    '      <http://example.org/B>',
+                    '      _:genid1',
+                    '    )',
+                    '  ] ;',
+                    '  rdfs:range [',
+                    '    a owl:Class ;',
+                    '    owl:intersectionOf (',
+                    '      <http://example.org/B>',
+                    '      _:genid2',
+                    '    )',
+                    '  ] .',
+                    '',
+                    '_:genid1 a owl:Class ; owl:complementOf <http://example.org/C> .',
+                    '_:genid2 a owl:Class ; owl:complementOf <http://example.org/D> .',
+                ].join('\n');
+
+                const result = serializer.serialize(parseQuads(input), {
+                    prefixes: {
+                        owl: 'http://www.w3.org/2002/07/owl#',
+                        rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+                    },
+                    inlineSingleUseBlankNodes: true,
+                    prettyPrint: true,
+                });
+
+                expect(result).not.toMatch(/^_:genid1\b/m);
+                expect(result).not.toMatch(/^_:genid2\b/m);
+                expect(result).toContain('owl:complementOf <http://example.org/C>');
+                expect(result).toContain('owl:complementOf <http://example.org/D>');
             });
         });
 
