@@ -78,15 +78,17 @@ export class TurtleSerializer extends QuadSerializerBase {
         if (opts.emitDirectives) {
             // Add base declaration if provided
             if (opts.baseIri) {
-                const baseKeyword = opts.lowercaseDirectives ? '@base' : 'BASE';
-                const terminator = opts.lowercaseDirectives ? ' .' : '';
+                const isTurtle = opts.directiveStyle === 'turtle';
+                const baseKeyword = isTurtle ? '@base' : (opts.directiveStyle === 'sparql-lowercase' ? 'base' : 'BASE');
+                const terminator = isTurtle ? ' .' : '';
                 parts.push(`${baseKeyword} <${opts.baseIri}>${terminator}`);
             }
 
             // Add prefix declarations
             for (const [prefix, namespace] of Object.entries(opts.prefixes)) {
-                const prefixKeyword = opts.lowercaseDirectives ? '@prefix' : 'PREFIX';
-                const terminator = opts.lowercaseDirectives ? ' .' : '';
+                const isTurtle = opts.directiveStyle === 'turtle';
+                const prefixKeyword = isTurtle ? '@prefix' : (opts.directiveStyle === 'sparql-lowercase' ? 'prefix' : 'PREFIX');
+                const terminator = isTurtle ? ' .' : '';
                 parts.push(`${prefixKeyword} ${prefix}: <${namespace}>${terminator}`);
             }
 

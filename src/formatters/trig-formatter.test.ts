@@ -30,17 +30,28 @@ describe('TrigFormatter', () => {
         expect(lines[idx].trim()).toContain('ex:s ex:p ex:o');
     });
 
-    it('supports uppercase directive mode', () => {
+    it('preserves @prefix style when no directiveStyle is set', () => {
         const input = [
             '@prefix ex: <http://example.org/> .',
             'ex:s ex:p ex:o .',
         ].join('\n');
 
-        const result = formatter.formatFromText(input, {
-            lowercaseDirectives: false,
-        });
+        const result = formatter.formatFromText(input);
 
-        expect(result.output).toContain('PREFIX ex: <http://example.org/>.');
+        expect(result.output).toContain('@prefix ex: <http://example.org/>');
+        expect(result.output).not.toContain('PREFIX ex:');
+    });
+
+    it('converts @prefix to PREFIX when directiveStyle is sparql-uppercase', () => {
+        const input = [
+            '@prefix ex: <http://example.org/> .',
+            'ex:s ex:p ex:o .',
+        ].join('\n');
+
+        const result = formatter.formatFromText(input, { directiveStyle: 'sparql-uppercase' });
+
+        expect(result.output).toContain('PREFIX ex: <http://example.org/>');
+        expect(result.output).not.toContain('@prefix');
     });
 
     it('formats graph keyword tokens in uppercase', () => {

@@ -91,11 +91,13 @@ export interface SerializationOptions {
     blankLinesBetweenSubjects?: boolean;
 
     /**
-     * Whether to use lowercase `@prefix` and `@base` (Turtle style).
-     * When false, uses uppercase `PREFIX` and `BASE` (SPARQL style).
-     * Default: false (SPARQL style)
+     * Controls the style used for prefix and base directives.
+     * - `'turtle'`: Turtle-style (`@prefix ex: <…> .` / `@base <…> .`)
+     * - `'sparql-lowercase'`: SPARQL-style lowercase (`prefix ex: <…>` / `base <…>`)
+     * - `'sparql-uppercase'`: SPARQL-style uppercase (`PREFIX ex: <…>` / `BASE <…>`)
+     * Default: `'sparql-uppercase'`
      */
-    lowercaseDirectives?: boolean;
+    directiveStyle?: 'turtle' | 'sparql-lowercase' | 'sparql-uppercase';
 
     /**
      * Whether to emit `PREFIX`/`BASE` directives in serializer output.
@@ -157,11 +159,11 @@ export const DEFAULT_OPTIONS: Required<SerializationOptions> = {
     baseIri: '',
     blankLinesBetweenSubjects: true,
     blankNodeStyle: 'auto',
+    directiveStyle: 'sparql-uppercase',
     emitDirectives: true,
     groupBySubject: true,
     indent: '  ',
     lineEnd: '\n',
-    lowercaseDirectives: false,
     maxLineWidth: 0,
     objectListStyle: 'auto',
     predicateListStyle: 'first-same-line',

@@ -99,7 +99,7 @@ export class QuadContextSerializer {
         const blankLines = options?.blankLinesBetweenSubjects ?? true;
         const sortingStrategy = options?.sortingStrategy ?? false;
         const assumeSorted = options?.assumeSorted ?? false;
-        const lowercaseDirectives = options?.lowercaseDirectives ?? false;
+        const directiveStyle = options?.directiveStyle ?? 'sparql-uppercase';
         const inlineSingleUseBlankNodes = options?.inlineSingleUseBlankNodes ?? true;
 
         // Sort if requested and not already sorted.
@@ -107,15 +107,17 @@ export class QuadContextSerializer {
         const parts: string[] = [];
 
         if (baseIri) {
-            const keyword = lowercaseDirectives ? '@base' : 'BASE';
-            const terminator = lowercaseDirectives ? ' .' : '';
+            const isTurtle = directiveStyle === 'turtle';
+            const keyword = isTurtle ? '@base' : (directiveStyle === 'sparql-lowercase' ? 'base' : 'BASE');
+            const terminator = isTurtle ? ' .' : '';
 
             parts.push(`${keyword} <${baseIri}>${terminator}`);
         }
 
         for (const [prefix, namespace] of Object.entries(prefixes)) {
-            const keyword = lowercaseDirectives ? '@prefix' : 'PREFIX';
-            const terminator = lowercaseDirectives ? ' .' : '';
+            const isTurtle = directiveStyle === 'turtle';
+            const keyword = isTurtle ? '@prefix' : (directiveStyle === 'sparql-lowercase' ? 'prefix' : 'PREFIX');
+            const terminator = isTurtle ? ' .' : '';
 
             parts.push(`${keyword} ${prefix}: <${namespace}>${terminator}`);
         }
@@ -128,7 +130,7 @@ export class QuadContextSerializer {
         const serializerOpts: SerializationOptions = {
             prefixes,
             baseIri: baseIri || undefined,
-            lowercaseDirectives,
+            directiveStyle,
             lineEnd,
             emitDirectives: false,
             inlineSingleUseBlankNodes,

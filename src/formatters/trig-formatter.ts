@@ -37,6 +37,10 @@ interface TrigFormatterContext extends BaseFormatterContext {
     sawPrefixDefinition: boolean;
     /** Whether we still need to insert the prefix→first-subject blank line. */
     pendingPrefixToSubjectBlankLine: boolean;
+    /** Whether the current directive token was a Turtle-style TTL_PREFIX/TTL_BASE. */
+    currentPrefixIsTurtle: boolean;
+    /** Whether the next PERIOD token should be suppressed (Turtle→SPARQL conversion). */
+    skipNextPrefixPeriod: boolean;
 }
 
 // ============================================================================
@@ -98,7 +102,7 @@ export class TrigFormatter
         const base = this.mergeBaseOptions(options);
         return {
             ...base,
-            lowercaseDirectives: options?.lowercaseDirectives ?? true,
+            directiveStyle: options?.directiveStyle ?? undefined as any,
             newlineAfterSubject: options?.newlineAfterSubject ?? false,
             spaceBeforePunctuation: options?.spaceBeforePunctuation ?? false,
             sameBraceLine: options?.sameBraceLine ?? true,
@@ -113,6 +117,8 @@ export class TrigFormatter
             inGraph: false,
             sawPrefixDefinition: false,
             pendingPrefixToSubjectBlankLine: false,
+            currentPrefixIsTurtle: false,
+            skipNextPrefixPeriod: false,
         };
     }
 
@@ -124,13 +130,18 @@ export class TrigFormatter
             return token.image.toLowerCase();
         }
 
-        // Handle directive keywords (@prefix, @base vs PREFIX, BASE)
+        // TTL_PREFIX / TTL_BASE  — source is Turtle-style (@prefix / @base)
         if (tokenType === RdfToken.TTL_PREFIX || tokenType === RdfToken.TTL_BASE) {
-            return opts.lowercaseDirectives ? token.image.toLowerCase() : token.image.toUpperCase().replace('@', '');
+            if (opts.directiveStyle === 'sparql-lowercase') return token.image.toLowerCase().replace('@', '');
+            if (opts.directiveStyle === 'sparql-uppercase') return token.image.toUpperCase().replace('@', '');
+            return token.image.toLowerCase(); // 'turtle' or undefined → preserve
         }
 
+        // PREFIX / BASE  — source is SPARQL-style
         if (tokenType === RdfToken.PREFIX || tokenType === RdfToken.BASE) {
-            return opts.lowercaseDirectives ? '@' + token.image.toLowerCase() : token.image.toUpperCase();
+            if (opts.directiveStyle === 'turtle') return '@' + token.image.toLowerCase();
+            if (opts.directiveStyle === 'sparql-lowercase') return token.image.toLowerCase();
+            return token.image.toUpperCase(); // 'sparql-uppercase' or undefined → preserve as uppercase
         }
 
         // GRAPH keyword is always uppercased
@@ -356,6 +367,18 @@ export class TrigFormatter
             this.addPart(ctx, ' ', le);
         }
         this.addPart(ctx, value, le);
+
+        // Handle trailing dot for style conversions:
+        // SPARQL → Turtle: inject " ." (no PERIOD token will follow in the stream)
+        if (ctx.opts.directiveStyle === 'turtle' && !ctx.currentPrefixIsTurtle) {
+            this.addPart(ctx, ' .', le);
+        }
+        // Turtle → SPARQL: suppress the upcoming PERIOD token
+        if ((ctx.opts.directiveStyle === 'sparql-lowercase' || ctx.opts.directiveStyle === 'sparql-uppercase')
+            && ctx.currentPrefixIsTurtle) {
+            ctx.skipNextPrefixPeriod = true;
+        }
+
         ctx.needsSpace = false;
         ctx.needsNewline = ctx.opts.prettyPrint;
         ctx.inPrefix = false;
@@ -435,6 +458,8 @@ export class TrigFormatter
             if (token.tokenType === RdfToken.TTL_PREFIX || token.tokenType === RdfToken.PREFIX ||
                 token.tokenType === RdfToken.TTL_BASE || token.tokenType === RdfToken.BASE) {
                 ctx.inPrefix = true;
+                ctx.currentPrefixIsTurtle =
+                    token.tokenType === RdfToken.TTL_PREFIX || token.tokenType === RdfToken.TTL_BASE;
             }
 
             if (token.tokenType === RdfToken.TTL_PREFIX || token.tokenType === RdfToken.PREFIX) {
@@ -473,6 +498,11 @@ export class TrigFormatter
             }
 
             if (token.tokenType === RdfToken.PERIOD) {
+                if (ctx.skipNextPrefixPeriod) {
+                    ctx.skipNextPrefixPeriod = false;
+                    ctx.lastToken = token;
+                    continue;
+                }
                 this.handleTrigPeriod(ctx);
                 ctx.lastToken = token;
                 ctx.lastNonWsToken = token;

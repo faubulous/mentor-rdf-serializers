@@ -38,10 +38,13 @@ export interface QuadContextSerializerOptions {
     assumeSorted?: boolean;
 
     /**
-     * Use lowercase directives (`@prefix` / `@base`) instead of uppercase
-     * (`PREFIX` / `BASE`).  Default: `false`.
+     * Controls the style used for prefix and base directives.
+     * - `'turtle'`: Turtle-style (`@prefix ex: <…> .` / `@base <…> .`)
+     * - `'sparql-lowercase'`: SPARQL-style lowercase (`prefix ex: <…>` / `base <…>`)
+     * - `'sparql-uppercase'`: SPARQL-style uppercase (`PREFIX ex: <…>` / `BASE <…>`)
+     * Default: `'sparql-uppercase'`
      */
-    lowercaseDirectives?: boolean;
+    directiveStyle?: 'turtle' | 'sparql-lowercase' | 'sparql-uppercase';
 
     /**
      * Whether to serialize single-use blank nodes as local property lists

@@ -229,13 +229,13 @@ describe('QuadContextSerializer', () => {
             expect(output).toContain('PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>');
         });
 
-        it('should emit @prefix declarations when lowercaseDirectives is true', () => {
+        it('should emit @prefix declarations when directiveStyle is turtle', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
             const output = statementSerializer.serialize(contexts, {
                 prefixes,
-                lowercaseDirectives: true,
+                directiveStyle: 'turtle',
             });
 
             expect(output).toContain('@prefix ex: <http://example.org/> .');
@@ -254,14 +254,14 @@ describe('QuadContextSerializer', () => {
             expect(output).toContain('BASE <http://example.org/>');
         });
 
-        it('should emit @base when lowercaseDirectives is true', () => {
+        it('should emit @base when directiveStyle is turtle', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
             const output = statementSerializer.serialize(contexts, {
                 prefixes,
                 baseIri: 'http://example.org/',
-                lowercaseDirectives: true,
+                directiveStyle: 'turtle',
             });
 
             expect(output).toContain('@base <http://example.org/> .');

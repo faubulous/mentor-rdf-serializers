@@ -817,4 +817,89 @@ describe('TurtleFormatter', () => {
             expect(result.output).toMatch(/ex:allowedValues \("a" "b"\);\n    ex:label "test"\./);
         });
     });
+
+    describe('prefix directive style preservation', () => {
+        it('should preserve SPARQL-style PREFIX declarations without adding a trailing dot', () => {
+            // Regression: PREFIX (SPARQL-style) was incorrectly converted to @prefix
+            // (Turtle-style) without the required trailing dot, producing invalid Turtle.
+            const input = [
+                'PREFIX bfo: <http://purl.obolibrary.org/obo/>',
+                'PREFIX owl: <http://www.w3.org/2002/07/owl#>',
+                '',
+                'bfo:BFO_0000001 a owl:Class .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input);
+
+            expect(result.output).toContain('PREFIX bfo: <http://purl.obolibrary.org/obo/>');
+            expect(result.output).toContain('PREFIX owl: <http://www.w3.org/2002/07/owl#>');
+            expect(result.output).not.toContain('@prefix');
+        });
+
+        it('should preserve Turtle-style @prefix declarations with a trailing dot', () => {
+            const input = [
+                '@prefix bfo: <http://purl.obolibrary.org/obo/> .',
+                '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                '',
+                'bfo:BFO_0000001 a owl:Class .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input);
+
+            expect(result.output).toMatch(/@prefix bfo: <http:\/\/purl\.obolibrary\.org\/obo\/>/);
+            expect(result.output).toMatch(/@prefix owl: <http:\/\/www\.w3\.org\/2002\/07\/owl#>/);
+            // Trailing dot must be present (position of space before dot depends on options)
+            expect(result.output).toMatch(/@prefix bfo:.*\./);
+            expect(result.output).not.toContain('PREFIX bfo:');
+            expect(result.output).not.toContain('PREFIX owl:');
+        });
+
+        it('should convert SPARQL-style PREFIX to Turtle-style @prefix when directiveStyle is turtle', () => {
+            const input = [
+                'PREFIX bfo: <http://purl.obolibrary.org/obo/>',
+                'PREFIX dc11: <http://purl.org/dc/elements/1.1/>',
+                'PREFIX owl: <http://www.w3.org/2002/07/owl#>',
+                '',
+                'bfo:bfo.owl a owl:Ontology ;',
+                '  dc11:contributor "Alan Ruttenberg" .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { directiveStyle: 'turtle' });
+
+            expect(result.output).toMatch(/@prefix bfo:.*\./);
+            expect(result.output).toMatch(/@prefix dc11:.*\./);
+            expect(result.output).not.toContain('PREFIX');
+        });
+
+        it('should convert Turtle-style @prefix to SPARQL-style PREFIX when directiveStyle is sparql-uppercase', () => {
+            const input = [
+                '@prefix bfo: <http://purl.obolibrary.org/obo/> .',
+                '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                '',
+                'bfo:BFO_0000001 a owl:Class .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { directiveStyle: 'sparql-uppercase' });
+
+            expect(result.output).toContain('PREFIX bfo: <http://purl.obolibrary.org/obo/>');
+            expect(result.output).toContain('PREFIX owl: <http://www.w3.org/2002/07/owl#>');
+            expect(result.output).not.toContain('@prefix');
+        });
+
+        it('should convert Turtle-style @prefix to lowercase SPARQL-style prefix when directiveStyle is sparql-lowercase', () => {
+            const input = [
+                '@prefix bfo: <http://purl.obolibrary.org/obo/> .',
+                '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
+                '',
+                'bfo:BFO_0000001 a owl:Class .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { directiveStyle: 'sparql-lowercase' });
+
+            expect(result.output).toContain('prefix bfo: <http://purl.obolibrary.org/obo/>');
+            expect(result.output).toContain('prefix owl: <http://www.w3.org/2002/07/owl#>');
+            expect(result.output).not.toContain('@prefix');
+            expect(result.output).not.toContain('PREFIX');
+        });
+    });
 });
