@@ -1,5 +1,6 @@
-// Characters that need escaping in local names: _~.-!$&'()*+,;=/?#@%
-const escapeChars = new Set(['_', '~', '.', '-', '!', '$', '&', "'", '(', ')', '*', '+', ',', ';', '=', '/', '?', '#', '@', '%']);
+// Characters that need escaping in local names: ~.-!$&'()*+,;=/?#@%
+// Note: underscore '_' is a valid PN_CHARS_U character and must NOT be escaped.
+const escapeChars = new Set(['~', '.', '-', '!', '$', '&', "'", '(', ')', '*', '+', ',', ';', '=', '/', '?', '#', '@', '%']);
 
 /**
  * Escapes special characters in an IRI for N-Triples/N-Quads format.

@@ -126,8 +126,16 @@ describe('escapeLocalName', () => {
         expect(escapeLocalName('foo~bar')).toBe('foo\\~bar');
     });
 
-    it('should escape all special characters', () => {
-        expect(escapeLocalName('_~.-!$&\'()*+,;=/?#@%')).toBe('\\_\\~\\.\\-\\!\\$\\&\\\'\\(\\)\\*\\+\\,\\;\\=\\/\\?\\#\\@\\%');
+    it('should not escape underscore', () => {
+        expect(escapeLocalName('foo_bar')).toBe('foo_bar');
+    });
+
+    it('should not escape underscore at start', () => {
+        expect(escapeLocalName('_foo')).toBe('_foo');
+    });
+
+    it('should escape all special characters except underscore', () => {
+        expect(escapeLocalName('~.-!$&\'()*+,;=/?#@%')).toBe('\\~\\.\\-\\!\\$\\&\\\'\\(\\)\\*\\+\\,\\;\\=\\/\\?\\#\\@\\%');
     });
 
     it('should not escape an empty string', () => {

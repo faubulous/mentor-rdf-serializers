@@ -278,6 +278,22 @@ describe('QuadContextSerializer', () => {
             expect(aIdx).toBeLessThan(zIdx);
         });
 
+        it('should not escape underscores in local names when sorting', () => {
+            // Regression: local names with underscores (e.g. ex:Citizen_Kaine) were
+            // incorrectly serialized as ex:Citizen\_Kaine after sorting.
+            const input = [
+                PREFIX,
+                'ex:Citizen_Kaine ex:p ex:B .',
+                'ex:A ex:q ex:D .',
+            ].join('\n');
+            const { contexts } = parseWithComments(input);
+
+            const output = statementSerializer.serialize(contexts, { prefixes, sortingStrategy: alphabeticalSort });
+
+            expect(output).toContain('ex:Citizen_Kaine');
+            expect(output).not.toContain('ex:Citizen\\_Kaine');
+        });
+
         it('should not emit duplicated blank node prefixes when sorting', () => {
             const contexts = statementSerializer.addStatements([], [
                 DataFactory.quad(
