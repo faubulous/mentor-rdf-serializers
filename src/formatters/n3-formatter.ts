@@ -3,6 +3,7 @@ import { ITokenFormatter } from '../token-formatter.interface';
 import { TokenFormatterBase, BaseFormatterContext, BaseFormatterOptions } from '../token-formatter-base';
 import { TokenSerializerOptions } from '../token-serializer';
 import { SerializationResult } from '../serialization-result';
+import { formatTemplate } from '../triplate-template-format';
 
 /**
  * N3-specific formatting options.
@@ -63,6 +64,13 @@ export class N3Formatter extends TokenFormatterBase<N3FormatterContext, N3Format
      */
     formatFromText(input: string, options?: N3FormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
+
+        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
+
+        if (templated) {
+            return templated;
+        }
+
         const result = this.lexer.tokenize(input);
 
         if (result.errors.length > 0) {

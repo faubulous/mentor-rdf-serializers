@@ -1,5 +1,6 @@
 import { IToken, RdfSyntax, RdfToken, NQuadsLexer } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from '../serialization-result';
+import { formatTemplate } from '../triplate-template-format';
 import { SerializationOptions } from '../serialization-options';
 import { mergeOptions } from '../quad-serializer-base';
 import { TokenSerializerOptions } from '../token-serializer';
@@ -36,6 +37,13 @@ export class NQuadsFormatter implements ITokenFormatter {
      */
     formatFromText(input: string, options?: NQuadsFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
+
+        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
+
+        if (templated) {
+            return templated;
+        }
+
         const result = this.lexer.tokenize(input);
 
         if (result.errors.length > 0) {

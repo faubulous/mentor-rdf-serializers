@@ -3,6 +3,7 @@ import { TokenFormatterBase, BaseFormatterContext, BaseFormatterOptions } from '
 import { SerializationResult } from '../serialization-result';
 import { TokenSerializerOptions } from '../token-serializer';
 import { ISparqlFormatter } from './sparql-formatter.interface';
+import { formatTemplate } from '../triplate-template-format';
 
 /**
  * SPARQL-specific formatting options.
@@ -88,6 +89,13 @@ export class SparqlFormatter
 
     formatFromText(query: string, options?: SparqlFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
+
+        const templated = formatTemplate(query, this.lexer, opts.indent, tokens => this.formatTokenStream(tokens, opts));
+
+        if (templated) {
+            return templated;
+        }
+
         const result = this.lexer.tokenize(query);
 
         if (result.errors.length > 0) {
@@ -731,6 +739,12 @@ export class SparqlFormatter
     private handleLineWrapping(ctx: SparqlFormatterContext, value: string): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
+
+        // Never break a `FROM` / `FROM NAMED` dataset clause keyword from its IRI: the IRI
+        // cannot wrap, so a newline here only orphans `FROM` on its own line.
+        if (ctx.lastNonWsToken?.tokenType === RdfToken.FROM || ctx.lastNonWsToken?.tokenType === RdfToken.NAMED) {
+            return;
+        }
 
         if (ctx.opts.maxLineWidth > 0 && !ctx.needsNewline && ctx.needsSpace) {
             const spaceNeeded = ctx.parts.length > 0 && ctx.lastNonWsToken &&

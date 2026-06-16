@@ -3,6 +3,7 @@ import { TokenFormatterBase, BaseFormatterContext } from '../token-formatter-bas
 import { ITokenFormatter } from '../token-formatter.interface';
 import { SerializationResult } from '../serialization-result';
 import { TokenSerializerOptions } from '../token-serializer';
+import { formatTemplate } from '../triplate-template-format';
 import { TurtleFormatterOptions } from './turtle-formatter';
 
 // ============================================================================
@@ -71,6 +72,13 @@ export class TrigFormatter
      */
     formatFromText(input: string, options?: TrigFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
+
+        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
+
+        if (templated) {
+            return templated;
+        }
+
         const result = this.lexer.tokenize(input);
 
         if (result.errors.length > 0) {

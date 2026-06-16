@@ -459,6 +459,26 @@ LIMIT 200`;
             expect(textBetween).toContain('\n');
         });
 
+        it('keeps an over-length FROM IRI on the same line as FROM', () => {
+            const iri = 'http://example.org/some/very/long/graph/uri/that/exceeds/the/configured/max/line/width';
+            const query = `SELECT * FROM <${iri}> WHERE { ?s ?p ?o }`;
+
+            const result = formatter.formatFromText(query, { maxLineWidth: 80 });
+
+            expect(result.output).toContain(`FROM <${iri}>`);
+            expect(result.output).not.toMatch(/FROM\s*\n\s*</);
+        });
+
+        it('keeps an over-length FROM NAMED IRI on the same line', () => {
+            const iri = 'http://example.org/some/very/long/graph/uri/that/exceeds/the/configured/max/line/width';
+            const query = `SELECT * FROM NAMED <${iri}> WHERE { ?s ?p ?o }`;
+
+            const result = formatter.formatFromText(query, { maxLineWidth: 80 });
+
+            expect(result.output).toContain(`FROM NAMED <${iri}>`);
+            expect(result.output).not.toMatch(/NAMED\s*\n\s*</);
+        });
+
         it('should NOT have blank line before WHERE when no FROM clause', () => {
             const query = 'SELECT ?x WHERE { ?x a <http://example.org/Class> }';
 

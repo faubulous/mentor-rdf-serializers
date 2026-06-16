@@ -3,6 +3,7 @@ import { ITokenFormatter } from '../token-formatter.interface';
 import { TokenSerializerOptions } from '../token-serializer';
 import { TokenFormatterBase, BaseFormatterContext, BaseFormatterOptions } from '../token-formatter-base';
 import { SerializationResult } from '../serialization-result';
+import { formatTemplate } from '../triplate-template-format';
 
 /**
  * Turtle-specific formatting options.
@@ -72,6 +73,13 @@ export class TurtleFormatter
 
     formatFromText(input: string, options?: TurtleFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
+
+        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
+
+        if (templated) {
+            return templated;
+        }
+
         const result = this.lexer.tokenize(input);
 
         if (result.errors.length > 0) {
