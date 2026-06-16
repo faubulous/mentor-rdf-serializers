@@ -25,6 +25,13 @@ export function formatTemplate(
     indent: string,
     formatBody: (bodyTokens: IToken[]) => SerializationResult
 ): SerializationResult | null {
+    // Triplate template formatting requires `tokenizeTemplateForFormatting` from
+    // mentor-rdf-parsers. If the installed parsers version predates it, degrade
+    // gracefully: treat the document as non-template so the host formatter still runs.
+    if (typeof tokenizeTemplateForFormatting !== 'function') {
+        return null;
+    }
+
     const prep = tokenizeTemplateForFormatting(lexer, input);
 
     if (!prep) {

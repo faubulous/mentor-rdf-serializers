@@ -1,8 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { tokenizeTemplateForFormatting } from '@faubulous/mentor-rdf-parsers';
 import { TurtleFormatter } from './turtle-formatter';
 import { SparqlFormatter } from './sparql-formatter';
 
-describe('template-aware formatFromText', () => {
+// Template body formatting needs `tokenizeTemplateForFormatting` from mentor-rdf-parsers.
+// Skip these end-to-end cases when an older parsers (without it) is installed (e.g. CI
+// before the new parsers is published); the host-only path is covered elsewhere.
+const describeTemplate = typeof tokenizeTemplateForFormatting === 'function' ? describe : describe.skip;
+
+describeTemplate('template-aware formatFromText', () => {
     it('formats a Turtle template: frontmatter reprinted, body reflowed, ${…} preserved', () => {
         const text = [
             '---',
