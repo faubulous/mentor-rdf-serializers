@@ -49,6 +49,13 @@ interface SparqlFormatterContext extends BaseFormatterContext {
     justEndedPrefix: boolean;
     inWhereBlock: boolean;
     functionCallDepth: number;
+    /**
+     * One entry per currently-open `(` so each `)` can be matched to its own
+     * opener. Without this, a `)` that closes an inline sub-group would wrongly
+     * pop the enclosing multi-line paren scope (or decrement the function-call
+     * depth of an outer function call).
+     */
+    parenStack: { isFunction: boolean; isMultiLine: boolean }[];
     hasFromClause: boolean;
     isAskQuery: boolean;
     /** Tracks if we just closed an inline block */
@@ -141,6 +148,7 @@ export class SparqlFormatter
             justEndedPrefix: false,
             inWhereBlock: false,
             functionCallDepth: 0,
+            parenStack: [],
             hasFromClause: false,
             isAskQuery: false,
             lastWasInlineBlock: false,
@@ -181,6 +189,11 @@ export class SparqlFormatter
             const token = tokens[i];
 
             if (token.tokenType === RdfToken.WS) continue;
+
+            // A comment anywhere inside forces multi-line (a '#' comment runs to
+            // end-of-line, so the block can never be collapsed onto one line).
+            // Mirrors calculateStatementLength / calculateBracketBlockInlineLength.
+            if (token.tokenType === RdfToken.COMMENT) return -1;
 
             // Source has explicit newlines - preserve multi-line format
             if (lastNonWsToken && token.startLine !== undefined && lastNonWsToken.endLine !== undefined) {
@@ -333,7 +346,7 @@ export class SparqlFormatter
         ctx.sourceNewline = false;
     }
 
-    private handleCloseBrace(ctx: SparqlFormatterContext): void {
+    private handleCloseBrace(ctx: SparqlFormatterContext, prevWasComment = false): void {
         const scope = this.currentScope(ctx);
         const isInline = scope?.isInline ?? false;
         const le = ctx.opts.lineEnd;
@@ -344,7 +357,10 @@ export class SparqlFormatter
         if (isInline) {
             this.addPart(ctx, ' }', le);
         } else if (ctx.opts.prettyPrint) {
-            this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+            // A preceding comment already forced the dedented break.
+            if (!prevWasComment) {
+                this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
+            }
             this.addPart(ctx, '}', le);
         } else {
             this.addPart(ctx, '}', le);
@@ -475,7 +491,15 @@ export class SparqlFormatter
 
         const lastWasFunction = ctx.lastNonWsToken && this.isFunctionKeyword(ctx.lastNonWsToken);
 
-        if (ctx.needsNewline && ctx.functionCallDepth === 0 && !lastWasFunction) {
+        // Normally newlines are suppressed inside function-call argument lists so
+        // expressions stay on one line. A newline that originates from the source
+        // layout (e.g. an operand placed on its own line after `||` inside a
+        // FILTER) is preserved, so author-chosen line breaks before a sub-group
+        // survive. A break is never inserted right after the function name itself.
+        const breakBeforeParen = ctx.needsNewline && !lastWasFunction &&
+            (ctx.functionCallDepth === 0 || ctx.sourceNewline);
+
+        if (breakBeforeParen) {
             this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
             ctx.lastWasNewline = true;
             ctx.needsNewline = false;
@@ -485,6 +509,7 @@ export class SparqlFormatter
             }
         }
         ctx.needsNewline = false;
+        ctx.sourceNewline = false;
 
         this.addPart(ctx, token.image, le);
         ctx.needsSpace = false;
@@ -506,17 +531,29 @@ export class SparqlFormatter
             }
         }
 
-        // Multi-line parenthesis → push paren scope for proper indent
-        if (isLParen && this.isParenBlockMultiLine(tokens, index)) {
-            this.pushScope(ctx, 'paren', false, true);
+        // Record this paren so its matching ')' can be resolved unambiguously.
+        if (isLParen) {
+            const isMultiLine = this.isParenBlockMultiLine(tokens, index);
+
+            ctx.parenStack.push({ isFunction: !!lastWasFunction, isMultiLine });
+
+            // Multi-line parenthesis → push paren scope for proper indent
+            if (isMultiLine) {
+                this.pushScope(ctx, 'paren', false, true);
+            }
         }
     }
 
-    private handleSparqlCloseParen(ctx: SparqlFormatterContext, token: IToken): void {
+    private handleSparqlCloseParen(ctx: SparqlFormatterContext, token: IToken, prevWasComment = false): void {
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
 
-        if (token.tokenType === RdfToken.RPARENT && ctx.functionCallDepth > 0) {
+        // Resolve this ')' against the matching '(' recorded on the paren stack
+        // so an inline sub-group never closes an outer function call or
+        // multi-line paren scope.
+        const openParen = token.tokenType === RdfToken.RPARENT ? ctx.parenStack.pop() : undefined;
+
+        if (openParen?.isFunction && ctx.functionCallDepth > 0) {
             ctx.functionCallDepth--;
         }
 
@@ -524,6 +561,15 @@ export class SparqlFormatter
         if (token.tokenType === RdfToken.RBRACKET) {
             const scope = this.currentScope(ctx);
             if (scope?.type === 'bracket') {
+                // A preceding comment already forced the dedented break; just close
+                // the scope and emit ']' on the line the break opened.
+                if (prevWasComment) {
+                    this.popScope(ctx);
+                    this.addPart(ctx, token.image, le);
+                    ctx.needsSpace = true;
+                    ctx.needsNewline = false;
+                    return;
+                }
                 if (!scope.isInline) {
                     // Pop any trailing newline+indent from a semicolon
                     if (ctx.lastWasNewline && ctx.parts.length > 0) {
@@ -549,11 +595,12 @@ export class SparqlFormatter
         }
 
         // Closing multi-line paren
-        if (token.tokenType === RdfToken.RPARENT) {
+        if (token.tokenType === RdfToken.RPARENT && openParen?.isMultiLine) {
             const scope = this.currentScope(ctx);
             if (scope?.type === 'paren' && scope.isMultiLine) {
                 this.popScope(ctx);
-                if (ctx.opts.prettyPrint) {
+                // A preceding comment already forced the dedented break.
+                if (ctx.opts.prettyPrint && !prevWasComment) {
                     this.addPart(ctx, le + this.getIndent(ctx.indentLevel, ind), le, true);
                 }
                 this.addPart(ctx, token.image, le);
@@ -706,6 +753,20 @@ export class SparqlFormatter
 
         if (this.isTermToken(token)) {
             if (ctx.triplePosition === 0) {
+                // A term immediately followed by '{' is a graph label of a
+                // GRAPH/SERVICE pattern (e.g. `GRAPH ?og { ... }`), not a triple
+                // subject. Treating it as a subject would wrongly trigger
+                // blank-line-between-subjects spacing between the keyword and the
+                // label. The opening brace resets the triple position itself.
+                let n = index + 1;
+                while (n < tokens.length &&
+                    (tokens[n].tokenType === RdfToken.WS || tokens[n].tokenType === RdfToken.COMMENT)) {
+                    n++;
+                }
+                if (tokens[n]?.tokenType === RdfToken.LCURLY) {
+                    return;
+                }
+
                 if (ctx.opts.blankLinesBetweenSubjects && ctx.lastSubject !== null && token.image !== ctx.lastSubject) {
                     if (!ctx.needsBlankLine) {
                         if (prevWasComment && !ctx.lastCommentHadBlankLine) {
@@ -735,6 +796,29 @@ export class SparqlFormatter
     // ========================================================================
     // Spacing & wrapping
     // ========================================================================
+
+    /**
+     * Detects a postfix property-path operator (`*`, `+`, `?`).
+     *
+     * These tokens share their token types with the arithmetic `*` / `+`
+     * operators (and `?` with nothing else), so they are disambiguated by
+     * source adjacency: a property-path operator hugs its operand with no
+     * intervening whitespace (`rdfs:subClassOf+`), whereas an arithmetic
+     * operator is surrounded by spaces (`?a + ?b`). When the operator
+     * directly abuts the preceding token in the source it must stay attached
+     * with no leading space.
+     */
+    private isPostfixPathOperator(ctx: SparqlFormatterContext, token: IToken): boolean {
+        if (token.tokenType !== RdfToken.STAR &&
+            token.tokenType !== RdfToken.PLUS_SIGN &&
+            token.tokenType !== RdfToken.QUESTION_MARK) {
+            return false;
+        }
+        const prev = ctx.lastNonWsToken;
+        if (!prev || token.startOffset === undefined) return false;
+        const prevEnd = prev.endOffset ?? prev.startOffset + prev.image.length - 1;
+        return token.startOffset === prevEnd + 1;
+    }
 
     private handleLineWrapping(ctx: SparqlFormatterContext, value: string): void {
         const le = ctx.opts.lineEnd;
@@ -890,6 +974,28 @@ export class SparqlFormatter
             ctx.lastWasComment = false;
             ctx.lastWasInlineBlock = false;
 
+            // A '#' comment runs to end-of-line, so the next token MUST start on a
+            // new line in every mode — SPARQL has no inline/block comment form.
+            // Without this the comment swallows the following token(s) and the
+            // output becomes invalid. The closing-token handlers (`}`, `)`, `]`)
+            // are told via `prevWasComment` to skip their own break, so this stays
+            // the single source of the post-comment break.
+            if (prevWasComment) {
+                const le = ctx.opts.lineEnd;
+                // Closing tokens dedent: each `}`/`)`/`]` closes a scope whose
+                // opener incremented `indentLevel`, so they sit one level shallower.
+                const isCloser = token.tokenType === RdfToken.RCURLY ||
+                    token.tokenType === RdfToken.RPARENT ||
+                    token.tokenType === RdfToken.RBRACKET;
+                const level = isCloser ? Math.max(0, ctx.indentLevel - 1) : ctx.indentLevel;
+                if (!ctx.lastWasNewline) this.addPart(ctx, le, le, true);
+                this.addPart(ctx, this.getIndent(level, ctx.opts.indent), le);
+                ctx.lastWasNewline = true;
+                ctx.needsNewline = false;
+                ctx.needsSpace = false;
+                ctx.sourceNewline = false;
+            }
+
             // ── Structural tokens ──────────────────────────────────────
             if (token.tokenType === RdfToken.LCURLY) {
                 this.handleOpenBrace(ctx, tokens, i + 1);
@@ -897,7 +1003,7 @@ export class SparqlFormatter
             }
 
             if (token.tokenType === RdfToken.RCURLY) {
-                this.handleCloseBrace(ctx);
+                this.handleCloseBrace(ctx, prevWasComment);
                 ctx.lastToken = token; ctx.lastNonWsToken = token; continue;
             }
 
@@ -922,7 +1028,7 @@ export class SparqlFormatter
             }
 
             if (token.tokenType === RdfToken.RPARENT || token.tokenType === RdfToken.RBRACKET) {
-                this.handleSparqlCloseParen(ctx, token);
+                this.handleSparqlCloseParen(ctx, token, prevWasComment);
                 ctx.lastToken = token; ctx.lastNonWsToken = token; continue;
             }
 
@@ -934,6 +1040,13 @@ export class SparqlFormatter
 
             // Triple position tracking
             this.handleTriplePosition(ctx, token, tokens, i, prevWasComment);
+
+            // Keep postfix property-path operators (`*`, `+`, `?`) attached to
+            // their operand, e.g. `rdfs:subClassOf+`, never `rdfs:subClassOf +`.
+            if (this.isPostfixPathOperator(ctx, token)) {
+                ctx.needsSpace = false;
+                ctx.needsNewline = false;
+            }
 
             // Line wrapping
             this.handleLineWrapping(ctx, value);

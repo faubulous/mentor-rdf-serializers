@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SparqlLexer } from '@faubulous/mentor-rdf-parsers';
+import { SparqlLexer, RdfToken } from '@faubulous/mentor-rdf-parsers';
 import { SparqlFormatter } from './sparql-formatter';
 
 // NOTE: All IRIs, prefixes, and sample data in these tests are synthetic
@@ -755,6 +755,63 @@ VALUES ?date {
             expect(pathLine).toContain('ex:hasSOP / ex:hasPDV / ex:hasEvent');
         });
 
+        it('should keep postfix property-path operators attached to their operand', () => {
+            const query = 'SELECT ?x WHERE { ?x rdfs:subClassOf+ ?y . ?a rdfs:subClassOf* ?b . ?c foaf:knows? ?d }';
+
+            const result = formatter.formatFromText(query);
+
+            expect(result.output).toContain('rdfs:subClassOf+ ?y');
+            expect(result.output).toContain('rdfs:subClassOf* ?b');
+            expect(result.output).toContain('foaf:knows? ?d');
+            expect(result.output).not.toContain('subClassOf +');
+            expect(result.output).not.toContain('subClassOf *');
+            expect(result.output).not.toContain('knows ?');
+        });
+
+        it('should not affect arithmetic operators or wildcards', () => {
+            expect(formatter.formatFromText('SELECT ((?a + ?b) AS ?s) ((?a * 2) AS ?m) WHERE { ?x ?y ?z }').output)
+                .toContain('(?a + ?b)');
+            expect(formatter.formatFromText('SELECT (COUNT(*) AS ?c) WHERE { ?x ?y ?z }').output)
+                .toContain('COUNT(*)');
+            expect(formatter.formatFromText('SELECT * WHERE { ?x ?y ?z }').output)
+                .toContain('SELECT *');
+        });
+
+        it('should keep a GRAPH graph label on the same line as the keyword', () => {
+            const query = `SELECT * WHERE {
+    ?s ?p ?o .
+
+    GRAPH ?og {
+        ?ontology dcat:distribution / dcat:accessURL ?graph .
+    }
+}`;
+
+            const result = formatter.formatFromText(query);
+
+            expect(result.output).toContain('GRAPH ?og {');
+            expect(result.output).not.toMatch(/GRAPH\s*\n/);
+        });
+
+        it('should preserve author line breaks after operators in a multi-line FILTER', () => {
+            const query = `SELECT * WHERE {
+    ?s ?p ?o .
+    FILTER(?otherPriority > ?currentPriority ||
+        (?otherPriority = ?currentPriority && ?otherDue > ?currentDue) ||
+        (?otherPriority = ?currentPriority && ?otherDue = ?currentDue && STR(?otherPPAP) > STR(?ppap))
+    )
+}`;
+
+            const result = formatter.formatFromText(query);
+
+            // Each inline sub-group stays intact on its own line; the inner ')'
+            // must not break onto a new line, and an inner ')' must not pull the
+            // following content onto a new line.
+            expect(result.output).toContain('?otherDue > ?currentDue) ||');
+            expect(result.output).toContain('STR(?otherPPAP) > STR(?ppap))');
+            expect(result.output).not.toMatch(/&&\s*\n\s*\?otherDue/);
+            expect(result.output).not.toMatch(/\n\s*\) \|\|/);
+        });
+
         it('should format FILTER NOT EXISTS blocks properly', () => {
             const query = `SELECT ?x WHERE {
     ?x a <http://ex.org/Class>.
@@ -1442,6 +1499,90 @@ LIMIT 100`;
 
             // Should not be inlined; closing bracket on its own line
             expect(result.output).toContain('\n    ]');
+        });
+    });
+
+    describe('token preservation with comments in expressions', () => {
+        const lexer = new SparqlLexer();
+        // Re-lex a query and return its non-whitespace token-image sequence
+        // (lower-cased so keyword-casing normalisation is ignored). A '#' comment
+        // that swallows following tokens shows up as a missing/merged token here.
+        const tokenSignature = (src: string): string[] => {
+            const r = lexer.tokenize(src);
+            expect(r.errors).toHaveLength(0);
+            return r.tokens
+                .filter(t => t.tokenType !== RdfToken.WS)
+                .map(t => t.image.replace(/\s+$/, '').toLowerCase());
+        };
+
+        const cases: [string, string][] = [
+            ['comment before period',
+                'SELECT ?x WHERE { ?x ?p ?o # c\n. FILTER(?x > 2) }'],
+            ['comment before semicolon',
+                'SELECT ?x WHERE { ?x ?p ?o # c\n; ?p2 ?o2 }'],
+            ['comment before comma',
+                'SELECT ?x WHERE { ?x ?p ?o , # c\n?o2 }'],
+            ['comment inside FILTER parens',
+                'SELECT ?x WHERE { ?x ?p ?o . FILTER(?x > 2 # keep big\n&& ?x < 9) }'],
+            ['comment after open paren of FILTER',
+                'SELECT ?x WHERE { ?x ?p ?o . FILTER( # note\nregex(?o, "a")) }'],
+            ['comment after open paren inside BIND function',
+                'SELECT ?x { BIND( # c\n(?a + ?b) AS ?s) }'],
+            ['comment inside BIND expression',
+                'SELECT ?t { BIND((?a # x\n+ ?b) AS ?t) }'],
+            ['comment inside COUNT function call',
+                'SELECT (COUNT(?x # cnt\n) AS ?c) { ?x ?p ?o }'],
+            ['comment inside nested function call',
+                'SELECT ?x { FILTER(REGEX(?x, # pattern\n"a")) }'],
+            ['comment inside IN list',
+                'SELECT ?x { FILTER(?x IN ( # list\n1, 2, 3)) }'],
+            ['comment inside GROUP_CONCAT',
+                'SELECT ?s (GROUP_CONCAT(?x ; # sep\nSEPARATOR=",") AS ?g) { ?s ?p ?x } GROUP BY ?s'],
+            ['comment inside blank-node property list',
+                'SELECT ?x { ?x ?p [ ?a ?b ; # c\n?c ?d ] }'],
+            ['comment before closing brace',
+                'SELECT ?x { ?x ?p ?o # c\n}'],
+        ];
+
+        for (const [name, query] of cases) {
+            it(`preserves all tokens (pretty): ${name}`, () => {
+                const result = formatter.formatFromText(query);
+                expect(tokenSignature(result.output)).toEqual(tokenSignature(query));
+            });
+
+            it(`preserves all tokens (compact): ${name}`, () => {
+                const result = formatter.formatFromText(query, { prettyPrint: false });
+                expect(tokenSignature(result.output)).toEqual(tokenSignature(query));
+            });
+        }
+
+        it('does not lose tokens for a comment injected after every position', () => {
+            const bases = [
+                'SELECT ?x WHERE { ?x ?p ?o . FILTER( ?x > 2 && ?x < 9 ) }',
+                'SELECT ?x { BIND( ( ?a + ?b ) AS ?s ) }',
+                'SELECT ( COUNT( ?x ) AS ?c ) { ?x ?p ?o }',
+                'SELECT ?x { FILTER( ?x IN ( 1 , 2 , 3 ) ) }',
+                'SELECT ?x { ?x ?p [ ?a ?b ; ?c ?d ] }',
+            ];
+            const optionSets = [
+                undefined,
+                { prettyPrint: false },
+                { maxLineWidth: 0 },
+                { maxLineWidth: 200 },
+            ] as const;
+
+            for (const base of bases) {
+                const parts = base.split(' ');
+                for (let i = 1; i < parts.length; i++) {
+                    const query = parts.slice(0, i).join(' ') + ' # cmt\n' + parts.slice(i).join(' ');
+                    const expected = tokenSignature(query);
+                    for (const opts of optionSets) {
+                        const out = formatter.formatFromText(query, opts).output;
+                        expect(tokenSignature(out), `opts=${JSON.stringify(opts)} query=${JSON.stringify(query)}`)
+                            .toEqual(expected);
+                    }
+                }
+            }
         });
     });
 });
