@@ -574,6 +574,29 @@ export abstract class TokenFormatterBase<
     }
 
     /**
+     * Returns `true` if the parenthesis block at `openIndex` is empty (the empty
+     * collection `()`), i.e. the next non-whitespace token is the closing `)`.
+     * @param tokens The full token stream (may be undefined when not provided).
+     * @param openIndex The index of the opening parenthesis token.
+     * @returns `true` for an empty collection, `false` otherwise.
+     */
+    protected isEmptyParenBlock(tokens: IToken[] | undefined, openIndex: number | undefined): boolean {
+        if (tokens === undefined || openIndex === undefined) {
+            return false;
+        }
+
+        for (let i = openIndex + 1; i < tokens.length; i++) {
+            if (tokens[i].tokenType === RdfToken.WS) {
+                continue;
+            }
+
+            return tokens[i].tokenType === RdfToken.RPARENT;
+        }
+
+        return false;
+    }
+
+    /**
      * Returns a base context with all shared fields initialised. Subclasses call 
      * this and spread into their own context literal.
      * 

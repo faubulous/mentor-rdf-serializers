@@ -151,6 +151,22 @@ describe('TurtleSerializer', () => {
             expect(result.trim()).not.toContain('<http://example.org/s>');
         });
 
+        it('should keep a subject\'s default-graph triples when it also has named-graph triples', () => {
+            // Same subject spanning the default graph and a named graph. Grouping
+            // is graph-agnostic, so the default-graph triple must survive
+            // regardless of which quad groups first.
+            const s = DataFactory.namedNode('http://example.org/s');
+            const quads = [
+                DataFactory.quad(s, DataFactory.namedNode('http://example.org/inGraph'), DataFactory.literal('named'), DataFactory.namedNode('http://example.org/g')),
+                DataFactory.quad(s, DataFactory.namedNode('http://example.org/inDefault'), DataFactory.literal('default'))
+            ];
+
+            const result = serializer.serialize(quads);
+
+            expect(result).toContain('<http://example.org/inDefault>');
+            expect(result).not.toContain('<http://example.org/inGraph>');
+        });
+
         it('should handle blank nodes', () => {
             const quads = [
                 DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o'))
@@ -660,6 +676,347 @@ describe('TurtleSerializer', () => {
             // RDF/JS Quad objects do not carry comment metadata.
             // The '#' inside IRIs (e.g. rdfs:) is not a comment marker.
             expect(result).not.toMatch(/^\s*#[^>]/m);
+        });
+    });
+
+    describe('RDF collections', () => {
+        const RDF_NS = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
+        const SH = { in: 'http://www.w3.org/ns/shacl#in', or: 'http://www.w3.org/ns/shacl#or' };
+
+        const PREFIXES = {
+            sh: 'http://www.w3.org/ns/shacl#',
+            xsd: 'http://www.w3.org/2001/XMLSchema#',
+            ex: 'http://example.org/',
+        };
+
+        function parseQuads(input: string) {
+            const lexResult = new TurtleLexer().tokenize(input);
+            const cst = new TurtleParser().parse(lexResult.tokens);
+            return new TurtleReader().readQuadContexts(cst, lexResult.tokens);
+        }
+
+        /**
+         * Builds the quads of a well-formed rdf list attached to a subject,
+         * plus optional extra quads, without going through the parser.
+         */
+        function listQuads(itemValues: string[]) {
+            const quads = [];
+            const nodes = itemValues.map((_, i) => DataFactory.blankNode(`l${i}`));
+
+            quads.push(DataFactory.quad(
+                DataFactory.namedNode('http://example.org/s'),
+                DataFactory.namedNode(SH.in),
+                nodes[0]
+            ));
+
+            for (let i = 0; i < nodes.length; i++) {
+                quads.push(DataFactory.quad(nodes[i], DataFactory.namedNode(`${RDF_NS}first`), DataFactory.literal(itemValues[i])));
+                quads.push(DataFactory.quad(
+                    nodes[i],
+                    DataFactory.namedNode(`${RDF_NS}rest`),
+                    i < nodes.length - 1 ? nodes[i + 1] : DataFactory.namedNode(`${RDF_NS}nil`)
+                ));
+            }
+
+            return quads;
+        }
+
+        it('should serialize a literal list with collection syntax', () => {
+            const input = [
+                '@prefix sh: <http://www.w3.org/ns/shacl#> .',
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:shape sh:in ("a" "b" "c") .',
+            ].join('\n');
+
+            const result = serializer.serialize(parseQuads(input), { prefixes: PREFIXES });
+
+            expect(result).toContain('sh:in ( "a" "b" "c" )');
+            expect(result).not.toContain('rdf:first');
+            expect(result).not.toContain('_:');
+        });
+
+        it('should serialize a list nested inside an inlined blank node', () => {
+            // The motivating SHACL shape graph pattern.
+            const input = [
+                '@prefix sh: <http://www.w3.org/ns/shacl#> .',
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:PS sh:path [ sh:alternativePath ( ex:broader ex:narrower ) ] .',
+            ].join('\n');
+
+            const result = serializer.serialize(parseQuads(input), { prefixes: PREFIXES });
+
+            expect(result).toContain('[ sh:alternativePath ( ex:broader ex:narrower ) ]');
+            expect(result).not.toContain('rdf:first');
+        });
+
+        it('should serialize a list of inline blank nodes', () => {
+            const input = [
+                '@prefix sh: <http://www.w3.org/ns/shacl#> .',
+                '@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .',
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:s sh:or ( [ sh:datatype xsd:string ] [ sh:datatype xsd:integer ] ) .',
+            ].join('\n');
+
+            const result = serializer.serialize(parseQuads(input), { prefixes: PREFIXES });
+
+            expect(result).toContain('sh:or ( [ sh:datatype xsd:string ] [ sh:datatype xsd:integer ] )');
+            expect(result).not.toContain('rdf:first');
+        });
+
+        it('should serialize nested collections', () => {
+            const input = [
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:s ex:p ( ex:a ( ex:b ex:c ) ) .',
+            ].join('\n');
+
+            const result = serializer.serialize(parseQuads(input), { prefixes: PREFIXES });
+
+            expect(result).toContain('ex:p ( ex:a ( ex:b ex:c ) )');
+            expect(result).not.toContain('rdf:first');
+        });
+
+        it('should fall back for a list node with extra predicates', () => {
+            const quads = listQuads(['a', 'b']);
+
+            // An extra statement on the second list node disqualifies the list.
+            quads.push(DataFactory.quad(
+                DataFactory.blankNode('l1'),
+                DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#comment'),
+                DataFactory.literal('annotated')
+            ));
+
+            const result = serializer.serialize(quads, { prefixes: PREFIXES });
+
+            expect(result).not.toContain('(');
+            expect(result).toContain('first');
+            expect(result).toContain('annotated');
+        });
+
+        it('should fall back for lists with a shared tail', () => {
+            const quads = listQuads(['a', 'b']);
+
+            // A second list head re-uses the tail node of the first list.
+            quads.push(DataFactory.quad(
+                DataFactory.namedNode('http://example.org/s2'),
+                DataFactory.namedNode(SH.in),
+                DataFactory.blankNode('h2')
+            ));
+            quads.push(DataFactory.quad(DataFactory.blankNode('h2'), DataFactory.namedNode(`${RDF_NS}first`), DataFactory.literal('x')));
+            quads.push(DataFactory.quad(DataFactory.blankNode('h2'), DataFactory.namedNode(`${RDF_NS}rest`), DataFactory.blankNode('l1')));
+
+            const result = serializer.serialize(quads, { prefixes: PREFIXES });
+
+            expect(result).not.toContain('(');
+            expect(result).toContain('first');
+        });
+
+        it('should fall back for cyclic rdf:rest chains without hanging', () => {
+            const quads = [
+                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode(SH.in), DataFactory.blankNode('c0')),
+                DataFactory.quad(DataFactory.blankNode('c0'), DataFactory.namedNode(`${RDF_NS}first`), DataFactory.literal('a')),
+                DataFactory.quad(DataFactory.blankNode('c0'), DataFactory.namedNode(`${RDF_NS}rest`), DataFactory.blankNode('c1')),
+                DataFactory.quad(DataFactory.blankNode('c1'), DataFactory.namedNode(`${RDF_NS}first`), DataFactory.literal('b')),
+                DataFactory.quad(DataFactory.blankNode('c1'), DataFactory.namedNode(`${RDF_NS}rest`), DataFactory.blankNode('c0')),
+            ];
+
+            const result = serializer.serialize(quads, { prefixes: PREFIXES });
+
+            expect(result).not.toContain('( ');
+            expect(result).toContain('first');
+        });
+
+        it('should fall back for a doubly-referenced list head', () => {
+            const quads = listQuads(['a', 'b']);
+
+            quads.push(DataFactory.quad(
+                DataFactory.namedNode('http://example.org/s2'),
+                DataFactory.namedNode(SH.in),
+                DataFactory.blankNode('l0')
+            ));
+
+            const result = serializer.serialize(quads, { prefixes: PREFIXES });
+
+            expect(result).not.toContain('(');
+            expect(result).toContain('first');
+        });
+
+        it('should fall back for a list head used as a top-level subject', () => {
+            // ( "a" "b" ) ex:p ex:o — the head has no object-position reference,
+            // so it keeps its blank node form. Its well-formed tail is an
+            // independent list and may still collapse — that stays lossless.
+            const quads = listQuads(['a', 'b']).slice(1);
+
+            quads.push(DataFactory.quad(
+                DataFactory.blankNode('l0'),
+                DataFactory.namedNode('http://example.org/p'),
+                DataFactory.namedNode('http://example.org/o')
+            ));
+
+            const result = serializer.serialize(quads, { prefixes: PREFIXES });
+
+            expect(result).toContain('first> "a"');
+            expect(result).toContain('ex:p ex:o');
+            expect(result).not.toContain('( "a"');
+        });
+
+        it('should not use collection syntax when disabled or not pretty printing', () => {
+            const input = [
+                '@prefix sh: <http://www.w3.org/ns/shacl#> .',
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:shape sh:in ("a" "b") .',
+            ].join('\n');
+
+            const disabled = serializer.serialize(parseQuads(input), { prefixes: PREFIXES, inlineCollections: false });
+            const compact = serializer.serialize(parseQuads(input), { prefixes: PREFIXES, prettyPrint: false });
+
+            expect(disabled).not.toContain('( "a"');
+            expect(disabled).toContain('first');
+            expect(compact).not.toContain('( "a"');
+        });
+
+        it('should wrap long collections across lines when maxLineWidth is exceeded', () => {
+            const input = [
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:s ex:p ( ex:firstLongItem ex:secondLongItem ex:thirdLongItem ) .',
+            ].join('\n');
+
+            const narrow = serializer.serialize(parseQuads(input), { prefixes: PREFIXES, maxLineWidth: 20 });
+            const wide = serializer.serialize(parseQuads(input), { prefixes: PREFIXES, maxLineWidth: 120 });
+
+            expect(narrow).toMatch(/\(\n/);
+            expect(narrow).toMatch(/\n\s+ex:secondLongItem\n/);
+            expect(narrow).toMatch(/\n\s*\)/);
+            expect(wide).toContain('( ex:firstLongItem ex:secondLongItem ex:thirdLongItem )');
+        });
+    });
+
+    describe('spaceBeforePunctuation', () => {
+        function parseQuads(input: string) {
+            const lexResult = new TurtleLexer().tokenize(input);
+            const cst = new TurtleParser().parse(lexResult.tokens);
+            return new TurtleReader().readQuadContexts(cst, lexResult.tokens);
+        }
+
+        const input = [
+            '@prefix ex: <http://example.org/> .',
+            '',
+            'ex:s a ex:T ;',
+            '  ex:p ex:a , ex:b ;',
+            '  ex:q [ ex:r ex:x ] .',
+        ].join('\n');
+
+        it('inserts a space before ; , . by default', () => {
+            const result = serializer.serialize(parseQuads(input), {
+                prefixes: { ex: 'http://example.org/' },
+                directiveStyle: 'turtle',
+            });
+
+            expect(result).toContain('@prefix ex: <http://example.org/> .');
+            expect(result).toContain('a ex:T ;');
+            expect(result).toContain('ex:a , ex:b ;');
+            expect(result).toContain('] .');
+        });
+
+        it('hugs punctuation when disabled', () => {
+            const result = serializer.serialize(parseQuads(input), {
+                prefixes: { ex: 'http://example.org/' },
+                directiveStyle: 'turtle',
+                spaceBeforePunctuation: false,
+            });
+
+            expect(result).toContain('@prefix ex: <http://example.org/>.');
+            expect(result).toContain('a ex:T;');
+            expect(result).toContain('ex:a, ex:b;');
+            expect(result).toContain('].');
+            expect(result).not.toMatch(/ [;,.](\s|$)/);
+        });
+    });
+
+    describe('relabelBlankNodes', () => {
+        /**
+         * Two subjects sharing two blank nodes: the blank nodes are
+         * multi-referenced and therefore serialized with their labels.
+         */
+        function sharedBlankNodeQuads() {
+            const quads = [];
+
+            for (const subject of ['http://example.org/a', 'http://example.org/b']) {
+                for (const bnode of ['13xf400_b7', '13xf400_b3']) {
+                    quads.push(DataFactory.quad(
+                        DataFactory.namedNode(subject),
+                        DataFactory.namedNode('http://example.org/p'),
+                        DataFactory.blankNode(bnode)
+                    ));
+                }
+            }
+
+            quads.push(DataFactory.quad(
+                DataFactory.blankNode('13xf400_b7'),
+                DataFactory.namedNode('http://example.org/q'),
+                DataFactory.literal('v')
+            ));
+
+            return quads;
+        }
+
+        it('should rename blank nodes in first-appearance order', () => {
+            const result = serializer.serialize(sharedBlankNodeQuads(), { relabelBlankNodes: true });
+
+            expect(result).toContain('_:b0');
+            expect(result).toContain('_:b1');
+            expect(result).not.toContain('13xf400');
+        });
+
+        it('should keep source labels by default', () => {
+            const result = serializer.serialize(sharedBlankNodeQuads());
+
+            expect(result).toContain('_:13xf400_b7');
+            expect(result).toContain('_:13xf400_b3');
+        });
+    });
+
+    describe('inline blank node cycles', () => {
+        it('should keep mutually-referencing single-use blank nodes as labeled subjects', () => {
+            // Each blank node is referenced exactly once — by the other. Naive
+            // single-use inlining would skip both definitions and emit nothing.
+            const quads = [
+                DataFactory.quad(
+                    DataFactory.blankNode('x'),
+                    DataFactory.namedNode('http://example.org/p'),
+                    DataFactory.blankNode('y')
+                ),
+                DataFactory.quad(
+                    DataFactory.blankNode('y'),
+                    DataFactory.namedNode('http://example.org/p'),
+                    DataFactory.blankNode('x')
+                ),
+            ];
+
+            const result = serializer.serialize(quads);
+
+            expect(result).toMatch(/^_:x /m);
+            expect(result).toMatch(/^_:y /m);
+        });
+
+        it('should keep a self-referencing single-use blank node as a labeled subject', () => {
+            const quads = [
+                DataFactory.quad(
+                    DataFactory.blankNode('x'),
+                    DataFactory.namedNode('http://example.org/p'),
+                    DataFactory.blankNode('x')
+                ),
+            ];
+
+            const result = serializer.serialize(quads);
+
+            expect(result).toContain('_:x');
+            expect(result).toContain('http://example.org/p');
         });
     });
 });

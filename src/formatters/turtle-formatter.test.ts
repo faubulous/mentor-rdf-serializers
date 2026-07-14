@@ -793,9 +793,9 @@ describe('TurtleFormatter', () => {
                 blankLinesBetweenSubjects: true,
             });
 
-            // The collection ("en") must stay on one line with no blank lines.
+            // The collection ( "en" ) must stay on one line with no blank lines.
             expect(result.output).not.toMatch(/\(\s*\n/);
-            expect(result.output).toContain('sh:languageIn ("en")');
+            expect(result.output).toContain('sh:languageIn ( "en" )');
         });
 
         it('should place the predicate following an inline collection on its own line', () => {
@@ -814,7 +814,20 @@ describe('TurtleFormatter', () => {
             });
 
             // ex:label must appear on its own indented line, not inlined after the collection semicolon.
-            expect(result.output).toMatch(/ex:allowedValues \("a" "b"\);\n    ex:label "test"\./);
+            expect(result.output).toMatch(/ex:allowedValues \( "a" "b" \);\n    ex:label "test"\./);
+        });
+
+        it('keeps the empty collection as () without inner spaces', () => {
+            const input = [
+                '@prefix ex: <http://example.org/> .',
+                '',
+                'ex:s ex:p () .',
+            ].join('\n');
+
+            const result = formatter.formatFromText(input, { indent: '    ', prettyPrint: true });
+
+            expect(result.output).toContain('ex:p ()');
+            expect(result.output).not.toContain('( )');
         });
     });
 

@@ -32,6 +32,14 @@ export interface SerializationOptions {
     prettyPrint?: boolean;
 
     /**
+     * Whether to insert a space before statement punctuation (`;`, `,`, `.`)
+     * and directive terminators. When false, punctuation hugs the preceding
+     * token (e.g. `ex:s ex:p ex:o;`).
+     * Default: true
+     */
+    spaceBeforePunctuation?: boolean;
+
+    /**
      * Sorting option for quads.
      */
     sort?: SortingOption;
@@ -119,6 +127,26 @@ export interface SerializationOptions {
      * Default: true
      */
     inlineSingleUseBlankNodes?: boolean;
+
+    /**
+     * Whether to serialize well-formed RDF lists (rdf:first/rdf:rest/rdf:nil
+     * chains) using collection syntax (`( ... )`) when pretty printing.
+     * Malformed, shared or otherwise ambiguous lists fall back to blank node
+     * serialization so that no triples are ever dropped.
+     *
+     * This applies only when `prettyPrint` is `true`.
+     * Default: true
+     */
+    inlineCollections?: boolean;
+
+    /**
+     * Whether to rename all blank nodes in first-appearance order using the
+     * `blankNodeIdGenerator` before serializing. Useful for exports where
+     * source blank node labels carry parser-internal prefixes (e.g.
+     * `_:13xf400_b0`) that would otherwise leak into the output.
+     * Default: false
+     */
+    relabelBlankNodes?: boolean;
 }
 
 /**
@@ -169,8 +197,11 @@ export const DEFAULT_OPTIONS: Required<SerializationOptions> = {
     predicateListStyle: 'first-same-line',
     prefixes: {},
     prettyPrint: true,
+    spaceBeforePunctuation: true,
     sort: false,
     useRdfTypeShorthand: true,
     blankNodeIdGenerator: (counter: number) => `b${counter}`,
     inlineSingleUseBlankNodes: true,
+    inlineCollections: true,
+    relabelBlankNodes: false,
 };

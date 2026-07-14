@@ -383,7 +383,40 @@ describe('QuadContextSerializer', () => {
             expect(output).toContain('owl:AllDisjointClasses');
         });
 
-        it('should recursively inline owl:members blank node chains', () => {
+        it('should stay lossless for documents with collections and comments', () => {
+            const input = [
+                '@prefix sh: <http://www.w3.org/ns/shacl#> .',
+                '@prefix ex: <http://example.org/> .',
+                '',
+                '# The shape of things to come.',
+                'ex:shape sh:in ("a" "b") .',
+                '',
+                'ex:other ex:p ex:o .',
+            ].join('\n');
+
+            const { contexts } = parseWithComments(input);
+
+            const output = statementSerializer.serialize(contexts, {
+                prefixes: { sh: 'http://www.w3.org/ns/shacl#', ex: 'http://example.org/' },
+            });
+
+            // The collection collapse removes list-node blocks, forcing the
+            // per-group comment fallback: no collection syntax, but every
+            // statement, comment and blank node label must survive. In
+            // particular the list head must keep the label it is referenced
+            // by instead of being rendered as an anonymous `[ ... ]` block.
+            expect(output).toContain('# The shape of things to come.');
+            expect(output).toContain('ex:other ex:p ex:o .');
+
+            const headReference = output.match(/sh:in (_:[A-Za-z0-9_-]+)/);
+            expect(headReference).not.toBeNull();
+            expect(output).toMatch(new RegExp(`^${headReference![1]} `, 'm'));
+            expect(output).toContain('"a"');
+            expect(output).toContain('"b"');
+            expect(output).not.toContain('[');
+        });
+
+        it('should serialize owl:members blank node chains as collections', () => {
             const input = [
                 '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
                 '@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .',
@@ -406,14 +439,13 @@ describe('QuadContextSerializer', () => {
                 inlineSingleUseBlankNodes: true,
             });
 
-            expect(output).toContain('owl:members [');
-            expect(output).toContain('rdf:first ex:A');
-            expect(output).toContain('rdf:first ex:B');
+            expect(output).toContain('owl:members ( ex:A ex:B )');
+            expect(output).not.toContain('rdf:first');
             expect(output).not.toMatch(/owl:members\s+_:[A-Za-z0-9_-]+/);
             expect(output).not.toMatch(/^_:[A-Za-z0-9_-]+\s+rdf:first/m);
         });
 
-        it('should recursively inline owl:members chains for multiple sibling disjoint-class blocks', () => {
+        it('should serialize owl:members chains as collections for multiple sibling disjoint-class blocks', () => {
             const input = [
                 '@prefix owl: <http://www.w3.org/2002/07/owl#> .',
                 '@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .',
@@ -442,11 +474,9 @@ describe('QuadContextSerializer', () => {
             });
 
             expect((output.match(/owl:AllDisjointClasses/g) ?? []).length).toBe(2);
-            expect((output.match(/owl:members\s+\[/g) ?? []).length).toBe(2);
-            expect(output).toContain('rdf:first ex:A');
-            expect(output).toContain('rdf:first ex:B');
-            expect(output).toContain('rdf:first ex:C');
-            expect(output).toContain('rdf:first ex:D');
+            expect(output).toContain('owl:members ( ex:A ex:B )');
+            expect(output).toContain('owl:members ( ex:C ex:D )');
+            expect(output).not.toContain('rdf:first');
             expect(output).not.toContain('owl:members _:b122');
             expect(output).not.toContain('owl:members _:b124');
             expect(output).not.toMatch(/^_:[A-Za-z0-9_-]+\s+rdf:first/m);

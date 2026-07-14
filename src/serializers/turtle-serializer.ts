@@ -1,10 +1,44 @@
 import type { BlankNode, NamedNode, Quad } from '@rdfjs/types';
+import DataFactory from '@rdfjs/data-model';
 import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
+import { RDF } from '../ontologies';
 import { Rdf12Quad, TripleTerm } from '../utilities/types';
 import { QuadSerializerBase } from '../quad-serializer-base';
 import { SerializationResult } from '../serialization-result';
 import { SerializationOptions } from '../serialization-options';
 import { hasAnnotations, hasReifier, groupQuadsBySubjectPredicate } from '../utilities/quads';
+
+/**
+ * Predicate grouping keys of the RDF list vocabulary, as produced by `termToString`.
+ */
+const RDF_FIRST_KEY = `<${RDF.first}>`;
+const RDF_REST_KEY = `<${RDF.rest}>`;
+
+/**
+ * Blank node usage statistics collected over the grouped quads.
+ */
+interface BlankNodeUsage {
+    blankNodeRefs: Map<string, number>;
+    blankNodeDefs: Map<string, Map<string, Array<Quad | Rdf12Quad>>>;
+    /**
+     * The last subject referencing each blank node at an object position.
+     * Unique for blank nodes with a reference count of one, which is the only
+     * case it is consulted for (inline cycle detection).
+     */
+    blankNodeReferrers: Map<string, Quad['subject'] | TripleTerm>;
+}
+
+/**
+ * Per-serialization state for rendering blank nodes inline: single-use blank
+ * nodes as `[ ... ]` property lists and well-formed RDF lists as `( ... )`
+ * collections. Blank node ids in `collectionNodes` are consumed by a
+ * collection and must not be emitted as top-level subjects or `[ ... ]`.
+ */
+interface InlineState {
+    inlineBlankNodes: Map<string, Map<string, Array<Quad | Rdf12Quad>>>;
+    collections: Map<string, Array<Quad | Rdf12Quad>>;
+    collectionNodes: Set<string>;
+}
 
 /**
  * Serializer for Turtle format (RDF 1.2 compatible).
@@ -37,6 +71,14 @@ export class TurtleSerializer extends QuadSerializerBase {
     }
 
     /**
+     * Returns a punctuation mark (`;`, `,`, `.`) prefixed with a space unless
+     * `spaceBeforePunctuation` is disabled.
+     */
+    private punctuation(opts: Required<SerializationOptions>, mark: string): string {
+        return opts.spaceBeforePunctuation ? ` ${mark}` : mark;
+    }
+
+    /**
      * Serializes a single quad/triple to Turtle format.
      * Note: For full Turtle formatting with grouping, use serialize().
      */
@@ -59,7 +101,7 @@ export class TurtleSerializer extends QuadSerializerBase {
             result = `<< ${result} >> ~ ${this.serializeTerm(quad.reifier!, opts)}`;
         }
 
-        return result + ' .';
+        return result + this.punctuation(opts, '.');
     }
 
     /**
@@ -67,10 +109,20 @@ export class TurtleSerializer extends QuadSerializerBase {
      */
     serialize(quads: Iterable<Quad | Rdf12Quad>, options?: SerializationOptions): string {
         const opts = this.getOptions(options);
-        const quadArray = Array.from(quads);
+        // Turtle has no named graphs, so drop any quad outside the default graph
+        // up front. Doing it here (rather than while emitting) keeps the grouped
+        // path correct: grouping is by subject+predicate and is graph-agnostic,
+        // so a subject with triples in both the default graph and a named graph
+        // would otherwise be skipped or kept wholesale based on whichever quad
+        // happened to group first. Use TriG to retain named graphs.
+        let quadArray = Array.from(quads).filter(quad => !quad.graph || quad.graph.termType === 'DefaultGraph');
 
         if (quadArray.length === 0) {
             return '';
+        }
+
+        if (opts.relabelBlankNodes) {
+            quadArray = this.relabelQuads(quadArray, opts);
         }
 
         const parts: string[] = [];
@@ -80,7 +132,7 @@ export class TurtleSerializer extends QuadSerializerBase {
             if (opts.baseIri) {
                 const isTurtle = opts.directiveStyle === 'turtle';
                 const baseKeyword = isTurtle ? '@base' : (opts.directiveStyle === 'sparql-lowercase' ? 'base' : 'BASE');
-                const terminator = isTurtle ? ' .' : '';
+                const terminator = isTurtle ? this.punctuation(opts, '.') : '';
                 parts.push(`${baseKeyword} <${opts.baseIri}>${terminator}`);
             }
 
@@ -88,7 +140,7 @@ export class TurtleSerializer extends QuadSerializerBase {
             for (const [prefix, namespace] of Object.entries(opts.prefixes)) {
                 const isTurtle = opts.directiveStyle === 'turtle';
                 const prefixKeyword = isTurtle ? '@prefix' : (opts.directiveStyle === 'sparql-lowercase' ? 'prefix' : 'PREFIX');
-                const terminator = isTurtle ? ' .' : '';
+                const terminator = isTurtle ? this.punctuation(opts, '.') : '';
                 parts.push(`${prefixKeyword} ${prefix}: <${namespace}>${terminator}`);
             }
 
@@ -104,10 +156,6 @@ export class TurtleSerializer extends QuadSerializerBase {
             parts.push(this.serializeGrouped(grouped, opts));
         } else {
             for (const quad of quadArray) {
-                // Skip quads with named graphs in Turtle
-                if (quad.graph && quad.graph.termType !== 'DefaultGraph') {
-                    continue;
-                }
                 parts.push(this.serializeQuad(quad, opts));
             }
         }
@@ -126,9 +174,12 @@ export class TurtleSerializer extends QuadSerializerBase {
         const indent = opts.prettyPrint ? opts.indent : '';
         const lineEnd = opts.prettyPrint ? opts.lineEnd : ' ';
 
-        // Build inline blank node map if using auto/inline style.
+        // Build the inline rendering state: RDF lists first, then single-use
+        // blank nodes (excluding the list nodes consumed by collections).
         const blankNodeUsage = this.collectBlankNodeUsage(grouped);
-        const inlineBlankNodes = this.findInlineBlankNodes(blankNodeUsage, opts);
+        const { collections, collectionNodes } = this.findCollections(blankNodeUsage, opts);
+        const inlineBlankNodes = this.findInlineBlankNodes(blankNodeUsage, opts, collectionNodes);
+        const state: InlineState = { inlineBlankNodes, collections, collectionNodes };
 
         // Calculate alignment widths if requested
         const alignWidth = opts.alignPredicates ? this.calculatePredicateWidth(grouped, opts) : 0;
@@ -138,13 +189,13 @@ export class TurtleSerializer extends QuadSerializerBase {
             // Get the first quad to access the subject term
             const firstQuad = predicateMap.values().next().value![0];
 
-            // Skip quads with named graphs in Turtle
-            if (firstQuad.graph && firstQuad.graph.termType !== 'DefaultGraph') {
+            // Skip blank nodes that will be serialized inline
+            if (firstQuad.subject.termType === 'BlankNode' && inlineBlankNodes.has(firstQuad.subject.value)) {
                 continue;
             }
 
-            // Skip blank nodes that will be serialized inline
-            if (firstQuad.subject.termType === 'BlankNode' && inlineBlankNodes.has(firstQuad.subject.value)) {
+            // Skip list nodes that are consumed by a collection
+            if (firstQuad.subject.termType === 'BlankNode' && collectionNodes.has(firstQuad.subject.value)) {
                 continue;
             }
 
@@ -162,7 +213,7 @@ export class TurtleSerializer extends QuadSerializerBase {
                 && this.canInlineSingleUseBlankNodes(opts)
                 && (blankNodeUsage.blankNodeRefs.get(firstQuad.subject.value) || 0) === 0
             ) {
-                subjectBlock = `${this.serializeInlineBlankNode(predicateMap, opts, '', inlineBlankNodes, new Set())} .`;
+                subjectBlock = `${this.serializeInlineBlankNode(predicateMap, opts, '', state, new Set())} .`;
             } else {
                 subjectBlock = this.serializeSubjectBlock(
                     firstQuad.subject as NamedNode | BlankNode | TripleTerm,
@@ -171,7 +222,7 @@ export class TurtleSerializer extends QuadSerializerBase {
                     indent,
                     lineEnd,
                     alignWidth,
-                    inlineBlankNodes
+                    state
                 );
             }
 
@@ -181,14 +232,58 @@ export class TurtleSerializer extends QuadSerializerBase {
         return parts.join(opts.lineEnd);
     }
 
+    /**
+     * Rewrites all blank node subjects, objects and reifiers with labels from
+     * `blankNodeIdGenerator`, assigned in first-appearance order. Blank nodes
+     * nested inside triple terms are left untouched.
+     */
+    private relabelQuads(
+        quads: Array<Quad | Rdf12Quad>,
+        opts: Required<SerializationOptions>
+    ): Array<Quad | Rdf12Quad> {
+        const labels = new Map<string, string>();
+        let counter = 0;
+
+        const rename = <T>(term: T): T => {
+            const candidate = term as unknown as { termType?: string; value?: string };
+
+            if (candidate?.termType !== 'BlankNode' || candidate.value === undefined) {
+                return term;
+            }
+
+            let label = labels.get(candidate.value);
+
+            if (label === undefined) {
+                label = opts.blankNodeIdGenerator(counter++);
+                labels.set(candidate.value, label);
+            }
+
+            return DataFactory.blankNode(label) as unknown as T;
+        };
+
+        const renameQuad = (quad: Quad | Rdf12Quad): Rdf12Quad => {
+            const source = quad as Rdf12Quad;
+
+            return {
+                termType: 'Quad',
+                subject: rename(source.subject),
+                predicate: source.predicate,
+                object: rename(source.object),
+                graph: source.graph,
+                ...(source.annotations ? { annotations: source.annotations.map(renameQuad) } : {}),
+                ...(source.reifier ? { reifier: rename(source.reifier) } : {}),
+            };
+        };
+
+        return quads.map(renameQuad);
+    }
+
     private collectBlankNodeUsage(
         grouped: Map<string, Map<string, Array<Quad | Rdf12Quad>>>
-    ): {
-        blankNodeRefs: Map<string, number>;
-        blankNodeDefs: Map<string, Map<string, Array<Quad | Rdf12Quad>>>;
-    } {
+    ): BlankNodeUsage {
         const blankNodeRefs = new Map<string, number>();
         const blankNodeDefs = new Map<string, Map<string, Array<Quad | Rdf12Quad>>>();
+        const blankNodeReferrers = new Map<string, Quad['subject'] | TripleTerm>();
 
         // Count references to blank nodes as objects and collect their definitions.
         for (const [, predicateMap] of grouped) {
@@ -203,12 +298,13 @@ export class TurtleSerializer extends QuadSerializerBase {
                     if (quad.object.termType === 'BlankNode') {
                         const count = blankNodeRefs.get(quad.object.value) || 0;
                         blankNodeRefs.set(quad.object.value, count + 1);
+                        blankNodeReferrers.set(quad.object.value, quad.subject);
                     }
                 }
             }
         }
 
-        return { blankNodeRefs, blankNodeDefs };
+        return { blankNodeRefs, blankNodeDefs, blankNodeReferrers };
     }
 
     private canInlineSingleUseBlankNodes(opts: Required<SerializationOptions>): boolean {
@@ -219,15 +315,145 @@ export class TurtleSerializer extends QuadSerializerBase {
         return opts.prettyPrint && opts.inlineSingleUseBlankNodes;
     }
 
+    private canInlineCollections(opts: Required<SerializationOptions>): boolean {
+        if (opts.blankNodeStyle === 'labeled') {
+            return false;
+        }
+
+        return opts.prettyPrint && opts.inlineCollections;
+    }
+
     /**
-     * Finds blank nodes that can be serialized inline (only referenced once as object).
+     * Finds well-formed RDF lists that can be serialized using collection
+     * syntax (`( ... )`).
+     *
+     * The detection is deliberately conservative — collection syntax cannot
+     * carry extra triples, so any list node with additional predicates,
+     * duplicate rdf:first/rdf:rest statements, annotations or reifiers, any
+     * shared or cyclic chain, and any head that is not referenced exactly once
+     * as an object falls back to regular blank node serialization. In
+     * particular, a list used as a top-level subject (`( ... ) :p :o`) keeps
+     * its blank node form.
+     *
+     * @returns The ordered rdf:first quads per list head, and the set of all
+     * blank node ids consumed by a detected collection.
+     */
+    private findCollections(
+        usage: BlankNodeUsage,
+        opts: Required<SerializationOptions>
+    ): { collections: Map<string, Array<Quad | Rdf12Quad>>; collectionNodes: Set<string> } {
+        const collections = new Map<string, Array<Quad | Rdf12Quad>>();
+        const collectionNodes = new Set<string>();
+
+        if (!this.canInlineCollections(opts)) {
+            return { collections, collectionNodes };
+        }
+
+        // Candidate list nodes: exactly one rdf:first and one rdf:rest
+        // statement, and nothing else.
+        const candidates = new Map<string, { first: Quad | Rdf12Quad; rest: Quad | Rdf12Quad }>();
+        const restTargets = new Set<string>();
+
+        for (const [bnodeId, predicateMap] of usage.blankNodeDefs) {
+            if (predicateMap.size !== 2) {
+                continue;
+            }
+
+            const firstQuads = predicateMap.get(RDF_FIRST_KEY);
+            const restQuads = predicateMap.get(RDF_REST_KEY);
+
+            if (firstQuads?.length !== 1 || restQuads?.length !== 1) {
+                continue;
+            }
+
+            const first = firstQuads[0];
+            const rest = restQuads[0];
+
+            if (hasAnnotations(first) || hasReifier(first) || hasAnnotations(rest) || hasReifier(rest)) {
+                continue;
+            }
+
+            candidates.set(bnodeId, { first, rest });
+
+            if (rest.object.termType === 'BlankNode') {
+                restTargets.add(rest.object.value);
+            }
+        }
+
+        for (const headId of candidates.keys()) {
+            // Interior nodes of another chain are handled via their head.
+            if (restTargets.has(headId)) {
+                continue;
+            }
+
+            // The head must be referenced exactly once, at an object position.
+            if ((usage.blankNodeRefs.get(headId) || 0) !== 1) {
+                continue;
+            }
+
+            const itemQuads: Array<Quad | Rdf12Quad> = [];
+            const chain: string[] = [];
+            const visited = new Set<string>();
+
+            let nodeId: string | undefined = headId;
+            let wellFormed = false;
+
+            while (nodeId !== undefined) {
+                // A cycle in the rdf:rest chain.
+                if (visited.has(nodeId)) {
+                    break;
+                }
+
+                const node = candidates.get(nodeId);
+
+                // An interior node that is not a well-formed list node.
+                if (!node) {
+                    break;
+                }
+
+                // An interior node with additional references (a shared tail).
+                if (nodeId !== headId && (usage.blankNodeRefs.get(nodeId) || 0) !== 1) {
+                    break;
+                }
+
+                visited.add(nodeId);
+                chain.push(nodeId);
+                itemQuads.push(node.first);
+
+                const restObject = node.rest.object;
+
+                if (restObject.termType === 'NamedNode' && restObject.value === RDF.nil) {
+                    wellFormed = true;
+                    nodeId = undefined;
+                } else if (restObject.termType === 'BlankNode') {
+                    nodeId = restObject.value;
+                } else {
+                    // Malformed rdf:rest (literal or an IRI other than rdf:nil).
+                    break;
+                }
+            }
+
+            if (wellFormed) {
+                collections.set(headId, itemQuads);
+
+                for (const id of chain) {
+                    collectionNodes.add(id);
+                }
+            }
+        }
+
+        return { collections, collectionNodes };
+    }
+
+    /**
+     * Finds blank nodes that can be serialized inline (only referenced once as
+     * object). Blank node ids in `excluded` — the list nodes consumed by
+     * collections — are never inlined as property lists.
      */
     private findInlineBlankNodes(
-        usage: {
-            blankNodeRefs: Map<string, number>;
-            blankNodeDefs: Map<string, Map<string, Array<Quad | Rdf12Quad>>>;
-        },
-        opts: Required<SerializationOptions>
+        usage: BlankNodeUsage,
+        opts: Required<SerializationOptions>,
+        excluded: ReadonlySet<string>
     ): Map<string, Map<string, Array<Quad | Rdf12Quad>>> {
         if (!this.canInlineSingleUseBlankNodes(opts)) {
             return new Map();
@@ -237,8 +463,32 @@ export class TurtleSerializer extends QuadSerializerBase {
         const inlineBlankNodes = new Map<string, Map<string, Array<Quad | Rdf12Quad>>>();
         for (const [bnodeId, predicateMap] of usage.blankNodeDefs) {
             const refCount = usage.blankNodeRefs.get(bnodeId) || 0;
-            if (refCount === 1) {
+            if (refCount === 1 && !excluded.has(bnodeId)) {
                 inlineBlankNodes.set(bnodeId, predicateMap);
+            }
+        }
+
+        // Prune reference cycles: mutually-referencing single-use blank nodes
+        // would all be skipped at the top level (each expecting to be inlined
+        // in the other), silently dropping their triples. Walk each
+        // candidate's unique referrer chain; when it loops back, keep the
+        // nodes on the path as labeled top-level subjects instead.
+        const isSkippable = (id: string) => inlineBlankNodes.has(id) || excluded.has(id);
+
+        for (const bnodeId of [...inlineBlankNodes.keys()]) {
+            const path = new Set<string>([bnodeId]);
+            let referrer = usage.blankNodeReferrers.get(bnodeId);
+
+            while (referrer && referrer.termType === 'BlankNode' && isSkippable(referrer.value)) {
+                if (path.has(referrer.value)) {
+                    for (const id of path) {
+                        inlineBlankNodes.delete(id);
+                    }
+                    break;
+                }
+
+                path.add(referrer.value);
+                referrer = usage.blankNodeReferrers.get(referrer.value);
             }
         }
 
@@ -272,7 +522,7 @@ export class TurtleSerializer extends QuadSerializerBase {
         indent: string,
         lineEnd: string,
         alignWidth: number,
-        inlineBlankNodes: Map<string, Map<string, Array<Quad | Rdf12Quad>>>
+        state: InlineState
     ): string {
         const subjectStr = this.serializeTerm(subject, opts);
         const predicateParts: string[] = [];
@@ -290,7 +540,7 @@ export class TurtleSerializer extends QuadSerializerBase {
             }
 
             // Serialize objects
-            const objectStrs = quads.map(q => this.serializeObjectWithInlineBlankNode(q, opts, inlineBlankNodes, indent));
+            const objectStrs = quads.map(q => this.serializeObjectWithInlineBlankNode(q, opts, state, indent));
             const objectList = this.formatObjectList(objectStrs, opts, indent, subjectStr.length + predicateStr.length + 2);
 
             if (isFirst) {
@@ -306,8 +556,10 @@ export class TurtleSerializer extends QuadSerializerBase {
         }
 
         // Join predicates based on style
-        const separator = opts.predicateListStyle === 'single-line' ? ' ; ' : ' ;' + lineEnd;
-        return predicateParts.join(separator) + ' .';
+        const separator = opts.predicateListStyle === 'single-line'
+            ? `${this.punctuation(opts, ';')} `
+            : this.punctuation(opts, ';') + lineEnd;
+        return predicateParts.join(separator) + this.punctuation(opts, '.');
     }
 
     /**
@@ -316,13 +568,13 @@ export class TurtleSerializer extends QuadSerializerBase {
     private serializeObjectWithInlineBlankNode(
         quad: Quad | Rdf12Quad,
         opts: Required<SerializationOptions>,
-        inlineBlankNodes: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
+        state: InlineState,
         indent: string
     ): string {
         let result = this.serializeTermWithInlineBlankNodes(
             quad.object,
             opts,
-            inlineBlankNodes,
+            state,
             indent,
             new Set()
         );
@@ -341,7 +593,7 @@ export class TurtleSerializer extends QuadSerializerBase {
         predicateMap: Map<string, Array<Quad | Rdf12Quad>>,
         opts: Required<SerializationOptions>,
         baseIndent: string,
-        inlineBlankNodes: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
+        state: InlineState,
         visiting: Set<string>
     ): string {
         const innerIndent = baseIndent + opts.indent;
@@ -354,7 +606,7 @@ export class TurtleSerializer extends QuadSerializerBase {
             const object = this.serializeTermWithInlineBlankNodes(
                 quad.object,
                 opts,
-                inlineBlankNodes,
+                state,
                 innerIndent,
                 visiting
             );
@@ -371,13 +623,14 @@ export class TurtleSerializer extends QuadSerializerBase {
             const objects = quads.map(q => this.serializeTermWithInlineBlankNodes(
                 q.object,
                 opts,
-                inlineBlankNodes,
+                state,
                 innerIndent,
                 visiting
             ));
-            const suffix = i < predicateEntries.length - 1 ? ' ;' : '';
-            parts.push(`${innerIndent}${predicate} ${objects.join(' , ')}${suffix}`);
-            inlineParts.push(`${predicate} ${objects.join(' , ')}${suffix}`);
+            const suffix = i < predicateEntries.length - 1 ? this.punctuation(opts, ';') : '';
+            const objectSep = `${this.punctuation(opts, ',')} `;
+            parts.push(`${innerIndent}${predicate} ${objects.join(objectSep)}${suffix}`);
+            inlineParts.push(`${predicate} ${objects.join(objectSep)}${suffix}`);
         }
         parts.push(`${baseIndent}]`);
 
@@ -395,24 +648,80 @@ export class TurtleSerializer extends QuadSerializerBase {
     private serializeTermWithInlineBlankNodes(
         term: Quad['object'] | TripleTerm,
         opts: Required<SerializationOptions>,
-        inlineBlankNodes: Map<string, Map<string, Array<Quad | Rdf12Quad>>>,
+        state: InlineState,
         baseIndent: string,
         visiting: Set<string>
     ): string {
-        if (term.termType === 'BlankNode' && inlineBlankNodes.has(term.value)) {
+        if (term.termType === 'BlankNode' && state.collections.has(term.value)) {
             if (visiting.has(term.value)) {
                 return this.serializeTerm(term, opts);
             }
 
-            const nestedPredicateMap = inlineBlankNodes.get(term.value)!;
+            const itemQuads = state.collections.get(term.value)!;
             visiting.add(term.value);
-            const inline = this.serializeInlineBlankNode(nestedPredicateMap, opts, baseIndent, inlineBlankNodes, visiting);
+            const collection = this.serializeCollection(itemQuads, opts, baseIndent, state, visiting);
+            visiting.delete(term.value);
+
+            return collection;
+        }
+
+        if (term.termType === 'BlankNode' && state.inlineBlankNodes.has(term.value)) {
+            if (visiting.has(term.value)) {
+                return this.serializeTerm(term, opts);
+            }
+
+            const nestedPredicateMap = state.inlineBlankNodes.get(term.value)!;
+            visiting.add(term.value);
+            const inline = this.serializeInlineBlankNode(nestedPredicateMap, opts, baseIndent, state, visiting);
             visiting.delete(term.value);
 
             return inline;
         }
 
         return this.serializeTerm(term, opts);
+    }
+
+    /**
+     * Serializes a well-formed RDF list using collection syntax: ( item1 item2 ... )
+     *
+     * Uses the single-line form when the result fits into `maxLineWidth` (or
+     * no width limit is set) and no item is itself multi-line; otherwise each
+     * item is placed on its own indented line.
+     */
+    private serializeCollection(
+        itemQuads: Array<Quad | Rdf12Quad>,
+        opts: Required<SerializationOptions>,
+        baseIndent: string,
+        state: InlineState,
+        visiting: Set<string>
+    ): string {
+        const innerIndent = baseIndent + opts.indent;
+        const items = itemQuads.map(q => this.serializeTermWithInlineBlankNodes(
+            q.object,
+            opts,
+            state,
+            innerIndent,
+            visiting
+        ));
+
+        const singleLine = `( ${items.join(' ')} )`;
+
+        const isMultiLine = items.some(item => item.includes(opts.lineEnd))
+            || (opts.maxLineWidth > 0 && baseIndent.length + singleLine.length > opts.maxLineWidth);
+
+        if (!isMultiLine) {
+            return singleLine;
+        }
+
+        const parts: string[] = ['('];
+
+        for (const item of items) {
+            parts.push(`${innerIndent}${item}`);
+        }
+
+        parts.push(`${baseIndent})`);
+
+        return parts.join(opts.lineEnd);
     }
 
     /**
@@ -428,7 +737,7 @@ export class TurtleSerializer extends QuadSerializerBase {
             return objects[0];
         }
 
-        const singleLine = objects.join(' , ');
+        const singleLine = objects.join(`${this.punctuation(opts, ',')} `);
 
         // Check which style to use
         if (opts.objectListStyle === 'single-line') {
@@ -461,7 +770,7 @@ export class TurtleSerializer extends QuadSerializerBase {
         const lineEnd = opts.lineEnd;
         const objectIndent = indent + opts.indent;
         const parts = objects.map((obj, i) => {
-            const suffix = i < objects.length - 1 ? ' ,' : '';
+            const suffix = i < objects.length - 1 ? this.punctuation(opts, ',') : '';
             return i === 0 ? obj + suffix : `${objectIndent}${obj}${suffix}`;
         });
         return parts.join(lineEnd);
@@ -501,7 +810,7 @@ export class TurtleSerializer extends QuadSerializerBase {
             return `${predicate} ${object}`;
         });
 
-        return `{| ${parts.join(' ; ')} |}`;
+        return `{| ${parts.join(`${this.punctuation(opts, ';')} `)} |}`;
     }
 
     /**

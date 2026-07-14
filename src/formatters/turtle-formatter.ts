@@ -296,6 +296,12 @@ export class TurtleFormatter
                 this.isParenBlockMultiLine(tokens, tokenIndex);
             this.pushScope(ctx, 'paren', !isMultiLine, isMultiLine);
             ctx.needsNewline = isMultiLine;
+            if (ctx.opts.prettyPrint && !isMultiLine && !this.isEmptyParenBlock(tokens, tokenIndex)) {
+                // Emit the space between '(' and the first item for a non-empty
+                // inline collection, mirroring blank-node property lists ('[ ... ]')
+                // and matching the quad serializer's `( a b )` style.
+                this.addPart(ctx, ' ', le);
+            }
         }
 
         ctx.needsSpace = false;
@@ -339,6 +345,11 @@ export class TurtleFormatter
                         this.addPart(ctx, le + this.getIndent(scope.indentLevel, ind), le, true);
                         ctx.lastWasNewline = true;
                     }
+                } else if (ctx.opts.prettyPrint && ctx.parts[ctx.parts.length - 1] !== '(') {
+                    // Emit the space between the last item and ')' for a non-empty
+                    // inline collection. An empty collection keeps its `()` form
+                    // (the previous emitted part is the opening '(').
+                    this.addPart(ctx, ' ', le);
                 }
             }
         }

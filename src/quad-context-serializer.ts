@@ -214,7 +214,15 @@ export class QuadContextSerializer {
             if (canUseBatchedBlocks) {
                 body = batchedBlocks[groupIndex];
             } else {
-                body = this.serializer.serialize(groupContexts, serializerOpts);
+                // Each group holds exactly one subject, so inlining can never
+                // fire legitimately here — but a blank node subject would be
+                // rendered anonymously (`[ ... ]`), severing it from the other
+                // groups that reference it by label. Keep labels intact.
+                body = this.serializer.serialize(groupContexts, {
+                    ...serializerOpts,
+                    inlineSingleUseBlankNodes: false,
+                    inlineCollections: false,
+                });
             }
 
             // Append trailing comment from the last context in the group.
