@@ -55,21 +55,21 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@faubulous/mentor-rdf-parsers": "^1.11.0",
+    "@faubulous/mentor-rdf-parsers": "^2.0.2",
     "@rdfjs/data-model": "^2.1.2",
-    "triplate": "^0.6.0"
+    "triplate": "^0.7.1"
   },
   "devDependencies": {
     "@rdfjs/types": "^2.0.1",
     "@types/rdfjs__data-model": "^2.0.9",
-    "@vitest/coverage-v8": "^4.1.10",
-    "chevrotain": "^12.0.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "chevrotain": "^13.2.0",
     "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "peerDependencies": {
-    "chevrotain": "^12.0.0"
+    "chevrotain": "^13.0.0"
   },
   "peerDependenciesMeta": {
     "@faubulous/mentor-rdf-parsers": {
