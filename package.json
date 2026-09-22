@@ -55,7 +55,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@faubulous/mentor-rdf-parsers": "^2.0.2",
+    "@faubulous/mentor-rdf-parsers": "^2.0.3",
     "@rdfjs/data-model": "^2.1.2",
     "triplate": "^0.7.1"
   },
