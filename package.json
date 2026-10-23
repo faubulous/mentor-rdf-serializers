@@ -62,11 +62,11 @@
   "devDependencies": {
     "@rdfjs/types": "^2.0.1",
     "@types/rdfjs__data-model": "^2.0.9",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "chevrotain": "^13.2.0",
     "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "peerDependencies": {
     "chevrotain": "^13.0.0"
