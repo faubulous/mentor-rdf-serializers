@@ -1,5 +1,5 @@
 import DataFactory from '@rdfjs/data-model';
-import { bench, describe } from 'vitest';
+import { describe, test } from 'vitest';
 import { IToken, QuadContext } from '@faubulous/mentor-rdf-parsers';
 import { QuadContextSerializer } from './quad-context-serializer';
 import { TurtleSerializer } from './serializers/turtle-serializer';
@@ -18,6 +18,11 @@ const stableBenchOptions = {
   time: 2000,
   warmupTime: 500
 };
+
+/**
+ * Timeout for a single benchmark test; must exceed the measuring and warmup time.
+ */
+const benchmarkTimeout = 30_000;
 
 const syntheticToken: IToken = {
   image: '',
@@ -97,51 +102,62 @@ const largeDataset = createDataset(2000, 6);
 const commentHeavyDataset = createCommentHeavyDataset(1200, 6);
 const alphabeticalSort = new AlphabeticalSortingStrategy();
 
+/**
+ * Registers a test that measures a single function with the stable benchmark options.
+ * @param name The name of the benchmark.
+ * @param fn The function to measure.
+ */
+function benchmark(name: string, fn: () => void): void {
+  test(name, { timeout: benchmarkTimeout }, async ({ bench }) => {
+    await bench(name, fn).run(stableBenchOptions);
+  });
+}
+
 describe('StatementSerializer benchmark', () => {
-  bench('serialize small dataset (1k statements, no sort)', () => {
+  benchmark('serialize small dataset (1k statements, no sort)', () => {
     serializer.serialize(smallDataset, {
       prefixes,
       blankLinesBetweenSubjects: true
     });
-  }, stableBenchOptions);
+  });
 
-  bench('serialize large dataset (12k statements, no sort)', () => {
+  benchmark('serialize large dataset (12k statements, no sort)', () => {
     serializer.serialize(largeDataset, {
       prefixes,
       blankLinesBetweenSubjects: true
     });
-  }, stableBenchOptions);
+  });
 
-  bench('serialize large dataset (12k statements, sort enabled)', () => {
+  benchmark('serialize large dataset (12k statements, sort enabled)', () => {
     serializer.serialize(largeDataset, {
       prefixes,
       sortingStrategy: alphabeticalSort,
       blankLinesBetweenSubjects: true
     });
-  }, stableBenchOptions);
+  });
 
-  bench('serialize comment-heavy dataset (7.2k statements, no sort)', () => {
+  benchmark('serialize comment-heavy dataset (7.2k statements, no sort)', () => {
     serializer.serialize(commentHeavyDataset, {
       prefixes,
       sortingStrategy: alphabeticalSort,
       blankLinesBetweenSubjects: true
     });
-  }, stableBenchOptions);
+  });
 
-  bench('serialize comment-heavy dataset (7.2k statements, sort enabled)', () => {
+  benchmark('serialize comment-heavy dataset (7.2k statements, sort enabled)', () => {
     serializer.serialize(commentHeavyDataset, {
       prefixes,
       sortingStrategy: alphabeticalSort,
       blankLinesBetweenSubjects: true
     });
-  }, stableBenchOptions);
+  });
 
-  bench('serialize large dataset (12k statements, assumeSorted)', () => {
+  benchmark('serialize large dataset (12k statements, assumeSorted)', () => {
     serializer.serialize(largeDataset, {
       prefixes,
       sortingStrategy: alphabeticalSort,
       assumeSorted: true,
       blankLinesBetweenSubjects: true
     });
-  }, stableBenchOptions);
+  });
 });
