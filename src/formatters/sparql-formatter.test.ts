@@ -1585,4 +1585,60 @@ LIMIT 100`;
             }
         });
     });
+
+    describe('function calls by IRI (issue 5)', () => {
+        const prefixes = 'PREFIX ex: <http://example.org/>\nPREFIX fn: <http://example.org/fn#>\n';
+
+        /**
+         * Formats a query that declares the `ex:` and `fn:` prefixes.
+         */
+        function format(query: string): string {
+            return formatter.formatFromText(prefixes + query).output;
+        }
+
+        it('does not put a space between a prefixed function name and its arguments', () => {
+            expect(format('SELECT * WHERE { BIND(fn:test() AS ?x) }')).toContain('BIND(fn:test() AS ?x)');
+            expect(format('SELECT * WHERE { BIND(fn:test(?a, ?b) AS ?x) }')).toContain('BIND(fn:test(?a, ?b) AS ?x)');
+        });
+
+        it('does not put a space between a function IRI and its arguments', () => {
+            expect(format('SELECT * WHERE { BIND(<http://example.org/fn#test>(?a) AS ?x) }')).toContain('BIND(<http://example.org/fn#test>(?a) AS ?x)');
+        });
+
+        it('recognizes function calls in filters, with and without brackets', () => {
+            expect(format('SELECT * WHERE { ?s ex:p ?o FILTER(ex:fn(?o)) }')).toContain('FILTER(ex:fn(?o))');
+            expect(format('SELECT * WHERE { ?s ex:p ?o FILTER ex:fn(?o) }')).toContain('FILTER ex:fn(?o)');
+        });
+
+        it('recognizes function calls nested in expressions', () => {
+            expect(format('SELECT * WHERE { FILTER(STR(fn:a(?x)) = "x") }')).toContain('STR(fn:a(?x))');
+            expect(format('SELECT * WHERE { FILTER((fn:a(?x) + 1) > 2) }')).toContain('(fn:a(?x) + 1)');
+            expect(format('SELECT * WHERE { BIND(fn:a(fn:b(?x), ?y) AS ?z) }')).toContain('fn:a(fn:b(?x), ?y)');
+        });
+
+        it('recognizes function calls in select expressions and solution modifiers', () => {
+            const output = format('SELECT (fn:a(?x) AS ?y) WHERE { ?x ex:p ?o } GROUP BY fn:b(?x) ORDER BY fn:c(?x)');
+
+            expect(output).toContain('(fn:a(?x) AS ?y)');
+            expect(output).toContain('GROUP BY fn:b(?x)');
+            expect(output).toContain('ORDER BY fn:c(?x)');
+        });
+
+        it('does not put a space between a built-in function without arguments and its parentheses', () => {
+            const output = format('SELECT * WHERE { BIND(NOW() AS ?n) BIND(STRUUID() AS ?u) }');
+
+            expect(output).toContain('BIND(NOW() AS ?n)');
+            expect(output).toContain('BIND(STRUUID() AS ?u)');
+        });
+
+        it('keeps the space before an empty collection in a triple pattern', () => {
+            expect(format('SELECT * WHERE { ?s ex:p () }')).toContain('?s ex:p ()');
+        });
+
+        it('keeps the space before a collection in a triple pattern', () => {
+            expect(format('SELECT * WHERE { ?s ex:p (1 2) }')).toContain('?s ex:p (1 2)');
+            expect(format('SELECT * WHERE { ?s ex:p(1 2) }')).toContain('?s ex:p (1 2)');
+            expect(format('SELECT * WHERE { ?s ex:p (ex:a (1 2)) }')).toContain('?s ex:p (ex:a (1 2))');
+        });
+    });
 });
