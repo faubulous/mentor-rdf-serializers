@@ -248,7 +248,8 @@ export class SparqlFormatter
             }
 
             if (token.tokenType === RdfToken.LPARENT || token.tokenType === RdfToken.LBRACKET) {
-                const lastWasFunction = lastTokenType && this.isFunctionKeyword({ tokenType: lastTokenType } as IToken);
+                const lastWasFunction = (lastTokenType && this.isFunctionKeyword({ tokenType: lastTokenType } as IToken)) ||
+                    (token.tokenType === RdfToken.LPARENT && this._isIriFunctionCall(tokens, i));
                 length += (needsSpace && !lastWasFunction ? 1 : 0) + token.image.length;
                 needsSpace = false;
                 lastTokenType = token.tokenType;
@@ -274,7 +275,8 @@ export class SparqlFormatter
 
             const tokenLength = this.formatTokenValue(token, opts).length;
             const isOpenParen = lastTokenType === RdfToken.LPARENT || lastTokenType === RdfToken.LBRACKET;
-            length += (needsSpace && !isOpenParen ? 1 : 0) + tokenLength;
+            const isEmptyArguments = token.tokenType === RdfToken.NIL && this._isEmptyFunctionArguments(lastNonWsToken, tokens, i);
+            length += (needsSpace && !isOpenParen && !isEmptyArguments ? 1 : 0) + tokenLength;
             needsSpace = true;
             lastTokenType = token.tokenType;
             lastNonWsToken = token;
@@ -484,12 +486,13 @@ export class SparqlFormatter
         const le = ctx.opts.lineEnd;
         const ind = ctx.opts.indent;
 
-        if (isLParen) {
-            const lastWasFunction = ctx.lastNonWsToken && this.isFunctionKeyword(ctx.lastNonWsToken);
-            if (lastWasFunction) ctx.functionCallDepth++;
-        }
+        // A function is called by a built-in keyword, e.g. `STR(`, or by its IRI, e.g. `ex:fn(`.
+        const lastWasFunction = (ctx.lastNonWsToken && this.isFunctionKeyword(ctx.lastNonWsToken)) ||
+            (isLParen && this._isIriFunctionCall(tokens, index));
 
-        const lastWasFunction = ctx.lastNonWsToken && this.isFunctionKeyword(ctx.lastNonWsToken);
+        if (isLParen && lastWasFunction) {
+            ctx.functionCallDepth++;
+        }
 
         // Normally newlines are suppressed inside function-call argument lists so
         // expressions stay on one line. A newline that originates from the source
@@ -542,6 +545,140 @@ export class SparqlFormatter
                 this.pushScope(ctx, 'paren', false, true);
             }
         }
+    }
+
+    /**
+     * Indicates whether a `()` token is the empty argument list of a function call, by a
+     * built-in keyword, e.g. `NOW()`, or by an IRI, e.g. `ex:fn()`.
+     * @param lastNonWsToken The token before the `()` token.
+     * @param tokens The tokens of the query.
+     * @param index The index of the `()` token.
+     */
+    private _isEmptyFunctionArguments(lastNonWsToken: IToken | null | undefined, tokens: IToken[], index: number): boolean {
+        return (!!lastNonWsToken && this.isFunctionKeyword(lastNonWsToken)) || this._isIriFunctionCall(tokens, index);
+    }
+
+    /**
+     * Indicates whether a `(` or `()` token opens the arguments of a function that is called
+     * by its IRI, e.g. `ex:fn(?x)` or `ex:fn()`. In a triple pattern, an IRI followed by `(`
+     * is followed by a collection instead, e.g. `?s ex:p (1 2)`, so the call is told apart
+     * by the position of the IRI.
+     * @param tokens The tokens of the query.
+     * @param index The index of the `(` or `()` token.
+     * @returns `true` if the token opens the arguments of a function call.
+     */
+    private _isIriFunctionCall(tokens: IToken[], index: number): boolean {
+        const iriIndex = this._getPreviousTokenIndex(tokens, index);
+
+        return iriIndex >= 0 && this._isIriToken(tokens[iriIndex]) && this._isInExpression(tokens, iriIndex);
+    }
+
+    /**
+     * Indicates whether a token is part of an expression rather than of a triple pattern.
+     * @param tokens The tokens of the query.
+     * @param index The index of the token.
+     * @returns `true` if the token is in an expression, e.g. in `FILTER`, `BIND`, a function
+     * argument, a `SELECT` expression or a solution modifier.
+     */
+    private _isInExpression(tokens: IToken[], index: number): boolean {
+        const previousIndex = this._getPreviousTokenIndex(tokens, index);
+        const previous = previousIndex >= 0 ? tokens[previousIndex] : undefined;
+
+        // A function called right after a keyword, e.g. `FILTER ex:fn(?x)` or `ORDER BY ex:fn(?x)`.
+        if (previous && (this.isFunctionKeyword(previous) || previous.tokenType === RdfToken.BY || previous.tokenType === RdfToken.HAVING)) {
+            return true;
+        }
+
+        const openerIndex = this._getEnclosingOpenerIndex(tokens, index);
+
+        // Outside of any group graph pattern, i.e. in the SELECT clause or the solution modifiers.
+        if (openerIndex < 0) {
+            return true;
+        }
+
+        // Inside braces or square brackets, the token is part of a triple pattern.
+        if (tokens[openerIndex].tokenType !== RdfToken.LPARENT) {
+            return false;
+        }
+
+        return this._isExpressionParen(tokens, openerIndex);
+    }
+
+    /**
+     * Indicates whether a `(` opens an expression, i.e. function arguments or a bracketted
+     * expression, rather than a collection.
+     * @param tokens The tokens of the query.
+     * @param index The index of the `(` token.
+     */
+    private _isExpressionParen(tokens: IToken[], index: number): boolean {
+        const previousIndex = this._getPreviousTokenIndex(tokens, index);
+        const previous = previousIndex >= 0 ? tokens[previousIndex] : undefined;
+
+        if (previous && this.isFunctionKeyword(previous)) {
+            return true;
+        }
+
+        if (previous && this._isIriToken(previous)) {
+            return this._isInExpression(tokens, previousIndex);
+        }
+
+        // A bracketted expression nested in an expression, or a collection nested in a collection or triple pattern.
+        return this._isInExpression(tokens, index);
+    }
+
+    /**
+     * Returns the index of the innermost `(`, `{` or `[` that encloses a token.
+     * @param tokens The tokens of the query.
+     * @param index The index of the token.
+     * @returns The index of the opening token, or `-1` if the token is not enclosed.
+     */
+    private _getEnclosingOpenerIndex(tokens: IToken[], index: number): number {
+        let depth = 0;
+
+        for (let i = index - 1; i >= 0; i--) {
+            const tokenType = tokens[i].tokenType;
+
+            if (tokenType === RdfToken.RPARENT || tokenType === RdfToken.RCURLY || tokenType === RdfToken.RBRACKET) {
+                depth++;
+            } else if (tokenType === RdfToken.LPARENT || tokenType === RdfToken.LCURLY || tokenType === RdfToken.LBRACKET) {
+                if (depth === 0) {
+                    return i;
+                }
+
+                depth--;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns the index of the token before a token, skipping whitespace and comments.
+     * @param tokens The tokens of the query.
+     * @param index The index of the token.
+     * @returns The index of the previous token, or `-1` if there is none.
+     */
+    private _getPreviousTokenIndex(tokens: IToken[], index: number): number {
+        for (let i = index - 1; i >= 0; i--) {
+            const tokenType = tokens[i].tokenType;
+
+            if (tokenType !== RdfToken.WS && tokenType !== RdfToken.COMMENT) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Indicates whether a token is an IRI, i.e. an IRI reference or a prefixed name.
+     * @param token The token to check.
+     */
+    private _isIriToken(token: IToken): boolean {
+        const tokenType = token.tokenType;
+
+        return tokenType === RdfToken.IRIREF || tokenType === RdfToken.IRIREF_ABS ||
+            tokenType === RdfToken.PNAME_LN || tokenType === RdfToken.PNAME_NS;
     }
 
     private handleSparqlCloseParen(ctx: SparqlFormatterContext, token: IToken, prevWasComment = false): void {
@@ -1040,6 +1177,13 @@ export class SparqlFormatter
 
             // Triple position tracking
             this.handleTriplePosition(ctx, token, tokens, i, prevWasComment);
+
+            // Keep empty function arguments attached to the function, e.g. `NOW()` or
+            // `ex:fn()`; the lexer reads `()` as a single NIL token.
+            if (token.tokenType === RdfToken.NIL && this._isEmptyFunctionArguments(ctx.lastNonWsToken, tokens, i)) {
+                ctx.needsSpace = false;
+                ctx.needsNewline = false;
+            }
 
             // Keep postfix property-path operators (`*`, `+`, `?`) attached to
             // their operand, e.g. `rdfs:subClassOf+`, never `rdfs:subClassOf +`.
