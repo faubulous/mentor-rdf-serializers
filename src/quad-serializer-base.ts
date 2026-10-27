@@ -1,14 +1,10 @@
 import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
 import { BlankNode, Literal, NamedNode, Quad, Term, Variable } from '@rdfjs/types';
 import { Rdf12Quad, Rdf12Term, TripleTerm } from './utilities/types';
-import { RDF, XSD } from './ontologies';
 import { IQuadSerializer } from './quad-serializer.interface';
 import { SerializationResult } from './serialization-result';
 import { SerializationOptions, DEFAULT_OPTIONS } from './serialization-options';
-import { escapeLocalName, escapeIri, escapeString } from "./utilities/escaping";
-import { isInteger, isDecimal, isDouble, needsLongString } from "./utilities/literals";
-import { normalizeBlankNodeId } from './utilities/blank-nodes';
-import { findPrefix } from "./utilities/prefixes";
+import { TermSerializer, TermSerializerSettings } from './term-serializer';
 
 /**
  * Abstract base class for RDF serializers. Provides common functionality 
@@ -36,6 +32,17 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     protected supportsRdf12: boolean = false;
 
     /**
+     * The settings the terms of the current serialization run are written with, resolved from
+     * the capabilities of this serializer and the options the hooks are called with.
+     */
+    private _termSettings?: TermSerializerSettings;
+
+    /**
+     * The options the term settings were resolved from.
+     */
+    private _termOptions?: Required<SerializationOptions>;
+
+    /**
      * Serializes a single quad to a string.
      */
     abstract serializeQuad(quad: Quad | Rdf12Quad, options?: SerializationOptions): string;
@@ -58,87 +65,40 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
      * Serializes a named node (IRI).
      */
     protected serializeNamedNode(node: NamedNode, options: Required<SerializationOptions>): string {
-        // Check for rdf:type shorthand
-        if (this.supportsRdfTypeShorthand && options.useRdfTypeShorthand && node.value === RDF.type) {
-            return 'a';
-        }
-
-        if (this.supportsPrefixes && Object.keys(options.prefixes).length > 0) {
-            const prefixMatch = findPrefix(node.value, options.prefixes);
-
-            if (prefixMatch) {
-                const escapedLocalName = escapeLocalName(prefixMatch.localName);
-
-                return `${prefixMatch.prefix}:${escapedLocalName}`;
-            }
-        }
-
-        return `<${escapeIri(node.value)}>`;
+        return TermSerializer.serializeNamedNode(node, this.termSettingsFor(options), true);
     }
 
     /**
      * Serializes a blank node.
      */
-    protected serializeBlankNode(node: BlankNode, _options: Required<SerializationOptions>): string {
-        return `_:${normalizeBlankNodeId(node.value)}`;
+    protected serializeBlankNode(node: BlankNode, options: Required<SerializationOptions>): string {
+        return TermSerializer.serializeBlankNode(node, this.termSettingsFor(options));
     }
 
     /**
      * Serializes a literal value.
      */
     protected serializeLiteral(literal: Literal, options: Required<SerializationOptions>): string {
-        const value = literal.value;
-        const datatype = literal.datatype?.value;
-        const language = literal.language;
+        return TermSerializer.serializeLiteral(literal, this.termSettingsFor(options));
+    }
 
-        if (language) {
-            const escapedValue = escapeString(value);
-
-            return `"${escapedValue}"@${language}`;
+    /**
+     * Gets the settings the terms are written with for a set of options. Some serializers merge
+     * the options anew for every quad, so a run is told apart by the options object the hooks
+     * are called with; resolving the settings again is cheap.
+     * @param options The merged options of the run.
+     * @returns The term settings.
+     */
+    protected termSettingsFor(options: Required<SerializationOptions>): TermSerializerSettings {
+        if (options !== this._termOptions || !this._termSettings) {
+            this._termSettings = TermSerializer.settingsOf(
+                { supportsPrefixes: this.supportsPrefixes, supportsRdfTypeShorthand: this.supportsRdfTypeShorthand },
+                { prefixes: options.prefixes, useRdfTypeShorthand: options.useRdfTypeShorthand }
+            );
+            this._termOptions = options;
         }
 
-        if (this.supportsPrefixes && datatype === XSD.boolean) {
-            if (value === 'true' || value === '1') {
-                return 'true';
-            }
-            if (value === 'false' || value === '0') {
-                return 'false';
-            }
-        }
-
-        if (this.supportsPrefixes) {
-            if (datatype === XSD.integer && isInteger(value)) {
-                return value;
-            }
-            if (datatype === XSD.decimal && isDecimal(value)) {
-                return value;
-            }
-            if (datatype === XSD.double && isDouble(value)) {
-                return value;
-            }
-        }
-
-        // Check if we need long string quoting
-        const useLongString = this.supportsPrefixes && needsLongString(value);
-        const quote = useLongString ? '"""' : '"';
-        const escapedValue = escapeString(value, useLongString);
-
-        // xsd:string is the default, no need to serialize it
-        if (!datatype || datatype === XSD.string) {
-            return `${quote}${escapedValue}${quote}`;
-        }
-
-        // Serialize with datatype
-        const datatypeStr = this.serializeNamedNode(
-            {
-                termType: 'NamedNode',
-                value: datatype,
-                equals: () => false
-            } as NamedNode,
-            options
-        );
-
-        return `${quote}${escapedValue}${quote}^^${datatypeStr}`;
+        return this._termSettings;
     }
 
     /**

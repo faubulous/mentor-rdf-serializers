@@ -8,6 +8,7 @@ export * from './quad-sorting-strategy';
 export * from './quad-sorter';
 export * from './serialization-result';
 export * from './serialization-options';
+export * from './term-serializer';
 export * from './quad-context-serializer';
 export * from './token-formatter-base';
 export * from './token-formatter.interface';
