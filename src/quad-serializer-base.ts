@@ -32,9 +32,11 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     protected supportsRdf12: boolean = false;
 
     /**
-     * The term serializers of the serialization runs in progress, by their options.
+     * The term serializer of the current serialization run, kept with the option values it was
+     * built from. The options are merged anew for every quad by some serializers, so the cache
+     * compares the values the term serializer depends on rather than the options object.
      */
-    private readonly _termSerializers = new WeakMap<Required<SerializationOptions>, TermSerializer>();
+    private _termSerializer?: { prefixes: Record<string, string>; useRdfTypeShorthand: boolean; serializer: TermSerializer };
 
     /**
      * Serializes a single quad to a string.
@@ -81,16 +83,18 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
      * of this serializer. One instance serves all terms of a serialization run.
      */
     protected termSerializerFor(options: Required<SerializationOptions>): TermSerializer {
-        let serializer = this._termSerializers.get(options);
+        const cached = this._termSerializer;
 
-        if (!serializer) {
-            serializer = new TermSerializer(
-                { supportsPrefixes: this.supportsPrefixes, supportsRdfTypeShorthand: this.supportsRdfTypeShorthand },
-                { prefixes: options.prefixes, useRdfTypeShorthand: options.useRdfTypeShorthand }
-            );
-
-            this._termSerializers.set(options, serializer);
+        if (cached && cached.prefixes === options.prefixes && cached.useRdfTypeShorthand === options.useRdfTypeShorthand) {
+            return cached.serializer;
         }
+
+        const serializer = new TermSerializer(
+            { supportsPrefixes: this.supportsPrefixes, supportsRdfTypeShorthand: this.supportsRdfTypeShorthand },
+            { prefixes: options.prefixes, useRdfTypeShorthand: options.useRdfTypeShorthand }
+        );
+
+        this._termSerializer = { prefixes: options.prefixes, useRdfTypeShorthand: options.useRdfTypeShorthand, serializer };
 
         return serializer;
     }
