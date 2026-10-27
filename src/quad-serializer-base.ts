@@ -4,7 +4,7 @@ import { Rdf12Quad, Rdf12Term, TripleTerm } from './utilities/types';
 import { IQuadSerializer } from './quad-serializer.interface';
 import { SerializationResult } from './serialization-result';
 import { SerializationOptions, DEFAULT_OPTIONS } from './serialization-options';
-import { TermSerializer } from './term-serializer';
+import { TermSerializer, TermSerializerSettings } from './term-serializer';
 
 /**
  * Abstract base class for RDF serializers. Provides common functionality 
@@ -32,11 +32,15 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
     protected supportsRdf12: boolean = false;
 
     /**
-     * The term serializer of the current serialization run, kept with the option values it was
-     * built from. The options are merged anew for every quad by some serializers, so the cache
-     * compares the values the term serializer depends on rather than the options object.
+     * The settings the terms of the current serialization run are written with, resolved from
+     * the capabilities of this serializer and the options the hooks are called with.
      */
-    private _termSerializer?: { prefixes: Record<string, string>; useRdfTypeShorthand: boolean; serializer: TermSerializer };
+    private _termSettings?: TermSerializerSettings;
+
+    /**
+     * The options the term settings were resolved from.
+     */
+    private _termOptions?: Required<SerializationOptions>;
 
     /**
      * Serializes a single quad to a string.
@@ -61,42 +65,40 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
      * Serializes a named node (IRI).
      */
     protected serializeNamedNode(node: NamedNode, options: Required<SerializationOptions>): string {
-        return this.termSerializerFor(options).serializeNamedNode(node, true);
+        return TermSerializer.serializeNamedNode(node, this.termSettingsFor(options), true);
     }
 
     /**
      * Serializes a blank node.
      */
     protected serializeBlankNode(node: BlankNode, options: Required<SerializationOptions>): string {
-        return this.termSerializerFor(options).serializeBlankNode(node);
+        return TermSerializer.serializeBlankNode(node, this.termSettingsFor(options));
     }
 
     /**
      * Serializes a literal value.
      */
     protected serializeLiteral(literal: Literal, options: Required<SerializationOptions>): string {
-        return this.termSerializerFor(options).serializeLiteral(literal);
+        return TermSerializer.serializeLiteral(literal, this.termSettingsFor(options));
     }
 
     /**
-     * Gets the term serializer for a set of options, which writes terms with the capabilities
-     * of this serializer. One instance serves all terms of a serialization run.
+     * Gets the settings the terms are written with for a set of options. Some serializers merge
+     * the options anew for every quad, so a run is told apart by the options object the hooks
+     * are called with; resolving the settings again is cheap.
+     * @param options The merged options of the run.
+     * @returns The term settings.
      */
-    protected termSerializerFor(options: Required<SerializationOptions>): TermSerializer {
-        const cached = this._termSerializer;
-
-        if (cached && cached.prefixes === options.prefixes && cached.useRdfTypeShorthand === options.useRdfTypeShorthand) {
-            return cached.serializer;
+    protected termSettingsFor(options: Required<SerializationOptions>): TermSerializerSettings {
+        if (options !== this._termOptions || !this._termSettings) {
+            this._termSettings = TermSerializer.settingsOf(
+                { supportsPrefixes: this.supportsPrefixes, supportsRdfTypeShorthand: this.supportsRdfTypeShorthand },
+                { prefixes: options.prefixes, useRdfTypeShorthand: options.useRdfTypeShorthand }
+            );
+            this._termOptions = options;
         }
 
-        const serializer = new TermSerializer(
-            { supportsPrefixes: this.supportsPrefixes, supportsRdfTypeShorthand: this.supportsRdfTypeShorthand },
-            { prefixes: options.prefixes, useRdfTypeShorthand: options.useRdfTypeShorthand }
-        );
-
-        this._termSerializer = { prefixes: options.prefixes, useRdfTypeShorthand: options.useRdfTypeShorthand, serializer };
-
-        return serializer;
+        return this._termSettings;
     }
 
     /**

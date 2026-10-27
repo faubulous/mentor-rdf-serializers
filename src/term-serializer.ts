@@ -44,27 +44,56 @@ export interface TermSerializerOptions {
 }
 
 /**
+ * Everything the serialization of a term depends on: the capabilities of the syntax and the
+ * options of the run, resolved to plain values.
+ */
+export interface TermSerializerSettings {
+    /**
+     * Whether IRIs may be written as prefixed names and literals in their bare forms.
+     */
+    supportsPrefixes: boolean;
+
+    /**
+     * Whether `rdf:type` may be written as `a` in predicate position.
+     */
+    supportsRdfTypeShorthand: boolean;
+
+    /**
+     * Prefix name to namespace IRI.
+     */
+    prefixes: Record<string, string>;
+
+    /**
+     * Whether to write `rdf:type` as `a` in predicate position.
+     */
+    useRdfTypeShorthand: boolean;
+
+    /**
+     * The labels to write for blank nodes, by identifier, if any.
+     */
+    blankNodeLabels?: Record<string, string>;
+}
+
+/**
  * Serializes single RDF terms the way a document of a syntax writes them: prefixed names where
  * a prefix is declared, `a` for `rdf:type` in predicate position, bare numbers and booleans, and
- * long strings for multi-line text where the syntax allows it. The quad serializers build on it,
- * and so can any code that writes a term into existing text.
+ * long strings for multi-line text where the syntax allows it. The quad serializers build on the
+ * static methods, which take the settings of a run; the instance methods serve code that writes
+ * terms into a document, such as an editor.
  */
 export class TermSerializer {
-    private readonly _prefixes: Record<string, string>;
+    private readonly _capabilities: TermSerializerCapabilities;
 
-    private readonly _useRdfTypeShorthand: boolean;
-
-    private readonly _blankNodeLabels: Record<string, string>;
+    private _settings: TermSerializerSettings;
 
     /**
      * Create a term serializer.
      * @param capabilities What the target syntax allows.
      * @param options The serialization options.
      */
-    constructor(private readonly _capabilities: TermSerializerCapabilities, options: TermSerializerOptions = {}) {
-        this._prefixes = options.prefixes ?? {};
-        this._useRdfTypeShorthand = options.useRdfTypeShorthand ?? true;
-        this._blankNodeLabels = options.blankNodeLabels ?? {};
+    constructor(capabilities: TermSerializerCapabilities, options: TermSerializerOptions = {}) {
+        this._capabilities = capabilities;
+        this._settings = TermSerializer.settingsOf(capabilities, options);
     }
 
     /**
@@ -80,10 +109,131 @@ export class TermSerializer {
     }
 
     /**
+     * Resolve capabilities and options to the settings of a run.
+     * @param capabilities What the target syntax allows.
+     * @param options The serialization options.
+     * @returns The settings.
+     */
+    static settingsOf(capabilities: TermSerializerCapabilities, options: TermSerializerOptions = {}): TermSerializerSettings {
+        return {
+            supportsPrefixes: capabilities.supportsPrefixes,
+            supportsRdfTypeShorthand: capabilities.supportsRdfTypeShorthand,
+            prefixes: options.prefixes ?? {},
+            useRdfTypeShorthand: options.useRdfTypeShorthand ?? true,
+            blankNodeLabels: options.blankNodeLabels
+        };
+    }
+
+    /**
+     * Serialize a named node as a prefixed name when a prefix matches, or as an IRI reference.
+     * @param node The named node.
+     * @param settings The settings of the run.
+     * @param allowTypeShorthand Whether `rdf:type` may be written as `a`, as in predicate position.
+     * @returns The serialized node.
+     */
+    static serializeNamedNode(node: NamedNode, settings: TermSerializerSettings, allowTypeShorthand: boolean = false): string {
+        if (allowTypeShorthand && settings.supportsRdfTypeShorthand && settings.useRdfTypeShorthand && node.value === RDF.type) {
+            return 'a';
+        }
+
+        if (settings.supportsPrefixes) {
+            const match = findPrefix(node.value, settings.prefixes);
+
+            if (match) {
+                return `${match.prefix}:${escapeLocalName(match.localName)}`;
+            }
+        }
+
+        return `<${escapeIri(node.value)}>`;
+    }
+
+    /**
+     * Serialize a blank node with its configured label, or as `_:` with its normalized identifier.
+     * @param node The blank node.
+     * @param settings The settings of the run.
+     * @returns The serialized node.
+     */
+    static serializeBlankNode(node: BlankNode, settings: TermSerializerSettings): string {
+        return settings.blankNodeLabels?.[node.value] ?? `_:${normalizeBlankNodeId(node.value)}`;
+    }
+
+    /**
+     * Serialize a literal: bare where the syntax allows it and the lexical form is valid for the
+     * datatype, quoted with its language tag or datatype otherwise.
+     * @param literal The literal.
+     * @param settings The settings of the run.
+     * @returns The serialized literal.
+     */
+    static serializeLiteral(literal: Literal, settings: TermSerializerSettings): string {
+        const value = literal.value;
+        const datatype = literal.datatype?.value;
+        const language = literal.language;
+
+        if (language) {
+            return `"${escapeString(value)}"@${language}`;
+        }
+
+        if (settings.supportsPrefixes) {
+            const bare = TermSerializer._serializeBareLiteral(value, datatype);
+
+            if (bare !== undefined) {
+                return bare;
+            }
+        }
+
+        const useLongString = settings.supportsPrefixes && needsLongString(value);
+        const quote = useLongString ? '"""' : '"';
+        const quoted = `${quote}${escapeString(value, useLongString)}${quote}`;
+
+        if (!datatype || datatype === XSD.string) {
+            return quoted;
+        }
+
+        return `${quoted}^^${TermSerializer.serializeNamedNode(literal.datatype, settings)}`;
+    }
+
+    /**
+     * Write a number or boolean without quotes when the lexical form is valid for the datatype.
+     * @param value The lexical value.
+     * @param datatype The datatype IRI, if any.
+     * @returns The bare form, or `undefined` if the literal has to be quoted.
+     */
+    private static _serializeBareLiteral(value: string, datatype: string | undefined): string | undefined {
+        if (datatype === XSD.boolean && (value === 'true' || value === 'false' || value === '1' || value === '0')) {
+            return value === 'true' || value === '1' ? 'true' : 'false';
+        }
+
+        if (datatype === XSD.integer && isInteger(value)) {
+            return value;
+        }
+
+        if (datatype === XSD.decimal && isDecimal(value)) {
+            return value;
+        }
+
+        if (datatype === XSD.double && isDouble(value)) {
+            return value;
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Change the options the terms are written with, keeping the capabilities of the syntax.
+     * @param options The serialization options.
+     * @returns This serializer.
+     */
+    configure(options: TermSerializerOptions): this {
+        this._settings = TermSerializer.settingsOf(this._capabilities, options);
+
+        return this;
+    }
+
+    /**
      * Whether the syntax allows prefixed names and bare literals.
      */
     get abbreviates(): boolean {
-        return this._capabilities.supportsPrefixes;
+        return this._settings.supportsPrefixes;
     }
 
     /**
@@ -106,7 +256,7 @@ export class TermSerializer {
      * @returns The serialized term.
      */
     serializePredicate(term: NamedNode): string {
-        return this.serializeNamedNode(term, true);
+        return TermSerializer.serializeNamedNode(term, this._settings, true);
     }
 
     /**
@@ -135,19 +285,7 @@ export class TermSerializer {
      * @returns The serialized node.
      */
     serializeNamedNode(node: NamedNode, allowTypeShorthand: boolean = false): string {
-        if (allowTypeShorthand && this._capabilities.supportsRdfTypeShorthand && this._useRdfTypeShorthand && node.value === RDF.type) {
-            return 'a';
-        }
-
-        if (this._capabilities.supportsPrefixes) {
-            const match = findPrefix(node.value, this._prefixes);
-
-            if (match) {
-                return `${match.prefix}:${escapeLocalName(match.localName)}`;
-            }
-        }
-
-        return `<${escapeIri(node.value)}>`;
+        return TermSerializer.serializeNamedNode(node, this._settings, allowTypeShorthand);
     }
 
     /**
@@ -156,7 +294,7 @@ export class TermSerializer {
      * @returns The serialized node.
      */
     serializeBlankNode(node: BlankNode): string {
-        return this._blankNodeLabels[node.value] ?? `_:${normalizeBlankNodeId(node.value)}`;
+        return TermSerializer.serializeBlankNode(node, this._settings);
     }
 
     /**
@@ -166,58 +304,6 @@ export class TermSerializer {
      * @returns The serialized literal.
      */
     serializeLiteral(literal: Literal): string {
-        if (literal.language) {
-            return `"${escapeString(literal.value)}"@${literal.language}`;
-        }
-
-        const bare = this._serializeBareLiteral(literal);
-
-        if (bare !== undefined) {
-            return bare;
-        }
-
-        const useLongString = this._capabilities.supportsPrefixes && needsLongString(literal.value);
-        const quote = useLongString ? '"""' : '"';
-        const quoted = `${quote}${escapeString(literal.value, useLongString)}${quote}`;
-        const datatype = literal.datatype?.value;
-
-        if (!datatype || datatype === XSD.string) {
-            return quoted;
-        }
-
-        return `${quoted}^^${this.serializeNamedNode(literal.datatype)}`;
-    }
-
-    /**
-     * Write a number or boolean without quotes when the syntax allows it and the lexical form is
-     * valid for the datatype.
-     * @param literal The literal.
-     * @returns The bare form, or `undefined` if the literal has to be quoted.
-     */
-    private _serializeBareLiteral(literal: Literal): string | undefined {
-        if (!this._capabilities.supportsPrefixes) {
-            return undefined;
-        }
-
-        const { value } = literal;
-        const datatype = literal.datatype?.value;
-
-        if (datatype === XSD.boolean && (value === 'true' || value === 'false' || value === '1' || value === '0')) {
-            return value === 'true' || value === '1' ? 'true' : 'false';
-        }
-
-        if (datatype === XSD.integer && isInteger(value)) {
-            return value;
-        }
-
-        if (datatype === XSD.decimal && isDecimal(value)) {
-            return value;
-        }
-
-        if (datatype === XSD.double && isDouble(value)) {
-            return value;
-        }
-
-        return undefined;
+        return TermSerializer.serializeLiteral(literal, this._settings);
     }
 }
