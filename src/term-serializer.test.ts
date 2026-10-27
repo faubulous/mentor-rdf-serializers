@@ -32,8 +32,8 @@ describe('TermSerializer', () => {
             expect(serializer.serializeNamedNode(namedNode(`${EX}a`))).toBe(`<${EX}a>`);
         });
 
-        it('escapes the local name of a prefixed name', () => {
-            expect(turtle().serializeNamedNode(namedNode(`${EX}a/b`))).toBe('ex:a\\/b');
+        it('writes an IRI reference when the local part would not be a valid local name', () => {
+            expect(turtle().serializeNamedNode(namedNode(`${EX}a/b`))).toBe(`<${EX}a/b>`);
         });
     });
 
