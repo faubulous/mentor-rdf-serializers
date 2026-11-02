@@ -1,6 +1,7 @@
-import { IToken, TokenType, RdfToken, SparqlLexer } from '@faubulous/mentor-rdf-parsers';
+import { IToken, TokenType, RdfSyntax, RdfToken, SparqlLexer } from '@faubulous/mentor-rdf-parsers';
 import { TokenFormatterBase, BaseFormatterContext, BaseFormatterOptions } from '../token-formatter-base';
 import { SerializationResult } from '../serialization-result';
+import { FormattingGuard } from '../formatting-guard';
 import { TokenSerializerOptions } from '../token-serializer';
 import { ISparqlFormatter } from './sparql-formatter.interface';
 import { formatTemplate } from '../triplate-template-format';
@@ -90,6 +91,11 @@ export class SparqlFormatter
     implements ISparqlFormatter {
     private lexer = new SparqlLexer();
 
+    /**
+     * Keeps documents with syntax errors from being formatted, and verifies the result when asked to.
+     */
+    private readonly _guard = new FormattingGuard(RdfSyntax.Sparql, this.lexer);
+
     // ========================================================================
     // Public API
     // ========================================================================
@@ -97,7 +103,7 @@ export class SparqlFormatter
     formatFromText(query: string, options?: SparqlFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
 
-        const templated = formatTemplate(query, this.lexer, opts.indent, tokens => this.formatTokenStream(tokens, opts));
+        const templated = formatTemplate(query, this.lexer, this._guard, opts.indent, tokens => this.formatTokenStream(tokens, opts));
 
         if (templated) {
             return templated;
@@ -107,9 +113,9 @@ export class SparqlFormatter
 
         if (result.errors.length > 0) {
             return { output: query };
-        } else {
-            return this.formatTokenStream(result.tokens, opts);
         }
+
+        return this._guard.format(query, result, opts.verifyRoundTrip, () => this.formatTokenStream(result.tokens, opts));
     }
 
     formatFromTokens(tokens: IToken[], options?: SparqlFormatterOptions & TokenSerializerOptions): SerializationResult {

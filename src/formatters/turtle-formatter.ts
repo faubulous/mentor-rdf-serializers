@@ -3,6 +3,7 @@ import { ITokenFormatter } from '../token-formatter.interface';
 import { TokenSerializerOptions } from '../token-serializer';
 import { TokenFormatterBase, BaseFormatterContext, BaseFormatterOptions } from '../token-formatter-base';
 import { SerializationResult } from '../serialization-result';
+import { FormattingGuard } from '../formatting-guard';
 import { formatTemplate } from '../triplate-template-format';
 
 /**
@@ -67,6 +68,11 @@ export class TurtleFormatter
     readonly syntax: RdfSyntax = RdfSyntax.Turtle;
     protected lexer = new TurtleLexer();
 
+    /**
+     * Keeps documents with syntax errors from being formatted, and verifies the result when asked to.
+     */
+    private readonly _guard = new FormattingGuard(this.syntax, this.lexer);
+
     // ========================================================================
     // Public API
     // ========================================================================
@@ -74,7 +80,7 @@ export class TurtleFormatter
     formatFromText(input: string, options?: TurtleFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
 
-        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
+        const templated = formatTemplate(input, this.lexer, this._guard, opts.indent, tokens => this.formatTokens(tokens, opts));
 
         if (templated) {
             return templated;
@@ -87,7 +93,8 @@ export class TurtleFormatter
         }
 
         const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
-        return this.formatTokens(result.tokens, opts, comments);
+
+        return this._guard.format(input, result, opts.verifyRoundTrip, () => this.formatTokens(result.tokens, opts, comments));
     }
 
     formatFromTokens(tokens: IToken[], options?: TurtleFormatterOptions & TokenSerializerOptions): SerializationResult {

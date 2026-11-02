@@ -1,5 +1,6 @@
 import { IToken, RdfSyntax, RdfToken, NTriplesLexer } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from '../serialization-result';
+import { FormattingGuard } from '../formatting-guard';
 import { formatTemplate } from '../triplate-template-format';
 import { SerializationOptions } from '../serialization-options';
 import { ITokenFormatter } from '../token-formatter.interface';
@@ -33,12 +34,17 @@ export class NTriplesFormatter implements ITokenFormatter {
     private lexer = new NTriplesLexer();
 
     /**
+     * Keeps documents with syntax errors from being formatted, and verifies the result when asked to.
+     */
+    private readonly _guard = new FormattingGuard(this.syntax, this.lexer);
+
+    /**
      * Formats an N-Triples document.
      */
     formatFromText(input: string, options?: NTriplesFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
 
-        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
+        const templated = formatTemplate(input, this.lexer, this._guard, opts.indent, tokens => this.formatTokens(tokens, opts));
 
         if (templated) {
             return templated;
@@ -51,7 +57,8 @@ export class NTriplesFormatter implements ITokenFormatter {
         }
 
         const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
-        return this.formatTokens(result.tokens, opts, comments);
+
+        return this._guard.format(input, result, opts.verifyRoundTrip, () => this.formatTokens(result.tokens, opts, comments));
     }
 
     /**

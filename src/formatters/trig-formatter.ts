@@ -2,6 +2,7 @@ import { IToken, RdfSyntax, RdfToken, TrigLexer } from '@faubulous/mentor-rdf-pa
 import { TokenFormatterBase, BaseFormatterContext } from '../token-formatter-base';
 import { ITokenFormatter } from '../token-formatter.interface';
 import { SerializationResult } from '../serialization-result';
+import { FormattingGuard } from '../formatting-guard';
 import { TokenSerializerOptions } from '../token-serializer';
 import { formatTemplate } from '../triplate-template-format';
 import { TurtleFormatterOptions } from './turtle-formatter';
@@ -63,6 +64,11 @@ export class TrigFormatter
     readonly syntax: RdfSyntax = RdfSyntax.TriG;
     private lexer = new TrigLexer();
 
+    /**
+     * Keeps documents with syntax errors from being formatted, and verifies the result when asked to.
+     */
+    private readonly _guard = new FormattingGuard(this.syntax, this.lexer);
+
     // ========================================================================
     // Public API
     // ========================================================================
@@ -73,7 +79,7 @@ export class TrigFormatter
     formatFromText(input: string, options?: TrigFormatterOptions): SerializationResult {
         const opts = this.getOptions(options);
 
-        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
+        const templated = formatTemplate(input, this.lexer, this._guard, opts.indent, tokens => this.formatTokens(tokens, opts));
 
         if (templated) {
             return templated;
@@ -86,7 +92,8 @@ export class TrigFormatter
         }
 
         const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
-        return this.formatTokens(result.tokens, opts, comments);
+
+        return this._guard.format(input, result, opts.verifyRoundTrip, () => this.formatTokens(result.tokens, opts, comments));
     }
 
     /**
