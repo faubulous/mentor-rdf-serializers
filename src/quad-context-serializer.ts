@@ -1,5 +1,6 @@
 import { Quad } from '@rdfjs/types';
 import { QuadContext, IToken } from '@faubulous/mentor-rdf-parsers';
+import { termToString } from 'rdf-string';
 import { IQuadSerializer } from './quad-serializer.interface';
 import { SerializationOptions, SortingOption } from './serialization-options';
 import { QuadContextSerializerOptions } from './quad-context-serializer-options';
@@ -141,7 +142,7 @@ export class QuadContextSerializer {
         const subjectGroups = new Map<string, QuadContext[]>();
 
         for (const ctx of sortedContexts) {
-            const key = ctx.subject.value;
+            const key = termToString(ctx.subject);
 
             if (!subjectGroups.has(key)) {
                 subjectGroups.set(key, []);

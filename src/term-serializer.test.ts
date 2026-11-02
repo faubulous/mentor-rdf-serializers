@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from './data-factory';
 import { RdfSyntax } from '@faubulous/mentor-rdf-parsers';
 import { RDF, XSD } from './ontologies';
 import { TermSerializer, TermSerializerOptions } from './term-serializer';
 
 const EX = 'http://example.org/';
-const { namedNode, blankNode, literal } = DataFactory;
+const { namedNode, blankNode, literal } = RdfDataFactory;
 
 /**
  * A serializer for a Turtle document that declares the ex and xsd prefixes.
@@ -75,6 +75,10 @@ describe('TermSerializer', () => {
         it('writes language tags and datatypes', () => {
             expect(turtle().serializeLiteral(literal('Tree', 'en'))).toBe('"Tree"@en');
             expect(turtle().serializeLiteral(literal('x', namedNode(`${EX}T`)))).toBe('"x"^^ex:T');
+        });
+
+        it('writes the base direction of a directional language string', () => {
+            expect(turtle().serializeLiteral(literal('Baum', { language: 'ar', direction: 'rtl' }))).toBe('"Baum"@ar--rtl');
         });
 
         it('writes numbers and booleans bare where the syntax allows', () => {

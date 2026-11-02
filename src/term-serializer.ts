@@ -5,6 +5,7 @@ import { normalizeBlankNodeId } from './utilities/blank-nodes';
 import { escapeIri, escapeLocalName, escapeString } from './utilities/escaping';
 import { isDecimal, isDouble, isInteger, needsLongString } from './utilities/literals';
 import { findPrefix } from './utilities/prefixes';
+import { formatLanguageTag } from './utilities/terms';
 
 /**
  * What a syntax allows a term serializer to abbreviate.
@@ -170,7 +171,7 @@ export class TermSerializer {
         const language = literal.language;
 
         if (language) {
-            return `"${escapeString(value)}"@${language}`;
+            return `"${escapeString(value)}"@${formatLanguageTag(language, literal.direction || undefined)}`;
         }
 
         if (settings.supportsPrefixes) {

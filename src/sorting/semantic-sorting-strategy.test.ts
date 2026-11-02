@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { SemanticSortingStrategy } from './semantic-sorting-strategy';
 
 const termValue = (term: unknown) => (term as { value: string }).value;
@@ -8,8 +8,8 @@ describe('SemanticSortingStrategy', () => {
     it('orders resources so dependencies come first', () => {
         const strategy = new SemanticSortingStrategy();
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/B'), DataFactory.namedNode('http://example.org/dependsOn'), DataFactory.namedNode('http://example.org/A')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/A'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('A'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/B'), RdfDataFactory.namedNode('http://example.org/dependsOn'), RdfDataFactory.namedNode('http://example.org/A')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/A'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('A'))
         ];
 
         strategy.prepare(quads);
@@ -22,9 +22,9 @@ describe('SemanticSortingStrategy', () => {
     it('orders dependency chains topologically', () => {
         const strategy = new SemanticSortingStrategy();
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/C'), DataFactory.namedNode('http://example.org/uses'), DataFactory.namedNode('http://example.org/B')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/B'), DataFactory.namedNode('http://example.org/uses'), DataFactory.namedNode('http://example.org/A')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/A'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('A'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/C'), RdfDataFactory.namedNode('http://example.org/uses'), RdfDataFactory.namedNode('http://example.org/B')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/B'), RdfDataFactory.namedNode('http://example.org/uses'), RdfDataFactory.namedNode('http://example.org/A')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/A'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('A'))
         ];
 
         strategy.prepare(quads);
@@ -39,8 +39,8 @@ describe('SemanticSortingStrategy', () => {
     it('uses alphabetical order when resources have no dependencies', () => {
         const strategy = new SemanticSortingStrategy();
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/Z'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('Z')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/A'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('A'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/Z'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('Z')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/A'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('A'))
         ];
 
         strategy.prepare(quads);
@@ -53,8 +53,8 @@ describe('SemanticSortingStrategy', () => {
     it('handles cycles without throwing', () => {
         const strategy = new SemanticSortingStrategy();
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/A'), DataFactory.namedNode('http://example.org/uses'), DataFactory.namedNode('http://example.org/B')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/B'), DataFactory.namedNode('http://example.org/uses'), DataFactory.namedNode('http://example.org/A'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/A'), RdfDataFactory.namedNode('http://example.org/uses'), RdfDataFactory.namedNode('http://example.org/B')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/B'), RdfDataFactory.namedNode('http://example.org/uses'), RdfDataFactory.namedNode('http://example.org/A'))
         ];
 
         strategy.prepare(quads);

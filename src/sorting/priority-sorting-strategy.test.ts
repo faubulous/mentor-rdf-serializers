@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { PrioritySortingStrategy } from './priority-sorting-strategy';
 import { QuadSorter } from '../quad-sorter';
 
@@ -16,8 +16,8 @@ describe('PrioritySortingStrategy', () => {
         });
 
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/instance'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode('http://example.org/Instance')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/class'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(RDFS_CLASS))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/instance'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode('http://example.org/Instance')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/class'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(RDFS_CLASS))
         ];
 
         strategy.prepare(quads);
@@ -33,9 +33,9 @@ describe('PrioritySortingStrategy', () => {
         });
 
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/multi'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(OWL_OBJECT_PROPERTY)),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/multi'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(OWL_CLASS)),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/prop'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(OWL_OBJECT_PROPERTY))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/multi'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(OWL_OBJECT_PROPERTY)),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/multi'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(OWL_CLASS)),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/prop'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(OWL_OBJECT_PROPERTY))
         ];
 
         strategy.prepare(quads);
@@ -50,8 +50,8 @@ describe('PrioritySortingStrategy', () => {
         });
 
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/unknown'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode('http://example.org/UnknownType')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/class'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(RDFS_CLASS))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/unknown'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode('http://example.org/UnknownType')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/class'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(RDFS_CLASS))
         ];
 
         strategy.prepare(quads);
@@ -68,8 +68,8 @@ describe('PrioritySortingStrategy', () => {
         });
 
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/class'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(RDFS_CLASS)),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/unknown'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode('http://example.org/UnknownType'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/class'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(RDFS_CLASS)),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/unknown'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode('http://example.org/UnknownType'))
         ];
 
         strategy.prepare(quads);
@@ -86,9 +86,9 @@ describe('PrioritySortingStrategy', () => {
         });
 
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/description'), DataFactory.literal('desc')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/label'), DataFactory.literal('label')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(RDFS_CLASS))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/description'), RdfDataFactory.literal('desc')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/label'), RdfDataFactory.literal('label')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(RDFS_CLASS))
         ];
 
         strategy.prepare(quads);
@@ -106,8 +106,8 @@ describe('PrioritySortingStrategy', () => {
         });
 
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/typed'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(RDFS_CLASS)),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/untyped'), DataFactory.namedNode('http://example.org/label'), DataFactory.literal('No type'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/typed'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(RDFS_CLASS)),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/untyped'), RdfDataFactory.namedNode('http://example.org/label'), RdfDataFactory.literal('No type'))
         ];
 
         strategy.prepare(quads);
@@ -128,13 +128,13 @@ describe('PrioritySortingStrategy', () => {
         const RDFS_RANGE = 'http://www.w3.org/2000/01/rdf-schema#range';
 
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/hasName'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(OWL_OBJECT_PROPERTY)),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/hasName'), DataFactory.namedNode(RDFS_DOMAIN), DataFactory.namedNode('http://example.org/Person')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/hasName'), DataFactory.namedNode(RDFS_RANGE), DataFactory.namedNode('http://www.w3.org/2001/XMLSchema#string')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/Person'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(OWL_CLASS)),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/Person'), DataFactory.namedNode(RDFS_LABEL), DataFactory.literal('Person')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/onto'), DataFactory.namedNode(RDF_TYPE), DataFactory.namedNode(OWL_ONTOLOGY)),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/onto'), DataFactory.namedNode(RDFS_COMMENT), DataFactory.literal('Example ontology'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/hasName'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(OWL_OBJECT_PROPERTY)),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/hasName'), RdfDataFactory.namedNode(RDFS_DOMAIN), RdfDataFactory.namedNode('http://example.org/Person')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/hasName'), RdfDataFactory.namedNode(RDFS_RANGE), RdfDataFactory.namedNode('http://www.w3.org/2001/XMLSchema#string')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/Person'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(OWL_CLASS)),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/Person'), RdfDataFactory.namedNode(RDFS_LABEL), RdfDataFactory.literal('Person')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/onto'), RdfDataFactory.namedNode(RDF_TYPE), RdfDataFactory.namedNode(OWL_ONTOLOGY)),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/onto'), RdfDataFactory.namedNode(RDFS_COMMENT), RdfDataFactory.literal('Example ontology'))
         ];
 
         const strategy = new PrioritySortingStrategy({

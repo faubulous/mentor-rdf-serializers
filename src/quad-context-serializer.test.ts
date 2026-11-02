@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from './data-factory';
 import { TurtleLexer, TurtleParser, TurtleReader } from '@faubulous/mentor-rdf-parsers';
 import { QuadContextSerializer } from './quad-context-serializer';
 import { TurtleSerializer } from './serializers/turtle-serializer';
@@ -61,10 +61,10 @@ describe('QuadContextSerializer', () => {
             const input = PREFIX + '# Existing\nex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
-            const newQuad = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/C'),
-                DataFactory.namedNode('http://example.org/q'),
-                DataFactory.namedNode('http://example.org/D')
+            const newQuad = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/C'),
+                RdfDataFactory.namedNode('http://example.org/q'),
+                RdfDataFactory.namedNode('http://example.org/D')
             );
 
             const merged = statementSerializer.addStatements(contexts, [newQuad]);
@@ -80,10 +80,10 @@ describe('QuadContextSerializer', () => {
             const input = PREFIX + 'ex:Z ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
-            const newQuad = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/A'),
-                DataFactory.namedNode('http://example.org/q'),
-                DataFactory.literal('value')
+            const newQuad = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/A'),
+                RdfDataFactory.namedNode('http://example.org/q'),
+                RdfDataFactory.literal('value')
             );
 
             const merged = statementSerializer.addStatements(contexts, [newQuad]);
@@ -177,10 +177,10 @@ describe('QuadContextSerializer', () => {
             const input = PREFIX + 'ex:A ex:p ex:B .';
             const { contexts } = parseWithComments(input);
 
-            const newQuad = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/C'),
-                DataFactory.namedNode('http://example.org/q'),
-                DataFactory.literal('value')
+            const newQuad = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/C'),
+                RdfDataFactory.namedNode('http://example.org/q'),
+                RdfDataFactory.literal('value')
             );
 
             const merged = statementSerializer.addStatements(contexts, [newQuad]);
@@ -296,15 +296,15 @@ describe('QuadContextSerializer', () => {
 
         it('should not emit duplicated blank node prefixes when sorting', () => {
             const contexts = statementSerializer.addStatements([], [
-                DataFactory.quad(
-                    DataFactory.blankNode('genid200'),
-                    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-                    DataFactory.namedNode('http://www.w3.org/2002/07/owl#Class')
+                RdfDataFactory.quad(
+                    RdfDataFactory.blankNode('genid200'),
+                    RdfDataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                    RdfDataFactory.namedNode('http://www.w3.org/2002/07/owl#Class')
                 ),
-                DataFactory.quad(
-                    DataFactory.blankNode('_:genid100'),
-                    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-                    DataFactory.namedNode('http://www.w3.org/2002/07/owl#Class')
+                RdfDataFactory.quad(
+                    RdfDataFactory.blankNode('_:genid100'),
+                    RdfDataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                    RdfDataFactory.namedNode('http://www.w3.org/2002/07/owl#Class')
                 ),
             ]);
 
@@ -514,10 +514,10 @@ describe('QuadContextSerializer', () => {
             const { contexts } = parseWithComments(input);
 
             // 2. Add a new triple
-            const newQuad = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/Animal'),
-                DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-                DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
+            const newQuad = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/Animal'),
+                RdfDataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                RdfDataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
             );
 
             // 3. Merge & serialize with sorting
@@ -795,10 +795,10 @@ describe('QuadContextSerializer', () => {
             const { contexts } = parseWithComments(input);
 
             // Add a predicate for the same subject
-            const newQuad = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/Person'),
-                DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
-                DataFactory.literal('Person')
+            const newQuad = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/Person'),
+                RdfDataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+                RdfDataFactory.literal('Person')
             );
 
             const merged = statementSerializer.addStatements(contexts, [newQuad]);

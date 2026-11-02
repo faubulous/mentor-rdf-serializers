@@ -55,13 +55,13 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@faubulous/mentor-rdf-parsers": "^2.1.1",
-    "@rdfjs/data-model": "^2.1.2",
+    "@faubulous/mentor-rdf-parsers": "^2.3.0",
+    "rdf-data-factory": "^2.1.0",
+    "rdf-string": "^2.0.1",
     "triplate": "^0.7.1"
   },
   "devDependencies": {
     "@rdfjs/types": "^2.0.1",
-    "@types/rdfjs__data-model": "^2.0.9",
     "@vitest/coverage-v8": "^5.0.5",
     "chevrotain": "^13.2.0",
     "typedoc": "^0.28.20",

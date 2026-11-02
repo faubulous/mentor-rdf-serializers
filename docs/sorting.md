@@ -128,7 +128,9 @@ import {
     StatementSerializer,
     TurtleSerializer,
 } from '@faubulous/mentor-rdf-serializers';
-import DataFactory from '@rdfjs/data-model';
+import { DataFactory } from 'rdf-data-factory';
+
+const factory = new DataFactory();
 
 // 1. Parse the source document (keeping tokens for comment recovery)
 const source = `
@@ -153,10 +155,10 @@ const contexts = reader.readStatementInfos(cst, lexResult.tokens);
 const serializer = new StatementSerializer(new TurtleSerializer());
 
 // 4. Optionally add new quads (they will have no comments)
-const newQuad = DataFactory.quad(
-    DataFactory.namedNode('http://example.org/Animal'),
-    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
+const newQuad = factory.quad(
+    factory.namedNode('http://example.org/Animal'),
+    factory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+    factory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
 );
 
 const merged = serializer.addStatements(contexts, [newQuad]);
