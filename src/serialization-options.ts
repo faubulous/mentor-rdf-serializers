@@ -57,6 +57,13 @@ export interface SerializationOptions {
     useRdfTypeShorthand?: boolean;
 
     /**
+     * The spellings to write language tags in, by their lower case form, such as the spellings a
+     * document already uses (see `getLanguageTagSpellings`). RDF/JS terms hold language tags in
+     * lower case; a tag without a spelling is written that way.
+     */
+    languageTags?: Record<string, string>;
+
+    /**
      * Maximum line width before wrapping (0 = no wrapping).
      * Default: 0
      */
@@ -204,4 +211,5 @@ export const DEFAULT_OPTIONS: Required<SerializationOptions> = {
     inlineSingleUseBlankNodes: true,
     inlineCollections: true,
     relabelBlankNodes: false,
+    languageTags: {},
 };
