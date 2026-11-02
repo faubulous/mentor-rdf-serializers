@@ -77,6 +77,11 @@ describe('TermSerializer', () => {
             expect(turtle().serializeLiteral(literal('x', namedNode(`${EX}T`)))).toBe('"x"^^ex:T');
         });
 
+        it('writes a language tag in the spelling it is given', () => {
+            expect(turtle({ languageTags: { 'en-us': 'en-US' } }).serializeLiteral(literal('Color', 'en-US'))).toBe('"Color"@en-US');
+            expect(turtle().serializeLiteral(literal('Color', 'en-US'))).toBe('"Color"@en-us');
+        });
+
         it('writes the base direction of a directional language string', () => {
             expect(turtle().serializeLiteral(literal('Baum', { language: 'ar', direction: 'rtl' }))).toBe('"Baum"@ar--rtl');
         });

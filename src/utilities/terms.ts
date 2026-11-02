@@ -1,4 +1,5 @@
 import type { Term } from '@rdfjs/types';
+import type { IToken } from '@faubulous/mentor-rdf-parsers';
 import type { Rdf12Term, TripleTerm, Reifier } from './types.js';
 import { getTermSortKey } from '../sorting/term-sort-key';
 
@@ -57,4 +58,28 @@ export function formatLanguageTag(language: string, direction?: 'ltr' | 'rtl'): 
     } else {
         return language;
     }
+}
+
+/**
+ * Get the spellings a document writes its language tags in, by their lower case form, to keep
+ * them when the document is written again from its terms, which hold the tags in lower case. The
+ * first spelling of a tag is kept; the base direction (`--rtl`) is not part of it.
+ * @param tokens The tokens of the document.
+ * @returns The spelling of each language tag, by its lower case form.
+ */
+export function getLanguageTagSpellings(tokens: Iterable<IToken>): Record<string, string> {
+    const spellings: Record<string, string> = {};
+
+    for (const token of tokens) {
+        if (token.tokenType.name !== 'LANGTAG') {
+            continue;
+        }
+
+        const { language } = parseLanguageTag(token.image.slice(1));
+        const key = language.toLowerCase();
+
+        spellings[key] ??= language;
+    }
+
+    return spellings;
 }

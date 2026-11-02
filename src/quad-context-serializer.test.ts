@@ -4,6 +4,7 @@ import { TurtleLexer, TurtleParser, TurtleReader } from '@faubulous/mentor-rdf-p
 import { QuadContextSerializer } from './quad-context-serializer';
 import { TurtleSerializer } from './serializers/turtle-serializer';
 import { AlphabeticalSortingStrategy } from './sorting/alphabetical-sorting-strategy';
+import { getLanguageTagSpellings } from './utilities/terms';
 
 const PREFIX = [
     '@prefix ex: <http://example.org/> .',
@@ -811,5 +812,20 @@ describe('QuadContextSerializer', () => {
             // Comment should still be present
             expect(output).toContain('# Existing class');
         });
+    });
+});
+
+describe('QuadContextSerializer language tags', () => {
+    it('writes the language tags of a document as the document spells them', () => {
+        const text = '<http://example.org/b> <http://example.org/p> "Color"@en-US .\n<http://example.org/a> <http://example.org/p> "Farbe"@de-DE .\n';
+        const tokens = new TurtleLexer().tokenize(text).tokens;
+        const contexts = new TurtleReader().readQuadContexts(new TurtleParser().parse(tokens), tokens);
+        const output = new QuadContextSerializer(new TurtleSerializer()).serialize(contexts, {
+            sortingStrategy: new AlphabeticalSortingStrategy(),
+            languageTags: getLanguageTagSpellings(tokens)
+        });
+
+        expect(output).toContain('"Color"@en-US');
+        expect(output).toContain('"Farbe"@de-DE');
     });
 });

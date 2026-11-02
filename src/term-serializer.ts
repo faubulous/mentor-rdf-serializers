@@ -42,6 +42,13 @@ export interface TermSerializerOptions {
      * uses. A blank node without one is written as `_:` with its normalized identifier.
      */
     blankNodeLabels?: Record<string, string>;
+
+    /**
+     * The spellings to write language tags in, by their lower case form, such as the spellings a
+     * document already uses (see `getLanguageTagSpellings`). RDF/JS terms hold language tags in
+     * lower case; a tag without a spelling is written that way.
+     */
+    languageTags?: Record<string, string>;
 }
 
 /**
@@ -73,6 +80,11 @@ export interface TermSerializerSettings {
      * The labels to write for blank nodes, by identifier, if any.
      */
     blankNodeLabels?: Record<string, string>;
+
+    /**
+     * The spellings to write language tags in, by their lower case form, if any.
+     */
+    languageTags?: Record<string, string>;
 }
 
 /**
@@ -121,7 +133,8 @@ export class TermSerializer {
             supportsRdfTypeShorthand: capabilities.supportsRdfTypeShorthand,
             prefixes: options.prefixes ?? {},
             useRdfTypeShorthand: options.useRdfTypeShorthand ?? true,
-            blankNodeLabels: options.blankNodeLabels
+            blankNodeLabels: options.blankNodeLabels,
+            languageTags: options.languageTags
         };
     }
 
@@ -171,7 +184,7 @@ export class TermSerializer {
         const language = literal.language;
 
         if (language) {
-            return `"${escapeString(value)}"@${formatLanguageTag(language, literal.direction || undefined)}`;
+            return `"${escapeString(value)}"@${formatLanguageTag(settings.languageTags?.[language] ?? language, literal.direction || undefined)}`;
         }
 
         if (settings.supportsPrefixes) {

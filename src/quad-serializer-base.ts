@@ -93,7 +93,7 @@ export abstract class QuadSerializerBase implements IQuadSerializer {
         if (options !== this._termOptions || !this._termSettings) {
             this._termSettings = TermSerializer.settingsOf(
                 { supportsPrefixes: this.supportsPrefixes, supportsRdfTypeShorthand: this.supportsRdfTypeShorthand },
-                { prefixes: options.prefixes, useRdfTypeShorthand: options.useRdfTypeShorthand }
+                { prefixes: options.prefixes, useRdfTypeShorthand: options.useRdfTypeShorthand, languageTags: options.languageTags }
             );
             this._termOptions = options;
         }

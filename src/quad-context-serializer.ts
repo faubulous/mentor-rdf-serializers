@@ -135,6 +135,7 @@ export class QuadContextSerializer {
             lineEnd,
             emitDirectives: false,
             inlineSingleUseBlankNodes,
+            languageTags: options?.languageTags,
         };
 
         // Group contexts by subject for pretty-printed output with

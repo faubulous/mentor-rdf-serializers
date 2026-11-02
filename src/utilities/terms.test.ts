@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { RdfDataFactory } from '../data-factory';
-import { isTripleTerm, isReifier, termToString, parseLanguageTag, formatLanguageTag } from './terms';
+import { TurtleLexer } from '@faubulous/mentor-rdf-parsers';
+import { isTripleTerm, isReifier, termToString, parseLanguageTag, formatLanguageTag, getLanguageTagSpellings } from './terms';
 import type { TripleTerm, Reifier } from './types';
 
 describe('isTripleTerm', () => {
@@ -167,5 +168,13 @@ describe('formatLanguageTag', () => {
 
     it('should omit direction when undefined', () => {
         expect(formatLanguageTag('en', undefined)).toBe('en');
+    });
+});
+
+describe('getLanguageTagSpellings', () => {
+    it('gets the first spelling of each language tag by its lower case form, without the direction', () => {
+        const tokens = new TurtleLexer().tokenize('<s> <p> "a"@en-US, "b"@en-us, "c"@AR--rtl .').tokens;
+
+        expect(getLanguageTagSpellings(tokens)).toEqual({ 'en-us': 'en-US', ar: 'AR' });
     });
 });
