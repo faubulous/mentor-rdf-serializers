@@ -2,6 +2,7 @@ import { IToken, TokenType, TokenMetadata } from '@faubulous/mentor-rdf-parsers'
 import { RdfToken } from '@faubulous/mentor-rdf-parsers';
 import { SerializationOptions } from './serialization-options';
 import { mergeOptions } from './quad-serializer-base';
+import { FormatterBase } from './formatter-base';
 
 /**
  * Metadata attached to each token during the analysis pass. This captures 
@@ -166,13 +167,7 @@ export interface BaseFormatterOptions extends SerializationOptions {
 export abstract class TokenFormatterBase<
     TContext extends BaseFormatterContext = BaseFormatterContext,
     TOptions extends BaseFormatterOptions = BaseFormatterOptions,
-> {
-    /**
-     * Merge user options with defaults. Must be implemented by subclasses.
-     * @param options User-provided options (may be partial).
-     */
-    protected abstract getOptions(options?: TOptions): Required<TOptions>;
-
+> extends FormatterBase<TOptions> {
     /**
      * Create the initial context. Subclasses extend the base context.
      * @param options The merged options.

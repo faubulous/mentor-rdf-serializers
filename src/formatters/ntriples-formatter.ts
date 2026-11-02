@@ -1,9 +1,8 @@
 import { IToken, RdfSyntax, RdfToken, NTriplesLexer } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from '../serialization-result';
-import { formatTemplate } from '../triplate-template-format';
+import { FormatterBase } from '../formatter-base';
 import { SerializationOptions } from '../serialization-options';
 import { ITokenFormatter } from '../token-formatter.interface';
-import { TokenSerializerOptions } from '../token-serializer';
 import { mergeOptions } from '../quad-serializer-base';
 
 /**
@@ -27,40 +26,10 @@ export interface NTriplesFormatterOptions extends SerializationOptions {
  * 
  * @see https://www.w3.org/TR/rdf12-n-triples/
  */
-export class NTriplesFormatter implements ITokenFormatter {
+export class NTriplesFormatter extends FormatterBase<NTriplesFormatterOptions> implements ITokenFormatter {
     readonly syntax: RdfSyntax = RdfSyntax.NTriples;
 
-    private lexer = new NTriplesLexer();
-
-    /**
-     * Formats an N-Triples document.
-     */
-    formatFromText(input: string, options?: NTriplesFormatterOptions): SerializationResult {
-        const opts = this.getOptions(options);
-
-        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
-
-        if (templated) {
-            return templated;
-        }
-
-        const result = this.lexer.tokenize(input);
-
-        if (result.errors.length > 0) {
-            return { output: input };
-        }
-
-        const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
-        return this.formatTokens(result.tokens, opts, comments);
-    }
-
-    /**
-     * Formats from already-parsed tokens.
-     */
-    formatFromTokens(tokens: IToken[], options?: NTriplesFormatterOptions & TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options);
-        return this.formatTokens(tokens, opts);
-    }
+    protected readonly lexer = new NTriplesLexer();
 
     // Backwards-compatible alias
     format(input: string, options?: NTriplesFormatterOptions): SerializationResult {
@@ -70,7 +39,7 @@ export class NTriplesFormatter implements ITokenFormatter {
     /**
      * Formats tokens into a string.
      */
-    private formatTokens(
+    protected formatTokens(
         tokens: IToken[],
         opts: Required<NTriplesFormatterOptions>,
         comments: IToken[] = []
@@ -170,7 +139,7 @@ export class NTriplesFormatter implements ITokenFormatter {
     /**
      * Gets merged options with defaults.
      */
-    private getOptions(options?: NTriplesFormatterOptions): Required<NTriplesFormatterOptions> {
+    protected getOptions(options?: NTriplesFormatterOptions): Required<NTriplesFormatterOptions> {
         const base = mergeOptions(options);
         return {
             ...base,

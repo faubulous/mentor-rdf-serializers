@@ -2,8 +2,6 @@ import { IToken, RdfSyntax, RdfToken, TrigLexer } from '@faubulous/mentor-rdf-pa
 import { TokenFormatterBase, BaseFormatterContext } from '../token-formatter-base';
 import { ITokenFormatter } from '../token-formatter.interface';
 import { SerializationResult } from '../serialization-result';
-import { TokenSerializerOptions } from '../token-serializer';
-import { formatTemplate } from '../triplate-template-format';
 import { TurtleFormatterOptions } from './turtle-formatter';
 
 // ============================================================================
@@ -61,41 +59,11 @@ export class TrigFormatter
     extends TokenFormatterBase<TrigFormatterContext, TrigFormatterOptions>
     implements ITokenFormatter {
     readonly syntax: RdfSyntax = RdfSyntax.TriG;
-    private lexer = new TrigLexer();
+    protected readonly lexer = new TrigLexer();
 
     // ========================================================================
     // Public API
     // ========================================================================
-
-    /**
-     * Formats a TriG document.
-     */
-    formatFromText(input: string, options?: TrigFormatterOptions): SerializationResult {
-        const opts = this.getOptions(options);
-
-        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
-
-        if (templated) {
-            return templated;
-        }
-
-        const result = this.lexer.tokenize(input);
-
-        if (result.errors.length > 0) {
-            return { output: input };
-        }
-
-        const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
-        return this.formatTokens(result.tokens, opts, comments);
-    }
-
-    /**
-     * Formats from already-parsed tokens.
-     */
-    formatFromTokens(tokens: IToken[], options?: TrigFormatterOptions & TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options);
-        return this.formatTokens(tokens, opts);
-    }
 
     // Backwards-compatible alias
     format(input: string, options?: TrigFormatterOptions): SerializationResult {
@@ -422,7 +390,7 @@ export class TrigFormatter
     // Main formatting loop
     // ========================================================================
 
-    private formatTokens(
+    protected formatTokens(
         tokens: IToken[],
         opts: Required<TrigFormatterOptions>,
         comments: IToken[] = []

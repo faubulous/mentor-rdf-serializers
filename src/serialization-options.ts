@@ -154,6 +154,15 @@ export interface SerializationOptions {
      * Default: false
      */
     relabelBlankNodes?: boolean;
+
+    /**
+     * Formatters only: whether to verify that the formatted text reads to the same content (the quads
+     * of an RDF document, the syntax graph of a SPARQL query) and keeps every comment. When it does
+     * not, or when the content of the document cannot be read, the input is returned unchanged with a
+     * warning. Costs about one more read of the document. Templates are only checked for syntax errors.
+     * Default: false
+     */
+    verifyRoundTrip?: boolean;
 }
 
 /**
@@ -212,4 +221,5 @@ export const DEFAULT_OPTIONS: Required<SerializationOptions> = {
     inlineCollections: true,
     relabelBlankNodes: false,
     languageTags: {},
+    verifyRoundTrip: false,
 };

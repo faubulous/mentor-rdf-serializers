@@ -1,9 +1,7 @@
-import { IToken, TokenType, RdfToken, SparqlLexer } from '@faubulous/mentor-rdf-parsers';
+import { IToken, TokenType, RdfSyntax, RdfToken, SparqlLexer } from '@faubulous/mentor-rdf-parsers';
 import { TokenFormatterBase, BaseFormatterContext, BaseFormatterOptions } from '../token-formatter-base';
 import { SerializationResult } from '../serialization-result';
-import { TokenSerializerOptions } from '../token-serializer';
 import { ISparqlFormatter } from './sparql-formatter.interface';
-import { formatTemplate } from '../triplate-template-format';
 
 /**
  * SPARQL-specific formatting options.
@@ -88,35 +86,9 @@ interface SparqlFormatterContext extends BaseFormatterContext {
 export class SparqlFormatter
     extends TokenFormatterBase<SparqlFormatterContext, SparqlFormatterOptions>
     implements ISparqlFormatter {
-    private lexer = new SparqlLexer();
+    readonly syntax: RdfSyntax = RdfSyntax.Sparql;
 
-    // ========================================================================
-    // Public API
-    // ========================================================================
-
-    formatFromText(query: string, options?: SparqlFormatterOptions): SerializationResult {
-        const opts = this.getOptions(options);
-
-        const templated = formatTemplate(query, this.lexer, opts.indent, tokens => this.formatTokenStream(tokens, opts));
-
-        if (templated) {
-            return templated;
-        }
-
-        const result = this.lexer.tokenize(query);
-
-        if (result.errors.length > 0) {
-            return { output: query };
-        } else {
-            return this.formatTokenStream(result.tokens, opts);
-        }
-    }
-
-    formatFromTokens(tokens: IToken[], options?: SparqlFormatterOptions & TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options);
-
-        return this.formatTokenStream(tokens, opts);
-    }
+    protected readonly lexer = new SparqlLexer();
 
     // ========================================================================
     // BaseTokenFormatter abstract implementations
@@ -1073,7 +1045,7 @@ export class SparqlFormatter
         ctx.justEndedPrefix = true;
     }
 
-    private formatTokenStream(tokens: IToken[], options: Required<SparqlFormatterOptions>): SerializationResult {
+    protected formatTokens(tokens: IToken[], options: Required<SparqlFormatterOptions>): SerializationResult {
         const ctx = this.createContext(options);
         const le = options.lineEnd;
 

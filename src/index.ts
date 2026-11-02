@@ -10,6 +10,7 @@ export * from './serialization-result';
 export * from './serialization-options';
 export * from './term-serializer';
 export * from './quad-context-serializer';
+export * from './formatter-base';
 export * from './token-formatter-base';
 export * from './token-formatter.interface';
 export * from './token-serializer';

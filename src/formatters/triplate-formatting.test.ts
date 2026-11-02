@@ -52,6 +52,14 @@ describeTemplate('template-aware formatFromText', () => {
         expect(out).toBe(text);
     });
 
+    it('leaves a template with syntax errors unchanged', () => {
+        const text = '---\nparams { type: iri }\n---\n@prefix ex: <http://ex/> .\n${type}   ex:p   ex:o   ex:x .\n';
+        const result = new TurtleFormatter().formatFromText(text);
+
+        expect(result.output).toBe(text);
+        expect(result.warnings).toHaveLength(1);
+    });
+
     it('still formats a plain (non-template) document normally', () => {
         const out = new TurtleFormatter().formatFromText('@prefix ex:<http://ex/>.\nex:s ex:p ex:o.').output;
 

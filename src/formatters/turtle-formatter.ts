@@ -1,9 +1,7 @@
 import { IToken, RdfSyntax, RdfToken, TurtleLexer } from '@faubulous/mentor-rdf-parsers';
 import { ITokenFormatter } from '../token-formatter.interface';
-import { TokenSerializerOptions } from '../token-serializer';
 import { TokenFormatterBase, BaseFormatterContext, BaseFormatterOptions } from '../token-formatter-base';
 import { SerializationResult } from '../serialization-result';
-import { formatTemplate } from '../triplate-template-format';
 
 /**
  * Turtle-specific formatting options.
@@ -65,35 +63,11 @@ export class TurtleFormatter
     extends TokenFormatterBase<TurtleFormatterContext, TurtleFormatterOptions>
     implements ITokenFormatter {
     readonly syntax: RdfSyntax = RdfSyntax.Turtle;
-    protected lexer = new TurtleLexer();
+    protected readonly lexer = new TurtleLexer();
 
     // ========================================================================
     // Public API
     // ========================================================================
-
-    formatFromText(input: string, options?: TurtleFormatterOptions): SerializationResult {
-        const opts = this.getOptions(options);
-
-        const templated = formatTemplate(input, this.lexer, opts.indent, tokens => this.formatTokens(tokens, opts));
-
-        if (templated) {
-            return templated;
-        }
-
-        const result = this.lexer.tokenize(input);
-
-        if (result.errors.length > 0) {
-            return { output: input };
-        }
-
-        const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
-        return this.formatTokens(result.tokens, opts, comments);
-    }
-
-    formatFromTokens(tokens: IToken[], options?: TurtleFormatterOptions & TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options);
-        return this.formatTokens(tokens, opts);
-    }
 
     // Backwards-compatible alias
     format(input: string, options?: TurtleFormatterOptions): SerializationResult {
