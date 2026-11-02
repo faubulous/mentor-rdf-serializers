@@ -19,20 +19,22 @@ The following example creates two RDF quads and serializes them to Turtle:
 
 ```typescript
 import { TurtleSerializer } from '@faubulous/mentor-rdf-serializers';
-import DataFactory from '@rdfjs/data-model';
+import { DataFactory } from 'rdf-data-factory';
+
+const factory = new DataFactory();
 
 const serializer = new TurtleSerializer();
 
 const quads = [
-    DataFactory.quad(
-        DataFactory.namedNode('http://example.org/subject'),
-        DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-        DataFactory.namedNode('http://example.org/Class')
+    factory.quad(
+        factory.namedNode('http://example.org/subject'),
+        factory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+        factory.namedNode('http://example.org/Class')
     ),
-    DataFactory.quad(
-        DataFactory.namedNode('http://example.org/subject'),
-        DataFactory.namedNode('http://example.org/name'),
-        DataFactory.literal('Example', 'en')
+    factory.quad(
+        factory.namedNode('http://example.org/subject'),
+        factory.namedNode('http://example.org/name'),
+        factory.literal('Example', 'en')
     )
 ];
 

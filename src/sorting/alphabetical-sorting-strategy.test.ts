@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { AlphabeticalSortingStrategy } from './alphabetical-sorting-strategy';
 
 const termValue = (term: unknown) => (term as { value: string }).value;
@@ -8,8 +8,8 @@ describe('AlphabeticalSortingStrategy', () => {
     it('sorts by subject first', () => {
         const strategy = new AlphabeticalSortingStrategy();
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/b'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('x')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/a'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('y'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/b'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('x')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/a'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('y'))
         ];
 
         quads.sort((a, b) => strategy.compare(a, b));
@@ -21,8 +21,8 @@ describe('AlphabeticalSortingStrategy', () => {
     it('sorts by predicate when subjects are equal', () => {
         const strategy = new AlphabeticalSortingStrategy();
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p2'), DataFactory.literal('x')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p1'), DataFactory.literal('y'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p2'), RdfDataFactory.literal('x')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p1'), RdfDataFactory.literal('y'))
         ];
 
         quads.sort((a, b) => strategy.compare(a, b));
@@ -34,8 +34,8 @@ describe('AlphabeticalSortingStrategy', () => {
     it('sorts by object when subject and predicate are equal', () => {
         const strategy = new AlphabeticalSortingStrategy();
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('z')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('a'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('z')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('a'))
         ];
 
         quads.sort((a, b) => strategy.compare(a, b));
@@ -47,9 +47,9 @@ describe('AlphabeticalSortingStrategy', () => {
     it('sorts by subject, then predicate, then object', () => {
         const strategy = new AlphabeticalSortingStrategy();
         const quads = [
-            DataFactory.quad(DataFactory.namedNode('http://example.org/b'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('2')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/a'), DataFactory.namedNode('http://example.org/z'), DataFactory.literal('2')),
-            DataFactory.quad(DataFactory.namedNode('http://example.org/a'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('1'))
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/b'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('2')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/a'), RdfDataFactory.namedNode('http://example.org/z'), RdfDataFactory.literal('2')),
+            RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/a'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('1'))
         ];
 
         quads.sort((a, b) => strategy.compare(a, b));

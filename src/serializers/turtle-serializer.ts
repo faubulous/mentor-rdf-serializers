@@ -1,5 +1,5 @@
 import type { BlankNode, NamedNode, Quad } from '@rdfjs/types';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { RdfSyntax } from "@faubulous/mentor-rdf-parsers";
 import { RDF } from '../ontologies';
 import { Rdf12Quad, TripleTerm } from '../utilities/types';
@@ -9,10 +9,10 @@ import { SerializationOptions } from '../serialization-options';
 import { hasAnnotations, hasReifier, groupQuadsBySubjectPredicate } from '../utilities/quads';
 
 /**
- * Predicate grouping keys of the RDF list vocabulary, as produced by `termToString`.
+ * Predicate grouping keys of the RDF list vocabulary, as produced by `termToString` of `rdf-string`.
  */
-const RDF_FIRST_KEY = `<${RDF.first}>`;
-const RDF_REST_KEY = `<${RDF.rest}>`;
+const RDF_FIRST_KEY = RDF.first;
+const RDF_REST_KEY = RDF.rest;
 
 /**
  * Blank node usage statistics collected over the grouped quads.
@@ -258,7 +258,7 @@ export class TurtleSerializer extends QuadSerializerBase {
                 labels.set(candidate.value, label);
             }
 
-            return DataFactory.blankNode(label) as unknown as T;
+            return RdfDataFactory.blankNode(label) as unknown as T;
         };
 
         const renameQuad = (quad: Quad | Rdf12Quad): Rdf12Quad => {

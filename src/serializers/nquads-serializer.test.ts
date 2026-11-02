@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { NQuadsSerializer } from './nquads-serializer';
 import type { TripleTerm } from '../utilities/types';
 
@@ -7,11 +7,11 @@ describe('NQuadsSerializer', () => {
     const serializer = new NQuadsSerializer();
 
     it('serializes a quad with a named graph', () => {
-        const quad = DataFactory.quad(
-            DataFactory.namedNode('http://example.org/s'),
-            DataFactory.namedNode('http://example.org/p'),
-            DataFactory.namedNode('http://example.org/o'),
-            DataFactory.namedNode('http://example.org/g')
+        const quad = RdfDataFactory.quad(
+            RdfDataFactory.namedNode('http://example.org/s'),
+            RdfDataFactory.namedNode('http://example.org/p'),
+            RdfDataFactory.namedNode('http://example.org/o'),
+            RdfDataFactory.namedNode('http://example.org/g')
         );
 
         const output = serializer.serializeQuad(quad);
@@ -21,15 +21,15 @@ describe('NQuadsSerializer', () => {
 
     it('serializes multiple quads with trailing line ending', () => {
         const quads = [
-            DataFactory.quad(
-                DataFactory.namedNode('http://example.org/s1'),
-                DataFactory.namedNode('http://example.org/p'),
-                DataFactory.literal('x')
+            RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/s1'),
+                RdfDataFactory.namedNode('http://example.org/p'),
+                RdfDataFactory.literal('x')
             ),
-            DataFactory.quad(
-                DataFactory.namedNode('http://example.org/s2'),
-                DataFactory.namedNode('http://example.org/p'),
-                DataFactory.namedNode('http://example.org/o2')
+            RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/s2'),
+                RdfDataFactory.namedNode('http://example.org/p'),
+                RdfDataFactory.namedNode('http://example.org/o2')
             )
         ];
 
@@ -43,17 +43,17 @@ describe('NQuadsSerializer', () => {
     it('supports RDF 1.2 triple terms', () => {
         const tripleTerm: TripleTerm = {
             termType: 'TripleTerm',
-            subject: DataFactory.namedNode('http://example.org/ss'),
-            predicate: DataFactory.namedNode('http://example.org/pp'),
-            object: DataFactory.namedNode('http://example.org/oo'),
+            subject: RdfDataFactory.namedNode('http://example.org/ss'),
+            predicate: RdfDataFactory.namedNode('http://example.org/pp'),
+            object: RdfDataFactory.namedNode('http://example.org/oo'),
             equals: () => false
         };
 
         const quad = {
             subject: tripleTerm,
-            predicate: DataFactory.namedNode('http://example.org/p'),
-            object: DataFactory.literal('o'),
-            graph: DataFactory.defaultGraph(),
+            predicate: RdfDataFactory.namedNode('http://example.org/p'),
+            object: RdfDataFactory.literal('o'),
+            graph: RdfDataFactory.defaultGraph(),
             equals: () => false
         };
 

@@ -2,7 +2,7 @@ import type { Quad } from '@rdfjs/types';
 import type { Rdf12Quad } from '../utilities/types';
 import { RDF } from '../ontologies/index';
 import { QuadSortingStrategy } from '../quad-sorting-strategy';
-import { termToString } from '../utilities/terms';
+import { getTermSortKey } from './term-sort-key';
 
 export interface TypeSortingStrategyConfig {
     /**
@@ -36,7 +36,7 @@ export class TypeSortingStrategy implements QuadSortingStrategy {
 
         for (const q of quads) {
             if (q.predicate.value === RDF.type && q.object.termType === 'NamedNode') {
-                const subject = termToString(q.subject);
+                const subject = getTermSortKey(q.subject);
                 const typeIri = q.object.value;
 
                 this.typeIndex.set(subject, typeIri);
@@ -45,8 +45,8 @@ export class TypeSortingStrategy implements QuadSortingStrategy {
     }
 
     compare(a: Quad | Rdf12Quad, b: Quad | Rdf12Quad): number {
-        const subjectA = termToString(a.subject);
-        const subjectB = termToString(b.subject);
+        const subjectA = getTermSortKey(a.subject);
+        const subjectB = getTermSortKey(b.subject);
 
         const typeA = this.typeIndex.get(subjectA);
         const typeB = this.typeIndex.get(subjectB);
@@ -72,8 +72,8 @@ export class TypeSortingStrategy implements QuadSortingStrategy {
 
         if (this.secondarySort === 'alphabetical') {
             return subjectA.localeCompare(subjectB)
-                || termToString(a.predicate).localeCompare(termToString(b.predicate))
-                || termToString(a.object).localeCompare(termToString(b.object));
+                || getTermSortKey(a.predicate).localeCompare(getTermSortKey(b.predicate))
+                || getTermSortKey(a.object).localeCompare(getTermSortKey(b.object));
         }
 
         return 0;

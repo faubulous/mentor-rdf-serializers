@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { N3Serializer } from './n3-serializer';
 import type { Formula, QuickVariable } from '../utilities/types';
 
@@ -7,10 +7,10 @@ describe('N3Serializer', () => {
     const serializer = new N3Serializer();
 
     it('uses => shorthand for log:implies by default', () => {
-        const quad = DataFactory.quad(
-            DataFactory.namedNode('http://example.org/s'),
-            DataFactory.namedNode(N3Serializer.LOG_IMPLIES),
-            DataFactory.namedNode('http://example.org/o')
+        const quad = RdfDataFactory.quad(
+            RdfDataFactory.namedNode('http://example.org/s'),
+            RdfDataFactory.namedNode(N3Serializer.LOG_IMPLIES),
+            RdfDataFactory.namedNode('http://example.org/o')
         );
 
         const output = serializer.serializeQuad(quad);
@@ -19,10 +19,10 @@ describe('N3Serializer', () => {
     });
 
     it('uses = shorthand for owl:sameAs by default', () => {
-        const quad = DataFactory.quad(
-            DataFactory.namedNode('http://example.org/s'),
-            DataFactory.namedNode(N3Serializer.OWL_SAMEAS),
-            DataFactory.namedNode('http://example.org/o')
+        const quad = RdfDataFactory.quad(
+            RdfDataFactory.namedNode('http://example.org/s'),
+            RdfDataFactory.namedNode(N3Serializer.OWL_SAMEAS),
+            RdfDataFactory.namedNode('http://example.org/o')
         );
 
         const output = serializer.serializeQuad(quad);
@@ -31,10 +31,10 @@ describe('N3Serializer', () => {
     });
 
     it('falls back to full predicate when shorthands are disabled', () => {
-        const quad = DataFactory.quad(
-            DataFactory.namedNode('http://example.org/s'),
-            DataFactory.namedNode(N3Serializer.LOG_IMPLIES),
-            DataFactory.namedNode('http://example.org/o')
+        const quad = RdfDataFactory.quad(
+            RdfDataFactory.namedNode('http://example.org/s'),
+            RdfDataFactory.namedNode(N3Serializer.LOG_IMPLIES),
+            RdfDataFactory.namedNode('http://example.org/o')
         );
 
         const output = serializer.serializeQuad(quad, { useImpliesShorthand: false });
@@ -47,10 +47,10 @@ describe('N3Serializer', () => {
             termType: 'Formula',
             value: '{}',
             quads: [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/sf'),
-                    DataFactory.namedNode('http://example.org/pf'),
-                    DataFactory.namedNode('http://example.org/of')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/sf'),
+                    RdfDataFactory.namedNode('http://example.org/pf'),
+                    RdfDataFactory.namedNode('http://example.org/of')
                 ) as any
             ],
             equals: () => false
@@ -64,9 +64,9 @@ describe('N3Serializer', () => {
 
         const quad = {
             subject: formula,
-            predicate: DataFactory.namedNode('http://example.org/p'),
+            predicate: RdfDataFactory.namedNode('http://example.org/p'),
             object: qv,
-            graph: DataFactory.defaultGraph(),
+            graph: RdfDataFactory.defaultGraph(),
             equals: () => false
         };
 

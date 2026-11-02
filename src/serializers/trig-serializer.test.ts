@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { TrigSerializer } from './trig-serializer';
 import type { Rdf12Quad } from '../utilities/types';
 
@@ -8,16 +8,16 @@ describe('TrigSerializer', () => {
 
     it('serializes default and named graph content', () => {
         const quads = [
-            DataFactory.quad(
-                DataFactory.namedNode('http://example.org/s'),
-                DataFactory.namedNode('http://example.org/p'),
-                DataFactory.namedNode('http://example.org/o')
+            RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/s'),
+                RdfDataFactory.namedNode('http://example.org/p'),
+                RdfDataFactory.namedNode('http://example.org/o')
             ),
-            DataFactory.quad(
-                DataFactory.namedNode('http://example.org/s2'),
-                DataFactory.namedNode('http://example.org/p2'),
-                DataFactory.namedNode('http://example.org/o2'),
-                DataFactory.namedNode('http://example.org/g')
+            RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/s2'),
+                RdfDataFactory.namedNode('http://example.org/p2'),
+                RdfDataFactory.namedNode('http://example.org/o2'),
+                RdfDataFactory.namedNode('http://example.org/g')
             )
         ];
 
@@ -33,11 +33,11 @@ describe('TrigSerializer', () => {
 
     it('serializes compact named graph output when prettyPrint is disabled', () => {
         const quads = [
-            DataFactory.quad(
-                DataFactory.namedNode('http://example.org/s'),
-                DataFactory.namedNode('http://example.org/p'),
-                DataFactory.namedNode('http://example.org/o'),
-                DataFactory.namedNode('http://example.org/g')
+            RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/s'),
+                RdfDataFactory.namedNode('http://example.org/p'),
+                RdfDataFactory.namedNode('http://example.org/o'),
+                RdfDataFactory.namedNode('http://example.org/g')
             )
         ];
 
@@ -51,18 +51,18 @@ describe('TrigSerializer', () => {
 
     it('serializes RDF 1.2 annotations in graph content', () => {
         const annotation: Rdf12Quad = {
-            subject: DataFactory.namedNode('http://example.org/reif'),
-            predicate: DataFactory.namedNode('http://example.org/source'),
-            object: DataFactory.literal('test-suite'),
-            graph: DataFactory.defaultGraph(),
+            subject: RdfDataFactory.namedNode('http://example.org/reif'),
+            predicate: RdfDataFactory.namedNode('http://example.org/source'),
+            object: RdfDataFactory.literal('test-suite'),
+            graph: RdfDataFactory.defaultGraph(),
             equals: () => false
         };
 
         const quad: Rdf12Quad = {
-            subject: DataFactory.namedNode('http://example.org/s'),
-            predicate: DataFactory.namedNode('http://example.org/p'),
-            object: DataFactory.namedNode('http://example.org/o'),
-            graph: DataFactory.namedNode('http://example.org/g'),
+            subject: RdfDataFactory.namedNode('http://example.org/s'),
+            predicate: RdfDataFactory.namedNode('http://example.org/p'),
+            object: RdfDataFactory.namedNode('http://example.org/o'),
+            graph: RdfDataFactory.namedNode('http://example.org/g'),
             annotations: [annotation],
             equals: () => false
         };

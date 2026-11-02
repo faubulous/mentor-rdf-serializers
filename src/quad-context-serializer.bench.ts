@@ -1,4 +1,4 @@
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from './data-factory';
 import { describe, test } from 'vitest';
 import { IToken, QuadContext } from '@faubulous/mentor-rdf-parsers';
 import { QuadContextSerializer } from './quad-context-serializer';
@@ -51,10 +51,10 @@ function createCommentToken(image: string): IToken {
 }
 
 function createContext(subjectIndex: number, predicateIndex: number, objectIndex: number): QuadContext {
-  const subject = DataFactory.namedNode(`http://example.org/S${subjectIndex}`);
-  const predicate = DataFactory.namedNode(`http://example.org/p${predicateIndex}`);
-  const object = DataFactory.namedNode(`http://example.org/O${objectIndex}`);
-  const quad = DataFactory.quad(subject, predicate, object);
+  const subject = RdfDataFactory.namedNode(`http://example.org/S${subjectIndex}`);
+  const predicate = RdfDataFactory.namedNode(`http://example.org/p${predicateIndex}`);
+  const object = RdfDataFactory.namedNode(`http://example.org/O${objectIndex}`);
+  const quad = RdfDataFactory.quad(subject, predicate, object);
 
   return {
     ...quad,

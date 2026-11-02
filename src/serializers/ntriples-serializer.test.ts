@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { NTriplesSerializer } from './ntriples-serializer';
 
 describe('NTriplesSerializer', () => {
@@ -11,10 +11,10 @@ describe('NTriplesSerializer', () => {
 
     describe('serializeQuad', () => {
         it('should serialize a simple triple', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.namedNode('http://example.org/object')
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.namedNode('http://example.org/object')
             );
 
             const result = serializer.serializeQuad(q);
@@ -23,10 +23,10 @@ describe('NTriplesSerializer', () => {
         });
 
         it('should serialize triple with blank node subject', () => {
-            const q = DataFactory.quad(
-                DataFactory.blankNode('b0'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.namedNode('http://example.org/object')
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.blankNode('b0'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.namedNode('http://example.org/object')
             );
 
             const result = serializer.serializeQuad(q);
@@ -35,10 +35,10 @@ describe('NTriplesSerializer', () => {
         });
 
         it('should serialize triple with string literal', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.literal('Hello, World!')
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.literal('Hello, World!')
             );
 
             const result = serializer.serializeQuad(q);
@@ -47,10 +47,10 @@ describe('NTriplesSerializer', () => {
         });
 
         it('should serialize triple with language-tagged literal', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.literal('Bonjour', 'fr')
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.literal('Bonjour', 'fr')
             );
 
             const result = serializer.serializeQuad(q);
@@ -59,10 +59,10 @@ describe('NTriplesSerializer', () => {
         });
 
         it('should serialize triple with typed literal', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.literal('42', DataFactory.namedNode('http://www.w3.org/2001/XMLSchema#integer'))
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.literal('42', RdfDataFactory.namedNode('http://www.w3.org/2001/XMLSchema#integer'))
             );
 
             const result = serializer.serializeQuad(q);
@@ -71,10 +71,10 @@ describe('NTriplesSerializer', () => {
         });
 
         it('should escape special characters in strings', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.literal('Hello\nWorld\t"Test"')
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.literal('Hello\nWorld\t"Test"')
             );
 
             const result = serializer.serializeQuad(q);
@@ -83,10 +83,10 @@ describe('NTriplesSerializer', () => {
         });
 
         it('should escape special characters in IRIs', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.namedNode('http://example.org/object with spaces')
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.namedNode('http://example.org/object with spaces')
             );
 
             // Note: space is not escaped in IRIs per spec, but other chars are
@@ -99,8 +99,8 @@ describe('NTriplesSerializer', () => {
     describe('serialize', () => {
         it('should serialize multiple triples', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s1'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o1')),
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s2'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o2'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s1'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o1')),
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s2'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o2'))
             ];
 
             const result = serializer.serialize(quads);
@@ -111,8 +111,8 @@ describe('NTriplesSerializer', () => {
 
         it('should skip quads with named graphs', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s1'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o1')),
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s2'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o2'), DataFactory.namedNode('http://example.org/g'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s1'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o1')),
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s2'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o2'), RdfDataFactory.namedNode('http://example.org/g'))
             ];
 
             const result = serializer.serialize(quads);
@@ -130,7 +130,7 @@ describe('NTriplesSerializer', () => {
     describe('format', () => {
         it('should return warnings for named graphs', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o'), DataFactory.namedNode('http://example.org/g'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o'), RdfDataFactory.namedNode('http://example.org/g'))
             ];
 
             const result = serializer.format(quads);

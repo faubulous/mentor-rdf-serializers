@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { isTripleTerm, isReifier, termToString, parseLanguageTag, formatLanguageTag } from './terms';
 import type { TripleTerm, Reifier } from './types';
 
@@ -7,24 +7,24 @@ describe('isTripleTerm', () => {
     it('should return true for a triple term', () => {
         const tripleTerm: TripleTerm = {
             termType: 'TripleTerm',
-            subject: DataFactory.namedNode('http://example.org/s'),
-            predicate: DataFactory.namedNode('http://example.org/p'),
-            object: DataFactory.namedNode('http://example.org/o'),
+            subject: RdfDataFactory.namedNode('http://example.org/s'),
+            predicate: RdfDataFactory.namedNode('http://example.org/p'),
+            object: RdfDataFactory.namedNode('http://example.org/o'),
             equals: () => false
         };
         expect(isTripleTerm(tripleTerm)).toBe(true);
     });
 
     it('should return false for a named node', () => {
-        expect(isTripleTerm(DataFactory.namedNode('http://example.org/s'))).toBe(false);
+        expect(isTripleTerm(RdfDataFactory.namedNode('http://example.org/s'))).toBe(false);
     });
 
     it('should return false for a blank node', () => {
-        expect(isTripleTerm(DataFactory.blankNode('b0'))).toBe(false);
+        expect(isTripleTerm(RdfDataFactory.blankNode('b0'))).toBe(false);
     });
 
     it('should return false for a literal', () => {
-        expect(isTripleTerm(DataFactory.literal('hello'))).toBe(false);
+        expect(isTripleTerm(RdfDataFactory.literal('hello'))).toBe(false);
     });
 
     it('should return false for null', () => {
@@ -36,11 +36,11 @@ describe('isReifier', () => {
     it('should return true for a reifier', () => {
         const reifier: Reifier = {
             termType: 'Reifier',
-            id: DataFactory.namedNode('http://example.org/r'),
+            id: RdfDataFactory.namedNode('http://example.org/r'),
             triple: {
-                subject: DataFactory.namedNode('http://example.org/s'),
-                predicate: DataFactory.namedNode('http://example.org/p'),
-                object: DataFactory.namedNode('http://example.org/o')
+                subject: RdfDataFactory.namedNode('http://example.org/s'),
+                predicate: RdfDataFactory.namedNode('http://example.org/p'),
+                object: RdfDataFactory.namedNode('http://example.org/o')
             },
             equals: () => false
         };
@@ -48,11 +48,11 @@ describe('isReifier', () => {
     });
 
     it('should return false for a named node', () => {
-        expect(isReifier(DataFactory.namedNode('http://example.org/s'))).toBe(false);
+        expect(isReifier(RdfDataFactory.namedNode('http://example.org/s'))).toBe(false);
     });
 
     it('should return false for a blank node', () => {
-        expect(isReifier(DataFactory.blankNode('b0'))).toBe(false);
+        expect(isReifier(RdfDataFactory.blankNode('b0'))).toBe(false);
     });
 
     it('should return false for null', () => {
@@ -66,44 +66,44 @@ describe('termToString', () => {
     });
 
     it('should format a named node', () => {
-        expect(termToString(DataFactory.namedNode('http://example.org/foo'))).toBe('<http://example.org/foo>');
+        expect(termToString(RdfDataFactory.namedNode('http://example.org/foo'))).toBe('<http://example.org/foo>');
     });
 
     it('should format a blank node', () => {
-        expect(termToString(DataFactory.blankNode('b0'))).toBe('_:b0');
+        expect(termToString(RdfDataFactory.blankNode('b0'))).toBe('_:b0');
     });
 
     it('should format a plain literal', () => {
-        const result = termToString(DataFactory.literal('hello'));
+        const result = termToString(RdfDataFactory.literal('hello'));
         expect(result).toContain('"hello"');
     });
 
     it('should format a language-tagged literal', () => {
-        const result = termToString(DataFactory.literal('hello', 'en'));
+        const result = termToString(RdfDataFactory.literal('hello', 'en'));
         expect(result).toContain('"hello"');
         expect(result).toContain('@en');
     });
 
     it('should format a datatyped literal', () => {
-        const result = termToString(DataFactory.literal('42', DataFactory.namedNode('http://www.w3.org/2001/XMLSchema#integer')));
+        const result = termToString(RdfDataFactory.literal('42', RdfDataFactory.namedNode('http://www.w3.org/2001/XMLSchema#integer')));
         expect(result).toContain('"42"');
         expect(result).toContain('http://www.w3.org/2001/XMLSchema#integer');
     });
 
     it('should format a variable', () => {
-        expect(termToString(DataFactory.variable('x'))).toBe('?x');
+        expect(termToString(RdfDataFactory.variable('x'))).toBe('?x');
     });
 
     it('should format the default graph', () => {
-        expect(termToString(DataFactory.defaultGraph())).toBe('');
+        expect(termToString(RdfDataFactory.defaultGraph())).toBe('');
     });
 
     it('should format a triple term', () => {
         const tripleTerm: TripleTerm = {
             termType: 'TripleTerm',
-            subject: DataFactory.namedNode('http://example.org/s'),
-            predicate: DataFactory.namedNode('http://example.org/p'),
-            object: DataFactory.namedNode('http://example.org/o'),
+            subject: RdfDataFactory.namedNode('http://example.org/s'),
+            predicate: RdfDataFactory.namedNode('http://example.org/p'),
+            object: RdfDataFactory.namedNode('http://example.org/o'),
             equals: () => false
         };
         expect(termToString(tripleTerm)).toBe('<<(<http://example.org/s> <http://example.org/p> <http://example.org/o>)>>');
@@ -112,16 +112,16 @@ describe('termToString', () => {
     it('should format a nested triple term', () => {
         const inner: TripleTerm = {
             termType: 'TripleTerm',
-            subject: DataFactory.namedNode('http://example.org/s'),
-            predicate: DataFactory.namedNode('http://example.org/p'),
-            object: DataFactory.namedNode('http://example.org/o'),
+            subject: RdfDataFactory.namedNode('http://example.org/s'),
+            predicate: RdfDataFactory.namedNode('http://example.org/p'),
+            object: RdfDataFactory.namedNode('http://example.org/o'),
             equals: () => false
         };
         const outer: TripleTerm = {
             termType: 'TripleTerm',
             subject: inner,
-            predicate: DataFactory.namedNode('http://example.org/p2'),
-            object: DataFactory.namedNode('http://example.org/o2'),
+            predicate: RdfDataFactory.namedNode('http://example.org/p2'),
+            object: RdfDataFactory.namedNode('http://example.org/o2'),
             equals: () => false
         };
         const result = termToString(outer);

@@ -292,8 +292,10 @@ export class JsonLdSerializer implements IQuadSerializer {
                 '@language': parsed.language
             };
 
-            if (parsed.direction) {
-                result['@direction'] = parsed.direction;
+            const direction = literal.direction || parsed.direction;
+
+            if (direction) {
+                result['@direction'] = direction;
             }
 
             return result;

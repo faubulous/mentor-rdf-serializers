@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { JsonLdSerializer } from './jsonld-serializer';
 
 describe('JsonLdSerializer', () => {
@@ -12,10 +12,10 @@ describe('JsonLdSerializer', () => {
     describe('serialize', () => {
         it('should serialize a simple triple', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/subject'),
-                    DataFactory.namedNode('http://example.org/predicate'),
-                    DataFactory.literal('value')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.literal('value')
                 )
             ];
 
@@ -28,10 +28,10 @@ describe('JsonLdSerializer', () => {
 
         it('should use @type for rdf:type', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/subject'),
-                    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-                    DataFactory.namedNode('http://example.org/Class')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                    RdfDataFactory.namedNode('http://example.org/Class')
                 )
             ];
 
@@ -43,10 +43,10 @@ describe('JsonLdSerializer', () => {
 
         it('should include @context with prefixes', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/subject'),
-                    DataFactory.namedNode('http://example.org/predicate'),
-                    DataFactory.literal('value')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.literal('value')
                 )
             ];
 
@@ -61,10 +61,10 @@ describe('JsonLdSerializer', () => {
 
         it('should compact IRIs with prefixes', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/subject'),
-                    DataFactory.namedNode('http://example.org/predicate'),
-                    DataFactory.namedNode('http://example.org/object')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.namedNode('http://example.org/object')
                 )
             ];
 
@@ -79,10 +79,10 @@ describe('JsonLdSerializer', () => {
 
         it('should serialize language-tagged literals', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/subject'),
-                    DataFactory.namedNode('http://example.org/predicate'),
-                    DataFactory.literal('Bonjour', 'fr')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.literal('Bonjour', 'fr')
                 )
             ];
 
@@ -93,12 +93,27 @@ describe('JsonLdSerializer', () => {
             expect(json['http://example.org/predicate']['@language']).toBe('fr');
         });
 
+        it('should serialize the direction of a directional language string', () => {
+            const quads = [
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.literal('مرحبا', { language: 'ar', direction: 'rtl' })
+                )
+            ];
+
+            const json = JSON.parse(serializer.serialize(quads));
+
+            expect(json['http://example.org/predicate']['@language']).toBe('ar');
+            expect(json['http://example.org/predicate']['@direction']).toBe('rtl');
+        });
+
         it('should serialize RDF 1.2 language tag with direction', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/subject'),
-                    DataFactory.namedNode('http://example.org/predicate'),
-                    DataFactory.literal('مرحبا', 'ar--rtl')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.literal('مرحبا', 'ar--rtl')
                 )
             ];
 
@@ -112,10 +127,10 @@ describe('JsonLdSerializer', () => {
 
         it('should serialize typed literals', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/subject'),
-                    DataFactory.namedNode('http://example.org/predicate'),
-                    DataFactory.literal('2024-01-01', DataFactory.namedNode('http://www.w3.org/2001/XMLSchema#date'))
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.literal('2024-01-01', RdfDataFactory.namedNode('http://www.w3.org/2001/XMLSchema#date'))
                 )
             ];
 
@@ -128,10 +143,10 @@ describe('JsonLdSerializer', () => {
 
         it('should serialize native JSON types for xsd:integer', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/subject'),
-                    DataFactory.namedNode('http://example.org/predicate'),
-                    DataFactory.literal('42', DataFactory.namedNode('http://www.w3.org/2001/XMLSchema#integer'))
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.literal('42', RdfDataFactory.namedNode('http://www.w3.org/2001/XMLSchema#integer'))
                 )
             ];
 
@@ -143,10 +158,10 @@ describe('JsonLdSerializer', () => {
 
         it('should serialize native JSON types for xsd:boolean', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/subject'),
-                    DataFactory.namedNode('http://example.org/predicate'),
-                    DataFactory.literal('true', DataFactory.namedNode('http://www.w3.org/2001/XMLSchema#boolean'))
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/subject'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.literal('true', RdfDataFactory.namedNode('http://www.w3.org/2001/XMLSchema#boolean'))
                 )
             ];
 
@@ -158,10 +173,10 @@ describe('JsonLdSerializer', () => {
 
         it('should serialize blank nodes with _: prefix', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.blankNode('b0'),
-                    DataFactory.namedNode('http://example.org/predicate'),
-                    DataFactory.literal('value')
+                RdfDataFactory.quad(
+                    RdfDataFactory.blankNode('b0'),
+                    RdfDataFactory.namedNode('http://example.org/predicate'),
+                    RdfDataFactory.literal('value')
                 )
             ];
 
@@ -173,8 +188,8 @@ describe('JsonLdSerializer', () => {
 
         it('should group multiple triples with same subject', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p1'), DataFactory.literal('v1')),
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p2'), DataFactory.literal('v2'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p1'), RdfDataFactory.literal('v1')),
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p2'), RdfDataFactory.literal('v2'))
             ];
 
             const result = serializer.serialize(quads);
@@ -187,8 +202,8 @@ describe('JsonLdSerializer', () => {
 
         it('should handle multiple objects for same predicate', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('v1')),
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('v2'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('v1')),
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('v2'))
             ];
 
             const result = serializer.serialize(quads, { compactArrays: false });
@@ -204,11 +219,11 @@ describe('JsonLdSerializer', () => {
 
         it('should handle named graphs with @graph', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/s'),
-                    DataFactory.namedNode('http://example.org/p'),
-                    DataFactory.literal('v'),
-                    DataFactory.namedNode('http://example.org/g')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/s'),
+                    RdfDataFactory.namedNode('http://example.org/p'),
+                    RdfDataFactory.literal('v'),
+                    RdfDataFactory.namedNode('http://example.org/g')
                 )
             ];
 
@@ -220,7 +235,7 @@ describe('JsonLdSerializer', () => {
 
         it('should pretty print by default', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('v'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('v'))
             ];
 
             const result = serializer.serialize(quads);
@@ -230,10 +245,10 @@ describe('JsonLdSerializer', () => {
 
         it('should output compact JSON when prettyPrint is false', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/s'),
-                    DataFactory.namedNode('http://example.org/p'),
-                    DataFactory.literal('v')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/s'),
+                    RdfDataFactory.namedNode('http://example.org/p'),
+                    RdfDataFactory.literal('v')
                 )
             ];
 

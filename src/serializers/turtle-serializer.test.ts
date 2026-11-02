@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import DataFactory from '@rdfjs/data-model';
+import { RdfDataFactory } from '../data-factory';
 import { TurtleLexer, TurtleParser, TurtleReader } from '@faubulous/mentor-rdf-parsers';
 import { TurtleSerializer } from './turtle-serializer';
 
@@ -12,10 +12,10 @@ describe('TurtleSerializer', () => {
 
     describe('serializeQuad', () => {
         it('should serialize a simple triple', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.namedNode('http://example.org/object')
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.namedNode('http://example.org/object')
             );
 
             const result = serializer.serializeQuad(q);
@@ -24,10 +24,10 @@ describe('TurtleSerializer', () => {
         });
 
         it('should use prefixes when available', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.namedNode('http://example.org/object')
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.namedNode('http://example.org/object')
             );
 
             const result = serializer.serializeQuad(q, {
@@ -38,10 +38,10 @@ describe('TurtleSerializer', () => {
         });
 
         it('should use "a" shorthand for rdf:type', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-                DataFactory.namedNode('http://example.org/Class')
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                RdfDataFactory.namedNode('http://example.org/Class')
             );
 
             const result = serializer.serializeQuad(q);
@@ -50,10 +50,10 @@ describe('TurtleSerializer', () => {
         });
 
         it('should serialize boolean true shorthand', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.literal('true', DataFactory.namedNode('http://www.w3.org/2001/XMLSchema#boolean'))
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.literal('true', RdfDataFactory.namedNode('http://www.w3.org/2001/XMLSchema#boolean'))
             );
 
             const result = serializer.serializeQuad(q);
@@ -62,10 +62,10 @@ describe('TurtleSerializer', () => {
         });
 
         it('should serialize integer shorthand', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.literal('42', DataFactory.namedNode('http://www.w3.org/2001/XMLSchema#integer'))
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.literal('42', RdfDataFactory.namedNode('http://www.w3.org/2001/XMLSchema#integer'))
             );
 
             const result = serializer.serializeQuad(q);
@@ -74,10 +74,10 @@ describe('TurtleSerializer', () => {
         });
 
         it('should serialize decimal shorthand', () => {
-            const q = DataFactory.quad(
-                DataFactory.namedNode('http://example.org/subject'),
-                DataFactory.namedNode('http://example.org/predicate'),
-                DataFactory.literal('3.14', DataFactory.namedNode('http://www.w3.org/2001/XMLSchema#decimal'))
+            const q = RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/subject'),
+                RdfDataFactory.namedNode('http://example.org/predicate'),
+                RdfDataFactory.literal('3.14', RdfDataFactory.namedNode('http://www.w3.org/2001/XMLSchema#decimal'))
             );
 
             const result = serializer.serializeQuad(q);
@@ -89,7 +89,7 @@ describe('TurtleSerializer', () => {
     describe('serialize', () => {
         it('should include prefix declarations', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.namedNode('http://example.org/o'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.namedNode('http://example.org/o'))
             ];
 
             const result = serializer.serialize(quads, {
@@ -101,7 +101,7 @@ describe('TurtleSerializer', () => {
 
         it('should include base declaration', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o'))
             ];
 
             const result = serializer.serialize(quads, {
@@ -113,7 +113,7 @@ describe('TurtleSerializer', () => {
 
         it('should skip prefix/base directives when emitDirectives is false', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.namedNode('http://example.org/o'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.namedNode('http://example.org/o'))
             ];
 
             const result = serializer.serialize(quads, {
@@ -131,8 +131,8 @@ describe('TurtleSerializer', () => {
 
         it('should group triples by subject', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p1'), DataFactory.literal('o1')),
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p2'), DataFactory.literal('o2'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p1'), RdfDataFactory.literal('o1')),
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p2'), RdfDataFactory.literal('o2'))
             ];
 
             const result = serializer.serialize(quads, { groupBySubject: true });
@@ -143,7 +143,7 @@ describe('TurtleSerializer', () => {
 
         it('should skip quads with named graphs', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o'), DataFactory.namedNode('http://example.org/g'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o'), RdfDataFactory.namedNode('http://example.org/g'))
             ];
 
             const result = serializer.serialize(quads);
@@ -155,10 +155,10 @@ describe('TurtleSerializer', () => {
             // Same subject spanning the default graph and a named graph. Grouping
             // is graph-agnostic, so the default-graph triple must survive
             // regardless of which quad groups first.
-            const s = DataFactory.namedNode('http://example.org/s');
+            const s = RdfDataFactory.namedNode('http://example.org/s');
             const quads = [
-                DataFactory.quad(s, DataFactory.namedNode('http://example.org/inGraph'), DataFactory.literal('named'), DataFactory.namedNode('http://example.org/g')),
-                DataFactory.quad(s, DataFactory.namedNode('http://example.org/inDefault'), DataFactory.literal('default'))
+                RdfDataFactory.quad(s, RdfDataFactory.namedNode('http://example.org/inGraph'), RdfDataFactory.literal('named'), RdfDataFactory.namedNode('http://example.org/g')),
+                RdfDataFactory.quad(s, RdfDataFactory.namedNode('http://example.org/inDefault'), RdfDataFactory.literal('default'))
             ];
 
             const result = serializer.serialize(quads);
@@ -169,7 +169,7 @@ describe('TurtleSerializer', () => {
 
         it('should handle blank nodes', () => {
             const quads = [
-                DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o'))
+                RdfDataFactory.quad(RdfDataFactory.blankNode('b0'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o'))
             ];
 
             const result = serializer.serialize(quads, { groupBySubject: false });
@@ -179,7 +179,7 @@ describe('TurtleSerializer', () => {
 
         it('should use long string quotes for multiline strings', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('line1\nline2'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('line1\nline2'))
             ];
 
             const result = serializer.serialize(quads, { groupBySubject: false });
@@ -191,7 +191,7 @@ describe('TurtleSerializer', () => {
     describe('format', () => {
         it('should return warnings for named graphs', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o'), DataFactory.namedNode('http://example.org/g'))
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o'), RdfDataFactory.namedNode('http://example.org/g'))
             ];
 
             const result = serializer.format(quads);
@@ -205,8 +205,8 @@ describe('TurtleSerializer', () => {
         describe('blankNodeStyle', () => {
             it('should use labeled style for blank nodes when set to "labeled"', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
-                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('test'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.blankNode('b0')),
+                    RdfDataFactory.quad(RdfDataFactory.blankNode('b0'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('test'))
                 ];
 
                 const result = serializer.serialize(quads, { blankNodeStyle: 'labeled' });
@@ -217,8 +217,8 @@ describe('TurtleSerializer', () => {
 
             it('should use inline style for blank nodes when set to "inline"', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
-                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('test'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.blankNode('b0')),
+                    RdfDataFactory.quad(RdfDataFactory.blankNode('b0'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('test'))
                 ];
 
                 const result = serializer.serialize(quads, { blankNodeStyle: 'inline' });
@@ -229,8 +229,8 @@ describe('TurtleSerializer', () => {
 
             it('should use auto style by default', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
-                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('test'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.blankNode('b0')),
+                    RdfDataFactory.quad(RdfDataFactory.blankNode('b0'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('test'))
                 ];
 
                 const result = serializer.serialize(quads);
@@ -241,9 +241,9 @@ describe('TurtleSerializer', () => {
 
             it('should not inline multiply-referenced blank nodes', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s1'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s2'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
-                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('shared'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s1'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.blankNode('b0')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s2'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.blankNode('b0')),
+                    RdfDataFactory.quad(RdfDataFactory.blankNode('b0'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('shared'))
                 ];
 
                 const result = serializer.serialize(quads, { blankNodeStyle: 'auto' });
@@ -254,8 +254,8 @@ describe('TurtleSerializer', () => {
 
             it('should inline single-use blank nodes when prettyPrint and inlineSingleUseBlankNodes are enabled', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
-                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('test'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.blankNode('b0')),
+                    RdfDataFactory.quad(RdfDataFactory.blankNode('b0'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('test'))
                 ];
 
                 const result = serializer.serialize(quads, {
@@ -270,8 +270,8 @@ describe('TurtleSerializer', () => {
 
             it('should not inline single-use blank nodes when inlineSingleUseBlankNodes is disabled', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
-                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('test'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.blankNode('b0')),
+                    RdfDataFactory.quad(RdfDataFactory.blankNode('b0'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('test'))
                 ];
 
                 const result = serializer.serialize(quads, {
@@ -285,8 +285,8 @@ describe('TurtleSerializer', () => {
 
             it('should not inline single-use blank nodes in compact mode', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.blankNode('b0')),
-                    DataFactory.quad(DataFactory.blankNode('b0'), DataFactory.namedNode('http://example.org/name'), DataFactory.literal('test'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.blankNode('b0')),
+                    RdfDataFactory.quad(RdfDataFactory.blankNode('b0'), RdfDataFactory.namedNode('http://example.org/name'), RdfDataFactory.literal('test'))
                 ];
 
                 const result = serializer.serialize(quads, {
@@ -300,20 +300,20 @@ describe('TurtleSerializer', () => {
 
             it('should inline nested single-use blank nodes recursively', () => {
                 const quads = [
-                    DataFactory.quad(
-                        DataFactory.namedNode('http://example.org/s'),
-                        DataFactory.namedNode('http://example.org/p'),
-                        DataFactory.blankNode('b0')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.namedNode('http://example.org/s'),
+                        RdfDataFactory.namedNode('http://example.org/p'),
+                        RdfDataFactory.blankNode('b0')
                     ),
-                    DataFactory.quad(
-                        DataFactory.blankNode('b0'),
-                        DataFactory.namedNode('http://example.org/child'),
-                        DataFactory.blankNode('b1')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.blankNode('b0'),
+                        RdfDataFactory.namedNode('http://example.org/child'),
+                        RdfDataFactory.blankNode('b1')
                     ),
-                    DataFactory.quad(
-                        DataFactory.blankNode('b1'),
-                        DataFactory.namedNode('http://example.org/value'),
-                        DataFactory.literal('nested')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.blankNode('b1'),
+                        RdfDataFactory.namedNode('http://example.org/value'),
+                        RdfDataFactory.literal('nested')
                     )
                 ];
 
@@ -329,10 +329,10 @@ describe('TurtleSerializer', () => {
 
             it('should render unreferenced blank node subjects as anonymous property lists', () => {
                 const quads = [
-                    DataFactory.quad(
-                        DataFactory.blankNode('b0'),
-                        DataFactory.namedNode('http://example.org/p'),
-                        DataFactory.literal('root')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.blankNode('b0'),
+                        RdfDataFactory.namedNode('http://example.org/p'),
+                        RdfDataFactory.literal('root')
                     )
                 ];
 
@@ -349,20 +349,20 @@ describe('TurtleSerializer', () => {
         describe('maxLineWidth blank node inlining', () => {
             it('inlines multi-predicate blank node when it fits within maxLineWidth', () => {
                 const quads = [
-                    DataFactory.quad(
-                        DataFactory.namedNode('http://example.org/s'),
-                        DataFactory.namedNode('http://example.org/p'),
-                        DataFactory.blankNode('b0')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.namedNode('http://example.org/s'),
+                        RdfDataFactory.namedNode('http://example.org/p'),
+                        RdfDataFactory.blankNode('b0')
                     ),
-                    DataFactory.quad(
-                        DataFactory.blankNode('b0'),
-                        DataFactory.namedNode('http://example.org/q'),
-                        DataFactory.literal('val1')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.blankNode('b0'),
+                        RdfDataFactory.namedNode('http://example.org/q'),
+                        RdfDataFactory.literal('val1')
                     ),
-                    DataFactory.quad(
-                        DataFactory.blankNode('b0'),
-                        DataFactory.namedNode('http://example.org/r'),
-                        DataFactory.literal('val2')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.blankNode('b0'),
+                        RdfDataFactory.namedNode('http://example.org/r'),
+                        RdfDataFactory.literal('val2')
                     ),
                 ];
 
@@ -377,20 +377,20 @@ describe('TurtleSerializer', () => {
 
             it('keeps multi-predicate blank node multi-line when it exceeds maxLineWidth', () => {
                 const quads = [
-                    DataFactory.quad(
-                        DataFactory.namedNode('http://example.org/s'),
-                        DataFactory.namedNode('http://example.org/p'),
-                        DataFactory.blankNode('b0')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.namedNode('http://example.org/s'),
+                        RdfDataFactory.namedNode('http://example.org/p'),
+                        RdfDataFactory.blankNode('b0')
                     ),
-                    DataFactory.quad(
-                        DataFactory.blankNode('b0'),
-                        DataFactory.namedNode('http://example.org/q'),
-                        DataFactory.literal('val1')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.blankNode('b0'),
+                        RdfDataFactory.namedNode('http://example.org/q'),
+                        RdfDataFactory.literal('val1')
                     ),
-                    DataFactory.quad(
-                        DataFactory.blankNode('b0'),
-                        DataFactory.namedNode('http://example.org/r'),
-                        DataFactory.literal('val2')
+                    RdfDataFactory.quad(
+                        RdfDataFactory.blankNode('b0'),
+                        RdfDataFactory.namedNode('http://example.org/r'),
+                        RdfDataFactory.literal('val2')
                     ),
                 ];
 
@@ -497,9 +497,9 @@ describe('TurtleSerializer', () => {
         describe('objectListStyle', () => {
             it('should format objects on single line when set to "single-line"', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('obj1')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('obj2')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('obj3'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('obj1')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('obj2')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('obj3'))
                 ];
 
                 const result = serializer.serialize(quads, { objectListStyle: 'single-line' });
@@ -510,8 +510,8 @@ describe('TurtleSerializer', () => {
 
             it('should format objects on multiple lines when set to "multi-line"', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('obj1')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('obj2'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('obj1')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('obj2'))
                 ];
 
                 const result = serializer.serialize(quads, { objectListStyle: 'multi-line' });
@@ -526,8 +526,8 @@ describe('TurtleSerializer', () => {
         describe('predicateListStyle', () => {
             it('should format predicates on single line when set to "single-line"', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p1'), DataFactory.literal('o1')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p2'), DataFactory.literal('o2'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p1'), RdfDataFactory.literal('o1')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p2'), RdfDataFactory.literal('o2'))
                 ];
 
                 const result = serializer.serialize(quads, { predicateListStyle: 'single-line' });
@@ -538,8 +538,8 @@ describe('TurtleSerializer', () => {
 
             it('should format each predicate on its own line when set to "multi-line"', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p1'), DataFactory.literal('o1')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p2'), DataFactory.literal('o2'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p1'), RdfDataFactory.literal('o1')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p2'), RdfDataFactory.literal('o2'))
                 ];
 
                 const result = serializer.serialize(quads, { predicateListStyle: 'multi-line' });
@@ -553,8 +553,8 @@ describe('TurtleSerializer', () => {
         describe('maxLineWidth', () => {
             it('should wrap long object lists when maxLineWidth is exceeded', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('a very long object value')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('another very long value'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('a very long object value')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('another very long value'))
                 ];
 
                 const result = serializer.serialize(quads, { maxLineWidth: 50, objectListStyle: 'auto' });
@@ -566,8 +566,8 @@ describe('TurtleSerializer', () => {
 
             it('should not wrap when maxLineWidth is 0', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('short')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('vals'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('short')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('vals'))
                 ];
 
                 const result = serializer.serialize(quads, { maxLineWidth: 0, objectListStyle: 'auto' });
@@ -580,8 +580,8 @@ describe('TurtleSerializer', () => {
         describe('alignPredicates', () => {
             it('should align predicates when enabled', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/short'), DataFactory.literal('v1')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode('http://example.org/longPredicate'), DataFactory.literal('v2'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/short'), RdfDataFactory.literal('v1')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode('http://example.org/longPredicate'), RdfDataFactory.literal('v2'))
                 ];
 
                 const result = serializer.serialize(quads, {
@@ -601,8 +601,8 @@ describe('TurtleSerializer', () => {
         describe('blankLinesBetweenSubjects', () => {
             it('should add blank lines between subjects when enabled', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s1'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o1')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s2'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o2'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s1'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o1')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s2'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o2'))
                 ];
 
                 const result = serializer.serialize(quads, { blankLinesBetweenSubjects: true });
@@ -613,8 +613,8 @@ describe('TurtleSerializer', () => {
 
             it('should not add blank lines when disabled', () => {
                 const quads = [
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s1'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o1')),
-                    DataFactory.quad(DataFactory.namedNode('http://example.org/s2'), DataFactory.namedNode('http://example.org/p'), DataFactory.literal('o2'))
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s1'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o1')),
+                    RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s2'), RdfDataFactory.namedNode('http://example.org/p'), RdfDataFactory.literal('o2'))
                 ];
 
                 const result = serializer.serialize(quads, { blankLinesBetweenSubjects: false });
@@ -642,25 +642,25 @@ describe('TurtleSerializer', () => {
             // the RDF data model and are therefore lost.
 
             const quads = [
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/Person'),
-                    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-                    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/Person'),
+                    RdfDataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                    RdfDataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
                 ),
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/Person'),
-                    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
-                    DataFactory.literal('Person', 'en')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/Person'),
+                    RdfDataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+                    RdfDataFactory.literal('Person', 'en')
                 ),
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/Organization'),
-                    DataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-                    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/Organization'),
+                    RdfDataFactory.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+                    RdfDataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#Class')
                 ),
-                DataFactory.quad(
-                    DataFactory.namedNode('http://example.org/Organization'),
-                    DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
-                    DataFactory.literal('Organization', 'en')
+                RdfDataFactory.quad(
+                    RdfDataFactory.namedNode('http://example.org/Organization'),
+                    RdfDataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#label'),
+                    RdfDataFactory.literal('Organization', 'en')
                 ),
             ];
 
@@ -701,20 +701,20 @@ describe('TurtleSerializer', () => {
          */
         function listQuads(itemValues: string[]) {
             const quads = [];
-            const nodes = itemValues.map((_, i) => DataFactory.blankNode(`l${i}`));
+            const nodes = itemValues.map((_, i) => RdfDataFactory.blankNode(`l${i}`));
 
-            quads.push(DataFactory.quad(
-                DataFactory.namedNode('http://example.org/s'),
-                DataFactory.namedNode(SH.in),
+            quads.push(RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/s'),
+                RdfDataFactory.namedNode(SH.in),
                 nodes[0]
             ));
 
             for (let i = 0; i < nodes.length; i++) {
-                quads.push(DataFactory.quad(nodes[i], DataFactory.namedNode(`${RDF_NS}first`), DataFactory.literal(itemValues[i])));
-                quads.push(DataFactory.quad(
+                quads.push(RdfDataFactory.quad(nodes[i], RdfDataFactory.namedNode(`${RDF_NS}first`), RdfDataFactory.literal(itemValues[i])));
+                quads.push(RdfDataFactory.quad(
                     nodes[i],
-                    DataFactory.namedNode(`${RDF_NS}rest`),
-                    i < nodes.length - 1 ? nodes[i + 1] : DataFactory.namedNode(`${RDF_NS}nil`)
+                    RdfDataFactory.namedNode(`${RDF_NS}rest`),
+                    i < nodes.length - 1 ? nodes[i + 1] : RdfDataFactory.namedNode(`${RDF_NS}nil`)
                 ));
             }
 
@@ -783,10 +783,10 @@ describe('TurtleSerializer', () => {
             const quads = listQuads(['a', 'b']);
 
             // An extra statement on the second list node disqualifies the list.
-            quads.push(DataFactory.quad(
-                DataFactory.blankNode('l1'),
-                DataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#comment'),
-                DataFactory.literal('annotated')
+            quads.push(RdfDataFactory.quad(
+                RdfDataFactory.blankNode('l1'),
+                RdfDataFactory.namedNode('http://www.w3.org/2000/01/rdf-schema#comment'),
+                RdfDataFactory.literal('annotated')
             ));
 
             const result = serializer.serialize(quads, { prefixes: PREFIXES });
@@ -800,13 +800,13 @@ describe('TurtleSerializer', () => {
             const quads = listQuads(['a', 'b']);
 
             // A second list head re-uses the tail node of the first list.
-            quads.push(DataFactory.quad(
-                DataFactory.namedNode('http://example.org/s2'),
-                DataFactory.namedNode(SH.in),
-                DataFactory.blankNode('h2')
+            quads.push(RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/s2'),
+                RdfDataFactory.namedNode(SH.in),
+                RdfDataFactory.blankNode('h2')
             ));
-            quads.push(DataFactory.quad(DataFactory.blankNode('h2'), DataFactory.namedNode(`${RDF_NS}first`), DataFactory.literal('x')));
-            quads.push(DataFactory.quad(DataFactory.blankNode('h2'), DataFactory.namedNode(`${RDF_NS}rest`), DataFactory.blankNode('l1')));
+            quads.push(RdfDataFactory.quad(RdfDataFactory.blankNode('h2'), RdfDataFactory.namedNode(`${RDF_NS}first`), RdfDataFactory.literal('x')));
+            quads.push(RdfDataFactory.quad(RdfDataFactory.blankNode('h2'), RdfDataFactory.namedNode(`${RDF_NS}rest`), RdfDataFactory.blankNode('l1')));
 
             const result = serializer.serialize(quads, { prefixes: PREFIXES });
 
@@ -816,11 +816,11 @@ describe('TurtleSerializer', () => {
 
         it('should fall back for cyclic rdf:rest chains without hanging', () => {
             const quads = [
-                DataFactory.quad(DataFactory.namedNode('http://example.org/s'), DataFactory.namedNode(SH.in), DataFactory.blankNode('c0')),
-                DataFactory.quad(DataFactory.blankNode('c0'), DataFactory.namedNode(`${RDF_NS}first`), DataFactory.literal('a')),
-                DataFactory.quad(DataFactory.blankNode('c0'), DataFactory.namedNode(`${RDF_NS}rest`), DataFactory.blankNode('c1')),
-                DataFactory.quad(DataFactory.blankNode('c1'), DataFactory.namedNode(`${RDF_NS}first`), DataFactory.literal('b')),
-                DataFactory.quad(DataFactory.blankNode('c1'), DataFactory.namedNode(`${RDF_NS}rest`), DataFactory.blankNode('c0')),
+                RdfDataFactory.quad(RdfDataFactory.namedNode('http://example.org/s'), RdfDataFactory.namedNode(SH.in), RdfDataFactory.blankNode('c0')),
+                RdfDataFactory.quad(RdfDataFactory.blankNode('c0'), RdfDataFactory.namedNode(`${RDF_NS}first`), RdfDataFactory.literal('a')),
+                RdfDataFactory.quad(RdfDataFactory.blankNode('c0'), RdfDataFactory.namedNode(`${RDF_NS}rest`), RdfDataFactory.blankNode('c1')),
+                RdfDataFactory.quad(RdfDataFactory.blankNode('c1'), RdfDataFactory.namedNode(`${RDF_NS}first`), RdfDataFactory.literal('b')),
+                RdfDataFactory.quad(RdfDataFactory.blankNode('c1'), RdfDataFactory.namedNode(`${RDF_NS}rest`), RdfDataFactory.blankNode('c0')),
             ];
 
             const result = serializer.serialize(quads, { prefixes: PREFIXES });
@@ -832,10 +832,10 @@ describe('TurtleSerializer', () => {
         it('should fall back for a doubly-referenced list head', () => {
             const quads = listQuads(['a', 'b']);
 
-            quads.push(DataFactory.quad(
-                DataFactory.namedNode('http://example.org/s2'),
-                DataFactory.namedNode(SH.in),
-                DataFactory.blankNode('l0')
+            quads.push(RdfDataFactory.quad(
+                RdfDataFactory.namedNode('http://example.org/s2'),
+                RdfDataFactory.namedNode(SH.in),
+                RdfDataFactory.blankNode('l0')
             ));
 
             const result = serializer.serialize(quads, { prefixes: PREFIXES });
@@ -850,10 +850,10 @@ describe('TurtleSerializer', () => {
             // independent list and may still collapse — that stays lossless.
             const quads = listQuads(['a', 'b']).slice(1);
 
-            quads.push(DataFactory.quad(
-                DataFactory.blankNode('l0'),
-                DataFactory.namedNode('http://example.org/p'),
-                DataFactory.namedNode('http://example.org/o')
+            quads.push(RdfDataFactory.quad(
+                RdfDataFactory.blankNode('l0'),
+                RdfDataFactory.namedNode('http://example.org/p'),
+                RdfDataFactory.namedNode('http://example.org/o')
             ));
 
             const result = serializer.serialize(quads, { prefixes: PREFIXES });
@@ -948,18 +948,18 @@ describe('TurtleSerializer', () => {
 
             for (const subject of ['http://example.org/a', 'http://example.org/b']) {
                 for (const bnode of ['13xf400_b7', '13xf400_b3']) {
-                    quads.push(DataFactory.quad(
-                        DataFactory.namedNode(subject),
-                        DataFactory.namedNode('http://example.org/p'),
-                        DataFactory.blankNode(bnode)
+                    quads.push(RdfDataFactory.quad(
+                        RdfDataFactory.namedNode(subject),
+                        RdfDataFactory.namedNode('http://example.org/p'),
+                        RdfDataFactory.blankNode(bnode)
                     ));
                 }
             }
 
-            quads.push(DataFactory.quad(
-                DataFactory.blankNode('13xf400_b7'),
-                DataFactory.namedNode('http://example.org/q'),
-                DataFactory.literal('v')
+            quads.push(RdfDataFactory.quad(
+                RdfDataFactory.blankNode('13xf400_b7'),
+                RdfDataFactory.namedNode('http://example.org/q'),
+                RdfDataFactory.literal('v')
             ));
 
             return quads;
@@ -986,15 +986,15 @@ describe('TurtleSerializer', () => {
             // Each blank node is referenced exactly once — by the other. Naive
             // single-use inlining would skip both definitions and emit nothing.
             const quads = [
-                DataFactory.quad(
-                    DataFactory.blankNode('x'),
-                    DataFactory.namedNode('http://example.org/p'),
-                    DataFactory.blankNode('y')
+                RdfDataFactory.quad(
+                    RdfDataFactory.blankNode('x'),
+                    RdfDataFactory.namedNode('http://example.org/p'),
+                    RdfDataFactory.blankNode('y')
                 ),
-                DataFactory.quad(
-                    DataFactory.blankNode('y'),
-                    DataFactory.namedNode('http://example.org/p'),
-                    DataFactory.blankNode('x')
+                RdfDataFactory.quad(
+                    RdfDataFactory.blankNode('y'),
+                    RdfDataFactory.namedNode('http://example.org/p'),
+                    RdfDataFactory.blankNode('x')
                 ),
             ];
 
@@ -1006,10 +1006,10 @@ describe('TurtleSerializer', () => {
 
         it('should keep a self-referencing single-use blank node as a labeled subject', () => {
             const quads = [
-                DataFactory.quad(
-                    DataFactory.blankNode('x'),
-                    DataFactory.namedNode('http://example.org/p'),
-                    DataFactory.blankNode('x')
+                RdfDataFactory.quad(
+                    RdfDataFactory.blankNode('x'),
+                    RdfDataFactory.namedNode('http://example.org/p'),
+                    RdfDataFactory.blankNode('x')
                 ),
             ];
 

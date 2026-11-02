@@ -1,6 +1,7 @@
-import type { Quad } from '@rdfjs/types';
-import type { Rdf12Quad } from './types.js';
-import { termToString } from './terms.js';
+import type { Quad, Term } from '@rdfjs/types';
+import type { Rdf12Quad, Rdf12Term } from './types.js';
+import { termToString } from 'rdf-string';
+import { isTripleTerm } from './terms.js';
 
 /**
  * Checks if a quad has annotations (RDF 1.2 feature).
@@ -25,7 +26,7 @@ export function groupQuadsBySubject(quads: Iterable<Quad | Rdf12Quad>): Map<stri
     const groups = new Map<string, Array<Quad | Rdf12Quad>>();
 
     for (const quad of quads) {
-        const key = termToString(quad.subject);
+        const key = _keyOf(quad.subject);
 
         if (!groups.has(key)) {
             groups.set(key, []);
@@ -44,14 +45,14 @@ export function groupQuadsBySubjectPredicate(quads: Iterable<Quad | Rdf12Quad>):
     const groups = new Map<string, Map<string, Array<Quad | Rdf12Quad>>>();
 
     for (const quad of quads) {
-        const subjectKey = termToString(quad.subject);
+        const subjectKey = _keyOf(quad.subject);
 
         if (!groups.has(subjectKey)) {
             groups.set(subjectKey, new Map());
         }
 
         const predicateMap = groups.get(subjectKey)!;
-        const predicateKey = termToString(quad.predicate);
+        const predicateKey = _keyOf(quad.predicate);
 
         if (!predicateMap.has(predicateKey)) {
             predicateMap.set(predicateKey, []);
@@ -70,7 +71,7 @@ export function groupQuadsByGraph(quads: Iterable<Quad | Rdf12Quad>): Map<string
     const groups = new Map<string, Array<Quad | Rdf12Quad>>();
 
     for (const quad of quads) {
-        const key = quad.graph ? termToString(quad.graph) : '';
+        const key = quad.graph ? _keyOf(quad.graph) : '';
 
         if (!groups.has(key)) {
             groups.set(key, []);
@@ -80,4 +81,18 @@ export function groupQuadsByGraph(quads: Iterable<Quad | Rdf12Quad>): Map<string
     }
 
     return groups;
+}
+
+/**
+ * The key a term is grouped by: `termToString` of `rdf-string`, which identifies RDF/JS terms,
+ * and the same form for the triple terms of RDF 1.2, which are no RDF/JS terms.
+ * @param term The term.
+ * @returns The key.
+ */
+function _keyOf(term: Term | Rdf12Term): string {
+    if (isTripleTerm(term)) {
+        return `<<${_keyOf(term.subject)} ${_keyOf(term.predicate)} ${_keyOf(term.object)}>>`;
+    }
+
+    return termToString(term as Term) ?? '';
 }

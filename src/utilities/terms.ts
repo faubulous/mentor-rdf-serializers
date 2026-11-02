@@ -1,6 +1,6 @@
-import type { Literal, Term } from '@rdfjs/types';
+import type { Term } from '@rdfjs/types';
 import type { Rdf12Term, TripleTerm, Reifier } from './types.js';
-import { normalizeBlankNodeId } from './blank-nodes';
+import { getTermSortKey } from '../sorting/term-sort-key';
 
 /**
  * Checks if a term is an RDF 1.2 Triple Term.
@@ -17,47 +17,14 @@ export function isReifier(term: Term | Rdf12Term): term is Reifier {
 }
 
 /**
- * Converts a term to a string key for grouping purposes.
+ * Converts a term to the key the sorting strategies order terms by.
+ * @deprecated Identify terms with `termToString` of `rdf-string`, as the serializers do. This
+ * function will be removed in the next major version.
+ * @param term The term.
+ * @returns The key.
  */
 export function termToString(term: Term | Rdf12Term): string {
-    if (!term) {
-        return '';
-    }
-
-    switch (term.termType) {
-        case 'NamedNode': {
-            const v = term.value;
-            return `<${v}>`;
-        }
-        case 'BlankNode': {
-            const v = normalizeBlankNodeId(term.value);
-            return `_:${v}`;
-        }
-        case 'Literal': {
-            const v = term.value;
-            const l = (term as Literal).language || '';
-            const d = (term as Literal).datatype?.value || '';
-            return `"${v}"@${l}^^${d}`;
-        }
-        case 'Variable': {
-            const v = term.value;
-            return `?${v}`;
-        }
-        case 'DefaultGraph': {
-            return '';
-        }
-        case 'TripleTerm': {
-            const t = term as TripleTerm;
-            const s = termToString(t.subject);
-            const p = termToString(t.predicate);
-            const o = termToString(t.object);
-            return `<<(${s} ${p} ${o})>>`;
-        }
-        default: {
-            // For unknown term types, try to access value property safely
-            return (term as { value?: string }).value || '';
-        }
-    }
+    return getTermSortKey(term);
 }
 
 /**
