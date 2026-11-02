@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { IToken, TokenType, RdfToken } from '@faubulous/mentor-rdf-parsers';
+import { IToken, TokenType, RdfSyntax, RdfToken, TurtleLexer } from '@faubulous/mentor-rdf-parsers';
 import { TokenFormatterBase, type BaseFormatterContext, type BaseFormatterOptions } from './token-formatter-base';
+import type { SerializationResult } from './serialization-result';
 
 // Minimal concrete subclass that exposes protected methods for unit testing.
 class TestFormatter extends TokenFormatterBase<BaseFormatterContext, BaseFormatterOptions> {
+    readonly syntax = RdfSyntax.Turtle;
+
+    protected readonly lexer = new TurtleLexer();
+
     protected getOptions(options?: BaseFormatterOptions): Required<BaseFormatterOptions> {
         return {
             ...this.mergeBaseOptions(options),
@@ -13,6 +18,10 @@ class TestFormatter extends TokenFormatterBase<BaseFormatterContext, BaseFormatt
 
     protected createContext(_opts: Required<BaseFormatterOptions>): BaseFormatterContext {
         return this.createBaseContext();
+    }
+
+    protected formatTokens(tokens: IToken[]): SerializationResult {
+        return { output: tokens.map(token => token.image).join(' ') };
     }
 
     public makeContext(): BaseFormatterContext {

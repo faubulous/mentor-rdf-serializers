@@ -1,10 +1,7 @@
 import { IToken, RdfSyntax, RdfToken, N3Lexer } from '@faubulous/mentor-rdf-parsers';
 import { ITokenFormatter } from '../token-formatter.interface';
 import { TokenFormatterBase, BaseFormatterContext, BaseFormatterOptions } from '../token-formatter-base';
-import { TokenSerializerOptions } from '../token-serializer';
 import { SerializationResult } from '../serialization-result';
-import { FormattingGuard } from '../formatting-guard';
-import { formatTemplate } from '../triplate-template-format';
 
 /**
  * N3-specific formatting options.
@@ -54,47 +51,11 @@ interface N3FormatterContext extends BaseFormatterContext {
 export class N3Formatter extends TokenFormatterBase<N3FormatterContext, N3FormatterOptions> implements ITokenFormatter {
     readonly syntax: RdfSyntax = RdfSyntax.N3;
 
-    private lexer = new N3Lexer();
-
-    /**
-     * Keeps documents with syntax errors from being formatted, and verifies the result when asked to.
-     */
-    private readonly _guard = new FormattingGuard(this.syntax, this.lexer);
+    protected readonly lexer = new N3Lexer();
 
     // ========================================================================
     // Public API
     // ========================================================================
-
-    /**
-     * Formats an N3 document.
-     */
-    formatFromText(input: string, options?: N3FormatterOptions): SerializationResult {
-        const opts = this.getOptions(options);
-
-        const templated = formatTemplate(input, this.lexer, this._guard, opts.indent, tokens => this.formatTokens(tokens, opts));
-
-        if (templated) {
-            return templated;
-        }
-
-        const result = this.lexer.tokenize(input);
-
-        if (result.errors.length > 0) {
-            return { output: input };
-        }
-
-        const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
-
-        return this._guard.format(input, result, opts.verifyRoundTrip, () => this.formatTokens(result.tokens, opts, comments));
-    }
-
-    /**
-     * Formats from already-parsed tokens.
-     */
-    formatFromTokens(tokens: IToken[], options?: N3FormatterOptions & TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options);
-        return this.formatTokens(tokens, opts);
-    }
 
     // Backwards-compatible alias
     format(input: string, options?: N3FormatterOptions): SerializationResult {
@@ -433,7 +394,7 @@ export class N3Formatter extends TokenFormatterBase<N3FormatterContext, N3Format
     // Main formatting loop
     // ========================================================================
 
-    private formatTokens(
+    protected formatTokens(
         tokens: IToken[],
         opts: Required<N3FormatterOptions>,
         comments: IToken[] = []

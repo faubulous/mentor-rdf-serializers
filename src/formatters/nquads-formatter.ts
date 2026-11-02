@@ -1,10 +1,8 @@
 import { IToken, RdfSyntax, RdfToken, NQuadsLexer } from '@faubulous/mentor-rdf-parsers';
 import { SerializationResult } from '../serialization-result';
-import { FormattingGuard } from '../formatting-guard';
-import { formatTemplate } from '../triplate-template-format';
+import { FormatterBase } from '../formatter-base';
 import { SerializationOptions } from '../serialization-options';
 import { mergeOptions } from '../quad-serializer-base';
-import { TokenSerializerOptions } from '../token-serializer';
 import { ITokenFormatter } from '../token-formatter.interface';
 
 /**
@@ -28,46 +26,10 @@ export interface NQuadsFormatterOptions extends SerializationOptions {
  * 
  * @see https://www.w3.org/TR/rdf12-n-quads/
  */
-export class NQuadsFormatter implements ITokenFormatter {
+export class NQuadsFormatter extends FormatterBase<NQuadsFormatterOptions> implements ITokenFormatter {
     readonly syntax: RdfSyntax = RdfSyntax.NQuads;
 
-    private lexer = new NQuadsLexer();
-
-    /**
-     * Keeps documents with syntax errors from being formatted, and verifies the result when asked to.
-     */
-    private readonly _guard = new FormattingGuard(this.syntax, this.lexer);
-
-    /**
-     * Formats an N-Quads document.
-     */
-    formatFromText(input: string, options?: NQuadsFormatterOptions): SerializationResult {
-        const opts = this.getOptions(options);
-
-        const templated = formatTemplate(input, this.lexer, this._guard, opts.indent, tokens => this.formatTokens(tokens, opts));
-
-        if (templated) {
-            return templated;
-        }
-
-        const result = this.lexer.tokenize(input);
-
-        if (result.errors.length > 0) {
-            return { output: input };
-        }
-
-        const comments = (result.groups?.comments as IToken[] | undefined) ?? [];
-
-        return this._guard.format(input, result, opts.verifyRoundTrip, () => this.formatTokens(result.tokens, opts, comments));
-    }
-
-    /**
-     * Formats from already-parsed tokens.
-     */
-    formatFromTokens(tokens: IToken[], options?: NQuadsFormatterOptions & TokenSerializerOptions): SerializationResult {
-        const opts = this.getOptions(options);
-        return this.formatTokens(tokens, opts);
-    }
+    protected readonly lexer = new NQuadsLexer();
 
     // Backwards-compatible alias
     format(input: string, options?: NQuadsFormatterOptions): SerializationResult {
@@ -77,7 +39,7 @@ export class NQuadsFormatter implements ITokenFormatter {
     /**
      * Formats tokens into a string.
      */
-    private formatTokens(tokens: IToken[], opts: Required<NQuadsFormatterOptions>, comments: IToken[] = []): SerializationResult {
+    protected formatTokens(tokens: IToken[], opts: Required<NQuadsFormatterOptions>, comments: IToken[] = []): SerializationResult {
         const parts: string[] = [];
         const sortedComments = [...comments].sort((a, b) => (a.startOffset ?? 0) - (b.startOffset ?? 0));
 
@@ -175,7 +137,7 @@ export class NQuadsFormatter implements ITokenFormatter {
     /**
      * Gets merged options with defaults.
      */
-    private getOptions(options?: NQuadsFormatterOptions): Required<NQuadsFormatterOptions> {
+    protected getOptions(options?: NQuadsFormatterOptions): Required<NQuadsFormatterOptions> {
         return {
             ...mergeOptions(options),
             normalizeWhitespace: options?.normalizeWhitespace ?? true,
